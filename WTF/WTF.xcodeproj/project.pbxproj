@@ -6,6 +6,20 @@
 	objectVersion = 46;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		B6E6997E166BD499005EF4B1 /* Combine iOS lib */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = B6E6997F166BD499005EF4B1 /* Build configuration list for PBXAggregateTarget "Combine iOS lib" */;
+			buildPhases = (
+				B6E69983166BD4A3005EF4B1 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = "Combine iOS lib";
+			productName = "Combine iOS lib";
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
 		A876DBD8151816E500DADB95 /* Platform.h in Headers */ = {isa = PBXBuildFile; fileRef = A876DBD7151816E500DADB95 /* Platform.h */; };
 		A8A4737F151A825B004123FF /* Alignment.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47254151A825A004123FF /* Alignment.h */; };
@@ -1508,6 +1522,7 @@
 			targets = (
 				5D247B6114689B8600E78B76 /* WTF */,
 				B6E6986F166BCFBC005EF4B1 /* WTF iOS */,
+				B6E6997E166BD499005EF4B1 /* Combine iOS lib */,
 			);
 		};
 /* End PBXProject section */
@@ -1572,6 +1587,19 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "OUTPUT_FILE=\"${BUILT_PRODUCTS_DIR}/DerivedSources/WTF/HeaderDetection.h\"\necho \"/* This is a generated file. Do not edit. */\" > \"${OUTPUT_FILE}\"\n\nif [[ -f \"${SDKROOT}/System/Library/Frameworks/System.framework/PrivateHeaders/pthread_machdep.h\" ]]; then\n    echo \"#define HAVE_PTHREAD_MACHDEP_H 1\" >> \"${OUTPUT_FILE}\"\nfi\n";
+		};
+		B6E69983166BD4A3005EF4B1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "lipo -create \"${BUILD_DIR%%/}/Release-iphoneos/libWTF.a\" \"${BUILD_DIR%%/}/Release-iphonesimulator/libWTF.a\" -output \"${SOURCE_ROOT}/../Build/libWTF.a\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1805,6 +1833,27 @@
 			};
 			name = Production;
 		};
+		B6E69980166BD499005EF4B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		B6E69981166BD499005EF4B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		B6E69982166BD499005EF4B1 /* Production */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1837,6 +1886,15 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;
+		};
+		B6E6997F166BD499005EF4B1 /* Build configuration list for PBXAggregateTarget "Combine iOS lib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B6E69980166BD499005EF4B1 /* Debug */,
+				B6E69981166BD499005EF4B1 /* Release */,
+				B6E69982166BD499005EF4B1 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
 		};
 /* End XCConfigurationList section */
 	};

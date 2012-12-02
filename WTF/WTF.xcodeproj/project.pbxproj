@@ -237,6 +237,236 @@
 		A8A47486151A825B004123FF /* WTFThreadData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4737A151A825B004123FF /* WTFThreadData.cpp */; };
 		A8A47487151A825B004123FF /* WTFThreadData.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4737B151A825B004123FF /* WTFThreadData.h */; };
 		A8A4748C151A8264004123FF /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4748B151A8264004123FF /* config.h */; };
+		B6E69873166BCFBC005EF4B1 /* ArrayBuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47256151A825A004123FF /* ArrayBuffer.cpp */; };
+		B6E69874166BCFBC005EF4B1 /* ArrayBufferView.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47258151A825A004123FF /* ArrayBufferView.cpp */; };
+		B6E69875166BCFBC005EF4B1 /* Assertions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4725B151A825A004123FF /* Assertions.cpp */; };
+		B6E69876166BCFBC005EF4B1 /* BitVector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47260151A825A004123FF /* BitVector.cpp */; };
+		B6E69877166BCFBC005EF4B1 /* CryptographicallyRandomNumber.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47273151A825A004123FF /* CryptographicallyRandomNumber.cpp */; };
+		B6E69878166BCFBC005EF4B1 /* CurrentTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47275151A825A004123FF /* CurrentTime.cpp */; };
+		B6E69879166BCFBC005EF4B1 /* DataLog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47277151A825A004123FF /* DataLog.cpp */; };
+		B6E6987A166BCFBC005EF4B1 /* DateMath.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47279151A825A004123FF /* DateMath.cpp */; };
+		B6E6987B166BCFBC005EF4B1 /* DecimalNumber.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4727B151A825A004123FF /* DecimalNumber.cpp */; };
+		B6E6987C166BCFBC005EF4B1 /* bignum-dtoa.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47282151A825A004123FF /* bignum-dtoa.cc */; };
+		B6E6987D166BCFBC005EF4B1 /* bignum.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47284151A825A004123FF /* bignum.cc */; };
+		B6E6987E166BCFBC005EF4B1 /* cached-powers.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47286151A825A004123FF /* cached-powers.cc */; };
+		B6E6987F166BCFBC005EF4B1 /* diy-fp.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47289151A825A004123FF /* diy-fp.cc */; };
+		B6E69880166BCFBC005EF4B1 /* double-conversion.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A4728B151A825A004123FF /* double-conversion.cc */; };
+		B6E69881166BCFBC005EF4B1 /* fast-dtoa.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A4728E151A825A004123FF /* fast-dtoa.cc */; };
+		B6E69882166BCFBC005EF4B1 /* fixed-dtoa.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47290151A825A004123FF /* fixed-dtoa.cc */; };
+		B6E69883166BCFBC005EF4B1 /* strtod.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47294151A825A004123FF /* strtod.cc */; };
+		B6E69884166BCFBC005EF4B1 /* dtoa.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47297151A825A004123FF /* dtoa.cpp */; };
+		B6E69885166BCFBC005EF4B1 /* DynamicAnnotations.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47299151A825A004123FF /* DynamicAnnotations.cpp */; };
+		B6E69886166BCFBC005EF4B1 /* FastMalloc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472A1151A825A004123FF /* FastMalloc.cpp */; };
+		B6E69887166BCFBC005EF4B1 /* HashTable.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472B8151A825A004123FF /* HashTable.cpp */; };
+		B6E69888166BCFBC005EF4B1 /* MainThreadMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = A8A472C5151A825A004123FF /* MainThreadMac.mm */; };
+		B6E69889166BCFBC005EF4B1 /* MainThread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472C6151A825A004123FF /* MainThread.cpp */; };
+		B6E6988A166BCFBC005EF4B1 /* MD5.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472CA151A825B004123FF /* MD5.cpp */; };
+		B6E6988B166BCFBC005EF4B1 /* MetaAllocator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472CD151A825B004123FF /* MetaAllocator.cpp */; };
+		B6E6988C166BCFBC005EF4B1 /* NullPtr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472D3151A825B004123FF /* NullPtr.cpp */; };
+		B6E6988D166BCFBC005EF4B1 /* NumberOfCores.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472D5151A825B004123FF /* NumberOfCores.cpp */; };
+		B6E6988E166BCFBC005EF4B1 /* OSAllocatorPosix.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472D8151A825B004123FF /* OSAllocatorPosix.cpp */; };
+		B6E6988F166BCFBC005EF4B1 /* OSRandomSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472DA151A825B004123FF /* OSRandomSource.cpp */; };
+		B6E69890166BCFBC005EF4B1 /* PageAllocationAligned.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472E1151A825B004123FF /* PageAllocationAligned.cpp */; };
+		B6E69891166BCFBC005EF4B1 /* PageBlock.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472E3151A825B004123FF /* PageBlock.cpp */; };
+		B6E69892166BCFBC005EF4B1 /* RandomNumber.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472FB151A825B004123FF /* RandomNumber.cpp */; };
+		B6E69893166BCFBC005EF4B1 /* RefCountedLeakCounter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47301151A825B004123FF /* RefCountedLeakCounter.cpp */; };
+		B6E69894166BCFBC005EF4B1 /* SHA1.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47308151A825B004123FF /* SHA1.cpp */; };
+		B6E69895166BCFBC005EF4B1 /* SizeLimits.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4730C151A825B004123FF /* SizeLimits.cpp */; };
+		B6E69896166BCFBC005EF4B1 /* StackBounds.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4730E151A825B004123FF /* StackBounds.cpp */; };
+		B6E69897166BCFBC005EF4B1 /* StringExtras.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47312151A825B004123FF /* StringExtras.cpp */; };
+		B6E69898166BCFBC005EF4B1 /* TCSystemAlloc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47318151A825B004123FF /* TCSystemAlloc.cpp */; };
+		B6E69899166BCFBC005EF4B1 /* AtomicString.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4731D151A825B004123FF /* AtomicString.cpp */; };
+		B6E6989A166BCFBC005EF4B1 /* CString.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47321151A825B004123FF /* CString.cpp */; };
+		B6E6989B166BCFBC005EF4B1 /* StringBuilder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47324151A825B004123FF /* StringBuilder.cpp */; };
+		B6E6989C166BCFBC005EF4B1 /* StringImpl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47328151A825B004123FF /* StringImpl.cpp */; };
+		B6E6989D166BCFBC005EF4B1 /* StringStatics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4732B151A825B004123FF /* StringStatics.cpp */; };
+		B6E6989E166BCFBC005EF4B1 /* WTFString.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4732D151A825B004123FF /* WTFString.cpp */; };
+		B6E6989F166BCFBC005EF4B1 /* ThreadIdentifierDataPthreads.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47330151A825B004123FF /* ThreadIdentifierDataPthreads.cpp */; };
+		B6E698A0166BCFBC005EF4B1 /* Threading.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47332151A825B004123FF /* Threading.cpp */; };
+		B6E698A1166BCFBC005EF4B1 /* ThreadingPthreads.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47336151A825B004123FF /* ThreadingPthreads.cpp */; };
+		B6E698A2166BCFBC005EF4B1 /* BinarySemaphore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4733A151A825B004123FF /* BinarySemaphore.cpp */; };
+		B6E698A3166BCFBC005EF4B1 /* TypeTraits.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47342151A825B004123FF /* TypeTraits.cpp */; };
+		B6E698A4166BCFBC005EF4B1 /* CollatorDefault.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4734B151A825B004123FF /* CollatorDefault.cpp */; };
+		B6E698A5166BCFBC005EF4B1 /* CollatorICU.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47350151A825B004123FF /* CollatorICU.cpp */; };
+		B6E698A6166BCFBC005EF4B1 /* UTF8.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47357151A825B004123FF /* UTF8.cpp */; };
+		B6E698A7166BCFBC005EF4B1 /* ParsedURL.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47360151A825B004123FF /* ParsedURL.cpp */; };
+		B6E698A8166BCFBC005EF4B1 /* URLCharacterTypes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47366151A825B004123FF /* URLCharacterTypes.cpp */; };
+		B6E698A9166BCFBC005EF4B1 /* URLEscape.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47369151A825B004123FF /* URLEscape.cpp */; };
+		B6E698AA166BCFBC005EF4B1 /* URLSegments.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4736D151A825B004123FF /* URLSegments.cpp */; };
+		B6E698AB166BCFBC005EF4B1 /* WTFThreadData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4737A151A825B004123FF /* WTFThreadData.cpp */; };
+		B6E698AE166BCFBC005EF4B1 /* Platform.h in Headers */ = {isa = PBXBuildFile; fileRef = A876DBD7151816E500DADB95 /* Platform.h */; };
+		B6E698AF166BCFBC005EF4B1 /* Alignment.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47254151A825A004123FF /* Alignment.h */; };
+		B6E698B0166BCFBC005EF4B1 /* AlwaysInline.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47255151A825A004123FF /* AlwaysInline.h */; };
+		B6E698B1166BCFBC005EF4B1 /* ArrayBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47257151A825A004123FF /* ArrayBuffer.h */; };
+		B6E698B2166BCFBC005EF4B1 /* ArrayBufferView.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47259151A825A004123FF /* ArrayBufferView.h */; };
+		B6E698B3166BCFBC005EF4B1 /* ASCIICType.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725A151A825A004123FF /* ASCIICType.h */; };
+		B6E698B4166BCFBC005EF4B1 /* Assertions.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725C151A825A004123FF /* Assertions.h */; };
+		B6E698B5166BCFBC005EF4B1 /* Atomics.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725D151A825A004123FF /* Atomics.h */; };
+		B6E698B6166BCFBC005EF4B1 /* AVLTree.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725E151A825A004123FF /* AVLTree.h */; };
+		B6E698B7166BCFBC005EF4B1 /* Bitmap.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725F151A825A004123FF /* Bitmap.h */; };
+		B6E698B8166BCFBC005EF4B1 /* BitVector.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47261151A825A004123FF /* BitVector.h */; };
+		B6E698B9166BCFBC005EF4B1 /* BlockStack.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47264151A825A004123FF /* BlockStack.h */; };
+		B6E698BA166BCFBC005EF4B1 /* BloomFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47265151A825A004123FF /* BloomFilter.h */; };
+		B6E698BB166BCFBC005EF4B1 /* BoundsCheckedPointer.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47266151A825A004123FF /* BoundsCheckedPointer.h */; };
+		B6E698BC166BCFBC005EF4B1 /* BumpPointerAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47267151A825A004123FF /* BumpPointerAllocator.h */; };
+		B6E698BD166BCFBC005EF4B1 /* CheckedArithmetic.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4726A151A825A004123FF /* CheckedArithmetic.h */; };
+		B6E698BE166BCFBC005EF4B1 /* CheckedBoolean.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4726B151A825A004123FF /* CheckedBoolean.h */; };
+		B6E698BF166BCFBC005EF4B1 /* Compiler.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47270151A825A004123FF /* Compiler.h */; };
+		B6E698C0166BCFBC005EF4B1 /* Complex.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47271151A825A004123FF /* Complex.h */; };
+		B6E698C1166BCFBC005EF4B1 /* CryptographicallyRandomNumber.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47274151A825A004123FF /* CryptographicallyRandomNumber.h */; };
+		B6E698C2166BCFBC005EF4B1 /* CurrentTime.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47276151A825A004123FF /* CurrentTime.h */; };
+		B6E698C3166BCFBC005EF4B1 /* DataLog.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47278151A825A004123FF /* DataLog.h */; };
+		B6E698C4166BCFBC005EF4B1 /* DateMath.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727A151A825A004123FF /* DateMath.h */; };
+		B6E698C5166BCFBC005EF4B1 /* DecimalNumber.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727C151A825A004123FF /* DecimalNumber.h */; };
+		B6E698C6166BCFBC005EF4B1 /* Decoder.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727D151A825A004123FF /* Decoder.h */; };
+		B6E698C7166BCFBC005EF4B1 /* Deque.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727E151A825A004123FF /* Deque.h */; };
+		B6E698C8166BCFBC005EF4B1 /* DisallowCType.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727F151A825A004123FF /* DisallowCType.h */; };
+		B6E698C9166BCFBC005EF4B1 /* DoublyLinkedList.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47280151A825A004123FF /* DoublyLinkedList.h */; };
+		B6E698CA166BCFBC005EF4B1 /* bignum-dtoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47283151A825A004123FF /* bignum-dtoa.h */; };
+		B6E698CB166BCFBC005EF4B1 /* bignum.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47285151A825A004123FF /* bignum.h */; };
+		B6E698CC166BCFBC005EF4B1 /* cached-powers.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47287151A825A004123FF /* cached-powers.h */; };
+		B6E698CD166BCFBC005EF4B1 /* diy-fp.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4728A151A825A004123FF /* diy-fp.h */; };
+		B6E698CE166BCFBC005EF4B1 /* double-conversion.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4728C151A825A004123FF /* double-conversion.h */; };
+		B6E698CF166BCFBC005EF4B1 /* double.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4728D151A825A004123FF /* double.h */; };
+		B6E698D0166BCFBC005EF4B1 /* fast-dtoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4728F151A825A004123FF /* fast-dtoa.h */; };
+		B6E698D1166BCFBC005EF4B1 /* fixed-dtoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47291151A825A004123FF /* fixed-dtoa.h */; };
+		B6E698D2166BCFBC005EF4B1 /* strtod.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47295151A825A004123FF /* strtod.h */; };
+		B6E698D3166BCFBC005EF4B1 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47296151A825A004123FF /* utils.h */; };
+		B6E698D4166BCFBC005EF4B1 /* dtoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47298151A825A004123FF /* dtoa.h */; };
+		B6E698D5166BCFBC005EF4B1 /* DynamicAnnotations.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4729A151A825A004123FF /* DynamicAnnotations.h */; };
+		B6E698D6166BCFBC005EF4B1 /* Encoder.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4729E151A825A004123FF /* Encoder.h */; };
+		B6E698D7166BCFBC005EF4B1 /* ExportMacros.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4729F151A825A004123FF /* ExportMacros.h */; };
+		B6E698D8166BCFBC005EF4B1 /* FastAllocBase.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A0151A825A004123FF /* FastAllocBase.h */; };
+		B6E698D9166BCFBC005EF4B1 /* FastMalloc.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A2151A825A004123FF /* FastMalloc.h */; };
+		B6E698DA166BCFBC005EF4B1 /* FixedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A3151A825A004123FF /* FixedArray.h */; };
+		B6E698DB166BCFBC005EF4B1 /* Float32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A4151A825A004123FF /* Float32Array.h */; };
+		B6E698DC166BCFBC005EF4B1 /* Float64Array.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A5151A825A004123FF /* Float64Array.h */; };
+		B6E698DD166BCFBC005EF4B1 /* Forward.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A6151A825A004123FF /* Forward.h */; };
+		B6E698DE166BCFBC005EF4B1 /* Functional.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A7151A825A004123FF /* Functional.h */; };
+		B6E698DF166BCFBC005EF4B1 /* GetPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A8151A825A004123FF /* GetPtr.h */; };
+		B6E698E0166BCFBC005EF4B1 /* HashCountedSet.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B3151A825A004123FF /* HashCountedSet.h */; };
+		B6E698E1166BCFBC005EF4B1 /* HashFunctions.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B4151A825A004123FF /* HashFunctions.h */; };
+		B6E698E2166BCFBC005EF4B1 /* HashIterators.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B5151A825A004123FF /* HashIterators.h */; };
+		B6E698E3166BCFBC005EF4B1 /* HashMap.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B6151A825A004123FF /* HashMap.h */; };
+		B6E698E4166BCFBC005EF4B1 /* HashSet.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B7151A825A004123FF /* HashSet.h */; };
+		B6E698E5166BCFBC005EF4B1 /* HashTable.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B9151A825A004123FF /* HashTable.h */; };
+		B6E698E6166BCFBC005EF4B1 /* HashTraits.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472BA151A825A004123FF /* HashTraits.h */; };
+		B6E698E7166BCFBC005EF4B1 /* HexNumber.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472BB151A825A004123FF /* HexNumber.h */; };
+		B6E698E8166BCFBC005EF4B1 /* InlineASM.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472BC151A825A004123FF /* InlineASM.h */; };
+		B6E698E9166BCFBC005EF4B1 /* Int8Array.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472BD151A825A004123FF /* Int8Array.h */; };
+		B6E698EA166BCFBC005EF4B1 /* Int16Array.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472BE151A825A004123FF /* Int16Array.h */; };
+		B6E698EB166BCFBC005EF4B1 /* Int32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472BF151A825A004123FF /* Int32Array.h */; };
+		B6E698EC166BCFBC005EF4B1 /* IntegralTypedArrayBase.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C0151A825A004123FF /* IntegralTypedArrayBase.h */; };
+		B6E698ED166BCFBC005EF4B1 /* ListHashSet.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C1151A825A004123FF /* ListHashSet.h */; };
+		B6E698EE166BCFBC005EF4B1 /* ListRefPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C2151A825A004123FF /* ListRefPtr.h */; };
+		B6E698EF166BCFBC005EF4B1 /* Locker.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C3151A825A004123FF /* Locker.h */; };
+		B6E698F0166BCFBC005EF4B1 /* MainThread.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C7151A825B004123FF /* MainThread.h */; };
+		B6E698F1166BCFBC005EF4B1 /* MallocZoneSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C8151A825B004123FF /* MallocZoneSupport.h */; };
+		B6E698F2166BCFBC005EF4B1 /* MathExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C9151A825B004123FF /* MathExtras.h */; };
+		B6E698F3166BCFBC005EF4B1 /* MD5.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472CB151A825B004123FF /* MD5.h */; };
+		B6E698F4166BCFBC005EF4B1 /* MessageQueue.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472CC151A825B004123FF /* MessageQueue.h */; };
+		B6E698F5166BCFBC005EF4B1 /* MetaAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472CE151A825B004123FF /* MetaAllocator.h */; };
+		B6E698F6166BCFBC005EF4B1 /* MetaAllocatorHandle.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472CF151A825B004123FF /* MetaAllocatorHandle.h */; };
+		B6E698F7166BCFBC005EF4B1 /* Noncopyable.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472D0151A825B004123FF /* Noncopyable.h */; };
+		B6E698F8166BCFBC005EF4B1 /* NonCopyingSort.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472D1151A825B004123FF /* NonCopyingSort.h */; };
+		B6E698F9166BCFBC005EF4B1 /* NotFound.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472D2151A825B004123FF /* NotFound.h */; };
+		B6E698FA166BCFBC005EF4B1 /* NullPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472D4151A825B004123FF /* NullPtr.h */; };
+		B6E698FB166BCFBC005EF4B1 /* NumberOfCores.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472D6151A825B004123FF /* NumberOfCores.h */; };
+		B6E698FC166BCFBC005EF4B1 /* OSAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472D7151A825B004123FF /* OSAllocator.h */; };
+		B6E698FD166BCFBC005EF4B1 /* OSRandomSource.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472DB151A825B004123FF /* OSRandomSource.h */; };
+		B6E698FE166BCFBC005EF4B1 /* OwnArrayPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472DC151A825B004123FF /* OwnArrayPtr.h */; };
+		B6E698FF166BCFBC005EF4B1 /* OwnPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472DD151A825B004123FF /* OwnPtr.h */; };
+		B6E69900166BCFBC005EF4B1 /* OwnPtrCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472DE151A825B004123FF /* OwnPtrCommon.h */; };
+		B6E69901166BCFBC005EF4B1 /* PackedIntVector.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472DF151A825B004123FF /* PackedIntVector.h */; };
+		B6E69902166BCFBC005EF4B1 /* PageAllocation.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E0151A825B004123FF /* PageAllocation.h */; };
+		B6E69903166BCFBC005EF4B1 /* PageAllocationAligned.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E2151A825B004123FF /* PageAllocationAligned.h */; };
+		B6E69904166BCFBC005EF4B1 /* PageBlock.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E4151A825B004123FF /* PageBlock.h */; };
+		B6E69905166BCFBC005EF4B1 /* PageReservation.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E5151A825B004123FF /* PageReservation.h */; };
+		B6E69906166BCFBC005EF4B1 /* ParallelJobs.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E6151A825B004123FF /* ParallelJobs.h */; };
+		B6E69907166BCFBC005EF4B1 /* ParallelJobsLibdispatch.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E9151A825B004123FF /* ParallelJobsLibdispatch.h */; };
+		B6E69908166BCFBC005EF4B1 /* PassOwnArrayPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472EB151A825B004123FF /* PassOwnArrayPtr.h */; };
+		B6E69909166BCFBC005EF4B1 /* PassOwnPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472EC151A825B004123FF /* PassOwnPtr.h */; };
+		B6E6990A166BCFBC005EF4B1 /* PassRefPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472ED151A825B004123FF /* PassRefPtr.h */; };
+		B6E6990B166BCFBC005EF4B1 /* PassTraits.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472EE151A825B004123FF /* PassTraits.h */; };
+		B6E6990C166BCFBC005EF4B1 /* Platform.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472EF151A825B004123FF /* Platform.h */; };
+		B6E6990D166BCFBC005EF4B1 /* PossiblyNull.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472F3151A825B004123FF /* PossiblyNull.h */; };
+		B6E6990E166BCFBC005EF4B1 /* RandomNumber.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472FC151A825B004123FF /* RandomNumber.h */; };
+		B6E6990F166BCFBC005EF4B1 /* RandomNumberSeed.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472FD151A825B004123FF /* RandomNumberSeed.h */; };
+		B6E69910166BCFBC005EF4B1 /* RedBlackTree.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472FE151A825B004123FF /* RedBlackTree.h */; };
+		B6E69911166BCFBC005EF4B1 /* RefCounted.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472FF151A825B004123FF /* RefCounted.h */; };
+		B6E69912166BCFBC005EF4B1 /* RefCountedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47300151A825B004123FF /* RefCountedArray.h */; };
+		B6E69913166BCFBC005EF4B1 /* RefCountedLeakCounter.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47302151A825B004123FF /* RefCountedLeakCounter.h */; };
+		B6E69914166BCFBC005EF4B1 /* RefPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47303151A825B004123FF /* RefPtr.h */; };
+		B6E69915166BCFBC005EF4B1 /* RefPtrHashMap.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47304151A825B004123FF /* RefPtrHashMap.h */; };
+		B6E69916166BCFBC005EF4B1 /* RetainPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47305151A825B004123FF /* RetainPtr.h */; };
+		B6E69917166BCFBC005EF4B1 /* SegmentedVector.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47306151A825B004123FF /* SegmentedVector.h */; };
+		B6E69918166BCFBC005EF4B1 /* SentinelLinkedList.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47307151A825B004123FF /* SentinelLinkedList.h */; };
+		B6E69919166BCFBC005EF4B1 /* SHA1.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47309151A825B004123FF /* SHA1.h */; };
+		B6E6991A166BCFBC005EF4B1 /* SimpleStats.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4730A151A825B004123FF /* SimpleStats.h */; };
+		B6E6991B166BCFBC005EF4B1 /* SinglyLinkedList.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4730B151A825B004123FF /* SinglyLinkedList.h */; };
+		B6E6991C166BCFBC005EF4B1 /* Spectrum.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4730D151A825B004123FF /* Spectrum.h */; };
+		B6E6991D166BCFBC005EF4B1 /* StackBounds.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4730F151A825B004123FF /* StackBounds.h */; };
+		B6E6991E166BCFBC005EF4B1 /* StaticConstructors.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47310151A825B004123FF /* StaticConstructors.h */; };
+		B6E6991F166BCFBC005EF4B1 /* StdLibExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47311151A825B004123FF /* StdLibExtras.h */; };
+		B6E69920166BCFBC005EF4B1 /* StringExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47313151A825B004123FF /* StringExtras.h */; };
+		B6E69921166BCFBC005EF4B1 /* StringHasher.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47314151A825B004123FF /* StringHasher.h */; };
+		B6E69922166BCFBC005EF4B1 /* TCPackedCache.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47315151A825B004123FF /* TCPackedCache.h */; };
+		B6E69923166BCFBC005EF4B1 /* TCPageMap.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47316151A825B004123FF /* TCPageMap.h */; };
+		B6E69924166BCFBC005EF4B1 /* TCSpinLock.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47317151A825B004123FF /* TCSpinLock.h */; };
+		B6E69925166BCFBC005EF4B1 /* TCSystemAlloc.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47319151A825B004123FF /* TCSystemAlloc.h */; };
+		B6E69926166BCFBC005EF4B1 /* TemporaryChange.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4731A151A825B004123FF /* TemporaryChange.h */; };
+		B6E69927166BCFBC005EF4B1 /* ASCIIFastPath.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4731C151A825B004123FF /* ASCIIFastPath.h */; };
+		B6E69928166BCFBC005EF4B1 /* AtomicString.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4731E151A825B004123FF /* AtomicString.h */; };
+		B6E69929166BCFBC005EF4B1 /* AtomicStringHash.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4731F151A825B004123FF /* AtomicStringHash.h */; };
+		B6E6992A166BCFBC005EF4B1 /* AtomicStringImpl.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47320151A825B004123FF /* AtomicStringImpl.h */; };
+		B6E6992B166BCFBC005EF4B1 /* CString.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47322151A825B004123FF /* CString.h */; };
+		B6E6992C166BCFBC005EF4B1 /* StringBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47323151A825B004123FF /* StringBuffer.h */; };
+		B6E6992D166BCFBC005EF4B1 /* StringBuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47325151A825B004123FF /* StringBuilder.h */; };
+		B6E6992E166BCFBC005EF4B1 /* StringConcatenate.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47326151A825B004123FF /* StringConcatenate.h */; };
+		B6E6992F166BCFBC005EF4B1 /* StringHash.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47327151A825B004123FF /* StringHash.h */; };
+		B6E69930166BCFBC005EF4B1 /* StringImpl.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47329151A825B004123FF /* StringImpl.h */; };
+		B6E69931166BCFBC005EF4B1 /* StringOperators.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4732A151A825B004123FF /* StringOperators.h */; };
+		B6E69932166BCFBC005EF4B1 /* TextPosition.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4732C151A825B004123FF /* TextPosition.h */; };
+		B6E69933166BCFBC005EF4B1 /* WTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4732E151A825B004123FF /* WTFString.h */; };
+		B6E69934166BCFBC005EF4B1 /* ThreadFunctionInvocation.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4732F151A825B004123FF /* ThreadFunctionInvocation.h */; };
+		B6E69935166BCFBC005EF4B1 /* ThreadIdentifierDataPthreads.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47331151A825B004123FF /* ThreadIdentifierDataPthreads.h */; };
+		B6E69936166BCFBC005EF4B1 /* Threading.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47333151A825B004123FF /* Threading.h */; };
+		B6E69937166BCFBC005EF4B1 /* ThreadingPrimitives.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47335151A825B004123FF /* ThreadingPrimitives.h */; };
+		B6E69938166BCFBC005EF4B1 /* ThreadRestrictionVerifier.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47338151A825B004123FF /* ThreadRestrictionVerifier.h */; };
+		B6E69939166BCFBC005EF4B1 /* BinarySemaphore.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4733B151A825B004123FF /* BinarySemaphore.h */; };
+		B6E6993A166BCFBC005EF4B1 /* ThreadSafeRefCounted.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4733E151A825B004123FF /* ThreadSafeRefCounted.h */; };
+		B6E6993B166BCFBC005EF4B1 /* ThreadSpecific.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4733F151A825B004123FF /* ThreadSpecific.h */; };
+		B6E6993C166BCFBC005EF4B1 /* TypedArrayBase.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47341151A825B004123FF /* TypedArrayBase.h */; };
+		B6E6993D166BCFBC005EF4B1 /* TypeTraits.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47343151A825B004123FF /* TypeTraits.h */; };
+		B6E6993E166BCFBC005EF4B1 /* Uint8Array.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47344151A825B004123FF /* Uint8Array.h */; };
+		B6E6993F166BCFBC005EF4B1 /* Uint8ClampedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47345151A825B004123FF /* Uint8ClampedArray.h */; };
+		B6E69940166BCFBC005EF4B1 /* Uint16Array.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47346151A825B004123FF /* Uint16Array.h */; };
+		B6E69941166BCFBC005EF4B1 /* Uint32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47347151A825B004123FF /* Uint32Array.h */; };
+		B6E69942166BCFBC005EF4B1 /* CharacterNames.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47349151A825B004123FF /* CharacterNames.h */; };
+		B6E69943166BCFBC005EF4B1 /* Collator.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4734A151A825B004123FF /* Collator.h */; };
+		B6E69944166BCFBC005EF4B1 /* UnicodeIcu.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47351151A825B004123FF /* UnicodeIcu.h */; };
+		B6E69945166BCFBC005EF4B1 /* ScriptCodesFromICU.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47354151A825B004123FF /* ScriptCodesFromICU.h */; };
+		B6E69946166BCFBC005EF4B1 /* Unicode.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47355151A825B004123FF /* Unicode.h */; };
+		B6E69947166BCFBC005EF4B1 /* UnicodeMacrosFromICU.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47356151A825B004123FF /* UnicodeMacrosFromICU.h */; };
+		B6E69948166BCFBC005EF4B1 /* UTF8.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47358151A825B004123FF /* UTF8.h */; };
+		B6E69949166BCFBC005EF4B1 /* UnionFind.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4735C151A825B004123FF /* UnionFind.h */; };
+		B6E6994A166BCFBC005EF4B1 /* UnusedParam.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4735D151A825B004123FF /* UnusedParam.h */; };
+		B6E6994B166BCFBC005EF4B1 /* ParsedURL.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47361151A825B004123FF /* ParsedURL.h */; };
+		B6E6994C166BCFBC005EF4B1 /* URLString.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47362151A825B004123FF /* URLString.h */; };
+		B6E6994D166BCFBC005EF4B1 /* RawURLBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47364151A825B004123FF /* RawURLBuffer.h */; };
+		B6E6994E166BCFBC005EF4B1 /* URLBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47365151A825B004123FF /* URLBuffer.h */; };
+		B6E6994F166BCFBC005EF4B1 /* URLCharacterTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47367151A825B004123FF /* URLCharacterTypes.h */; };
+		B6E69950166BCFBC005EF4B1 /* URLComponent.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47368151A825B004123FF /* URLComponent.h */; };
+		B6E69951166BCFBC005EF4B1 /* URLEscape.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4736A151A825B004123FF /* URLEscape.h */; };
+		B6E69952166BCFBC005EF4B1 /* URLParser.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4736B151A825B004123FF /* URLParser.h */; };
+		B6E69953166BCFBC005EF4B1 /* URLQueryCanonicalizer.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4736C151A825B004123FF /* URLQueryCanonicalizer.h */; };
+		B6E69954166BCFBC005EF4B1 /* URLSegments.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4736E151A825B004123FF /* URLSegments.h */; };
+		B6E69955166BCFBC005EF4B1 /* ValueCheck.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4736F151A825B004123FF /* ValueCheck.h */; };
+		B6E69956166BCFBC005EF4B1 /* Vector.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47370151A825B004123FF /* Vector.h */; };
+		B6E69957166BCFBC005EF4B1 /* VectorTraits.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47371151A825B004123FF /* VectorTraits.h */; };
+		B6E69958166BCFBC005EF4B1 /* VMTags.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47372151A825B004123FF /* VMTags.h */; };
+		B6E69959166BCFBC005EF4B1 /* WTFThreadData.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4737B151A825B004123FF /* WTFThreadData.h */; };
+		B6E6995A166BCFBC005EF4B1 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4748B151A8264004123FF /* config.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -480,10 +710,18 @@
 		A8A4737A151A825B004123FF /* WTFThreadData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WTFThreadData.cpp; sourceTree = "<group>"; };
 		A8A4737B151A825B004123FF /* WTFThreadData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WTFThreadData.h; sourceTree = "<group>"; };
 		A8A4748B151A8264004123FF /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
+		B6E6995F166BCFBC005EF4B1 /* libWTF.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libWTF.a; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		5D247B5F14689B8600E78B76 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B6E698AC166BCFBC005EF4B1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -506,6 +744,7 @@
 			isa = PBXGroup;
 			children = (
 				5D247B6214689B8600E78B76 /* libWTF.a */,
+				B6E6995F166BCFBC005EF4B1 /* libWTF.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1026,6 +1265,186 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B6E698AD166BCFBC005EF4B1 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B6E698AE166BCFBC005EF4B1 /* Platform.h in Headers */,
+				B6E698AF166BCFBC005EF4B1 /* Alignment.h in Headers */,
+				B6E698B0166BCFBC005EF4B1 /* AlwaysInline.h in Headers */,
+				B6E698B1166BCFBC005EF4B1 /* ArrayBuffer.h in Headers */,
+				B6E698B2166BCFBC005EF4B1 /* ArrayBufferView.h in Headers */,
+				B6E698B3166BCFBC005EF4B1 /* ASCIICType.h in Headers */,
+				B6E698B4166BCFBC005EF4B1 /* Assertions.h in Headers */,
+				B6E698B5166BCFBC005EF4B1 /* Atomics.h in Headers */,
+				B6E698B6166BCFBC005EF4B1 /* AVLTree.h in Headers */,
+				B6E698B7166BCFBC005EF4B1 /* Bitmap.h in Headers */,
+				B6E698B8166BCFBC005EF4B1 /* BitVector.h in Headers */,
+				B6E698B9166BCFBC005EF4B1 /* BlockStack.h in Headers */,
+				B6E698BA166BCFBC005EF4B1 /* BloomFilter.h in Headers */,
+				B6E698BB166BCFBC005EF4B1 /* BoundsCheckedPointer.h in Headers */,
+				B6E698BC166BCFBC005EF4B1 /* BumpPointerAllocator.h in Headers */,
+				B6E698BD166BCFBC005EF4B1 /* CheckedArithmetic.h in Headers */,
+				B6E698BE166BCFBC005EF4B1 /* CheckedBoolean.h in Headers */,
+				B6E698BF166BCFBC005EF4B1 /* Compiler.h in Headers */,
+				B6E698C0166BCFBC005EF4B1 /* Complex.h in Headers */,
+				B6E698C1166BCFBC005EF4B1 /* CryptographicallyRandomNumber.h in Headers */,
+				B6E698C2166BCFBC005EF4B1 /* CurrentTime.h in Headers */,
+				B6E698C3166BCFBC005EF4B1 /* DataLog.h in Headers */,
+				B6E698C4166BCFBC005EF4B1 /* DateMath.h in Headers */,
+				B6E698C5166BCFBC005EF4B1 /* DecimalNumber.h in Headers */,
+				B6E698C6166BCFBC005EF4B1 /* Decoder.h in Headers */,
+				B6E698C7166BCFBC005EF4B1 /* Deque.h in Headers */,
+				B6E698C8166BCFBC005EF4B1 /* DisallowCType.h in Headers */,
+				B6E698C9166BCFBC005EF4B1 /* DoublyLinkedList.h in Headers */,
+				B6E698CA166BCFBC005EF4B1 /* bignum-dtoa.h in Headers */,
+				B6E698CB166BCFBC005EF4B1 /* bignum.h in Headers */,
+				B6E698CC166BCFBC005EF4B1 /* cached-powers.h in Headers */,
+				B6E698CD166BCFBC005EF4B1 /* diy-fp.h in Headers */,
+				B6E698CE166BCFBC005EF4B1 /* double-conversion.h in Headers */,
+				B6E698CF166BCFBC005EF4B1 /* double.h in Headers */,
+				B6E698D0166BCFBC005EF4B1 /* fast-dtoa.h in Headers */,
+				B6E698D1166BCFBC005EF4B1 /* fixed-dtoa.h in Headers */,
+				B6E698D2166BCFBC005EF4B1 /* strtod.h in Headers */,
+				B6E698D3166BCFBC005EF4B1 /* utils.h in Headers */,
+				B6E698D4166BCFBC005EF4B1 /* dtoa.h in Headers */,
+				B6E698D5166BCFBC005EF4B1 /* DynamicAnnotations.h in Headers */,
+				B6E698D6166BCFBC005EF4B1 /* Encoder.h in Headers */,
+				B6E698D7166BCFBC005EF4B1 /* ExportMacros.h in Headers */,
+				B6E698D8166BCFBC005EF4B1 /* FastAllocBase.h in Headers */,
+				B6E698D9166BCFBC005EF4B1 /* FastMalloc.h in Headers */,
+				B6E698DA166BCFBC005EF4B1 /* FixedArray.h in Headers */,
+				B6E698DB166BCFBC005EF4B1 /* Float32Array.h in Headers */,
+				B6E698DC166BCFBC005EF4B1 /* Float64Array.h in Headers */,
+				B6E698DD166BCFBC005EF4B1 /* Forward.h in Headers */,
+				B6E698DE166BCFBC005EF4B1 /* Functional.h in Headers */,
+				B6E698DF166BCFBC005EF4B1 /* GetPtr.h in Headers */,
+				B6E698E0166BCFBC005EF4B1 /* HashCountedSet.h in Headers */,
+				B6E698E1166BCFBC005EF4B1 /* HashFunctions.h in Headers */,
+				B6E698E2166BCFBC005EF4B1 /* HashIterators.h in Headers */,
+				B6E698E3166BCFBC005EF4B1 /* HashMap.h in Headers */,
+				B6E698E4166BCFBC005EF4B1 /* HashSet.h in Headers */,
+				B6E698E5166BCFBC005EF4B1 /* HashTable.h in Headers */,
+				B6E698E6166BCFBC005EF4B1 /* HashTraits.h in Headers */,
+				B6E698E7166BCFBC005EF4B1 /* HexNumber.h in Headers */,
+				B6E698E8166BCFBC005EF4B1 /* InlineASM.h in Headers */,
+				B6E698E9166BCFBC005EF4B1 /* Int8Array.h in Headers */,
+				B6E698EA166BCFBC005EF4B1 /* Int16Array.h in Headers */,
+				B6E698EB166BCFBC005EF4B1 /* Int32Array.h in Headers */,
+				B6E698EC166BCFBC005EF4B1 /* IntegralTypedArrayBase.h in Headers */,
+				B6E698ED166BCFBC005EF4B1 /* ListHashSet.h in Headers */,
+				B6E698EE166BCFBC005EF4B1 /* ListRefPtr.h in Headers */,
+				B6E698EF166BCFBC005EF4B1 /* Locker.h in Headers */,
+				B6E698F0166BCFBC005EF4B1 /* MainThread.h in Headers */,
+				B6E698F1166BCFBC005EF4B1 /* MallocZoneSupport.h in Headers */,
+				B6E698F2166BCFBC005EF4B1 /* MathExtras.h in Headers */,
+				B6E698F3166BCFBC005EF4B1 /* MD5.h in Headers */,
+				B6E698F4166BCFBC005EF4B1 /* MessageQueue.h in Headers */,
+				B6E698F5166BCFBC005EF4B1 /* MetaAllocator.h in Headers */,
+				B6E698F6166BCFBC005EF4B1 /* MetaAllocatorHandle.h in Headers */,
+				B6E698F7166BCFBC005EF4B1 /* Noncopyable.h in Headers */,
+				B6E698F8166BCFBC005EF4B1 /* NonCopyingSort.h in Headers */,
+				B6E698F9166BCFBC005EF4B1 /* NotFound.h in Headers */,
+				B6E698FA166BCFBC005EF4B1 /* NullPtr.h in Headers */,
+				B6E698FB166BCFBC005EF4B1 /* NumberOfCores.h in Headers */,
+				B6E698FC166BCFBC005EF4B1 /* OSAllocator.h in Headers */,
+				B6E698FD166BCFBC005EF4B1 /* OSRandomSource.h in Headers */,
+				B6E698FE166BCFBC005EF4B1 /* OwnArrayPtr.h in Headers */,
+				B6E698FF166BCFBC005EF4B1 /* OwnPtr.h in Headers */,
+				B6E69900166BCFBC005EF4B1 /* OwnPtrCommon.h in Headers */,
+				B6E69901166BCFBC005EF4B1 /* PackedIntVector.h in Headers */,
+				B6E69902166BCFBC005EF4B1 /* PageAllocation.h in Headers */,
+				B6E69903166BCFBC005EF4B1 /* PageAllocationAligned.h in Headers */,
+				B6E69904166BCFBC005EF4B1 /* PageBlock.h in Headers */,
+				B6E69905166BCFBC005EF4B1 /* PageReservation.h in Headers */,
+				B6E69906166BCFBC005EF4B1 /* ParallelJobs.h in Headers */,
+				B6E69907166BCFBC005EF4B1 /* ParallelJobsLibdispatch.h in Headers */,
+				B6E69908166BCFBC005EF4B1 /* PassOwnArrayPtr.h in Headers */,
+				B6E69909166BCFBC005EF4B1 /* PassOwnPtr.h in Headers */,
+				B6E6990A166BCFBC005EF4B1 /* PassRefPtr.h in Headers */,
+				B6E6990B166BCFBC005EF4B1 /* PassTraits.h in Headers */,
+				B6E6990C166BCFBC005EF4B1 /* Platform.h in Headers */,
+				B6E6990D166BCFBC005EF4B1 /* PossiblyNull.h in Headers */,
+				B6E6990E166BCFBC005EF4B1 /* RandomNumber.h in Headers */,
+				B6E6990F166BCFBC005EF4B1 /* RandomNumberSeed.h in Headers */,
+				B6E69910166BCFBC005EF4B1 /* RedBlackTree.h in Headers */,
+				B6E69911166BCFBC005EF4B1 /* RefCounted.h in Headers */,
+				B6E69912166BCFBC005EF4B1 /* RefCountedArray.h in Headers */,
+				B6E69913166BCFBC005EF4B1 /* RefCountedLeakCounter.h in Headers */,
+				B6E69914166BCFBC005EF4B1 /* RefPtr.h in Headers */,
+				B6E69915166BCFBC005EF4B1 /* RefPtrHashMap.h in Headers */,
+				B6E69916166BCFBC005EF4B1 /* RetainPtr.h in Headers */,
+				B6E69917166BCFBC005EF4B1 /* SegmentedVector.h in Headers */,
+				B6E69918166BCFBC005EF4B1 /* SentinelLinkedList.h in Headers */,
+				B6E69919166BCFBC005EF4B1 /* SHA1.h in Headers */,
+				B6E6991A166BCFBC005EF4B1 /* SimpleStats.h in Headers */,
+				B6E6991B166BCFBC005EF4B1 /* SinglyLinkedList.h in Headers */,
+				B6E6991C166BCFBC005EF4B1 /* Spectrum.h in Headers */,
+				B6E6991D166BCFBC005EF4B1 /* StackBounds.h in Headers */,
+				B6E6991E166BCFBC005EF4B1 /* StaticConstructors.h in Headers */,
+				B6E6991F166BCFBC005EF4B1 /* StdLibExtras.h in Headers */,
+				B6E69920166BCFBC005EF4B1 /* StringExtras.h in Headers */,
+				B6E69921166BCFBC005EF4B1 /* StringHasher.h in Headers */,
+				B6E69922166BCFBC005EF4B1 /* TCPackedCache.h in Headers */,
+				B6E69923166BCFBC005EF4B1 /* TCPageMap.h in Headers */,
+				B6E69924166BCFBC005EF4B1 /* TCSpinLock.h in Headers */,
+				B6E69925166BCFBC005EF4B1 /* TCSystemAlloc.h in Headers */,
+				B6E69926166BCFBC005EF4B1 /* TemporaryChange.h in Headers */,
+				B6E69927166BCFBC005EF4B1 /* ASCIIFastPath.h in Headers */,
+				B6E69928166BCFBC005EF4B1 /* AtomicString.h in Headers */,
+				B6E69929166BCFBC005EF4B1 /* AtomicStringHash.h in Headers */,
+				B6E6992A166BCFBC005EF4B1 /* AtomicStringImpl.h in Headers */,
+				B6E6992B166BCFBC005EF4B1 /* CString.h in Headers */,
+				B6E6992C166BCFBC005EF4B1 /* StringBuffer.h in Headers */,
+				B6E6992D166BCFBC005EF4B1 /* StringBuilder.h in Headers */,
+				B6E6992E166BCFBC005EF4B1 /* StringConcatenate.h in Headers */,
+				B6E6992F166BCFBC005EF4B1 /* StringHash.h in Headers */,
+				B6E69930166BCFBC005EF4B1 /* StringImpl.h in Headers */,
+				B6E69931166BCFBC005EF4B1 /* StringOperators.h in Headers */,
+				B6E69932166BCFBC005EF4B1 /* TextPosition.h in Headers */,
+				B6E69933166BCFBC005EF4B1 /* WTFString.h in Headers */,
+				B6E69934166BCFBC005EF4B1 /* ThreadFunctionInvocation.h in Headers */,
+				B6E69935166BCFBC005EF4B1 /* ThreadIdentifierDataPthreads.h in Headers */,
+				B6E69936166BCFBC005EF4B1 /* Threading.h in Headers */,
+				B6E69937166BCFBC005EF4B1 /* ThreadingPrimitives.h in Headers */,
+				B6E69938166BCFBC005EF4B1 /* ThreadRestrictionVerifier.h in Headers */,
+				B6E69939166BCFBC005EF4B1 /* BinarySemaphore.h in Headers */,
+				B6E6993A166BCFBC005EF4B1 /* ThreadSafeRefCounted.h in Headers */,
+				B6E6993B166BCFBC005EF4B1 /* ThreadSpecific.h in Headers */,
+				B6E6993C166BCFBC005EF4B1 /* TypedArrayBase.h in Headers */,
+				B6E6993D166BCFBC005EF4B1 /* TypeTraits.h in Headers */,
+				B6E6993E166BCFBC005EF4B1 /* Uint8Array.h in Headers */,
+				B6E6993F166BCFBC005EF4B1 /* Uint8ClampedArray.h in Headers */,
+				B6E69940166BCFBC005EF4B1 /* Uint16Array.h in Headers */,
+				B6E69941166BCFBC005EF4B1 /* Uint32Array.h in Headers */,
+				B6E69942166BCFBC005EF4B1 /* CharacterNames.h in Headers */,
+				B6E69943166BCFBC005EF4B1 /* Collator.h in Headers */,
+				B6E69944166BCFBC005EF4B1 /* UnicodeIcu.h in Headers */,
+				B6E69945166BCFBC005EF4B1 /* ScriptCodesFromICU.h in Headers */,
+				B6E69946166BCFBC005EF4B1 /* Unicode.h in Headers */,
+				B6E69947166BCFBC005EF4B1 /* UnicodeMacrosFromICU.h in Headers */,
+				B6E69948166BCFBC005EF4B1 /* UTF8.h in Headers */,
+				B6E69949166BCFBC005EF4B1 /* UnionFind.h in Headers */,
+				B6E6994A166BCFBC005EF4B1 /* UnusedParam.h in Headers */,
+				B6E6994B166BCFBC005EF4B1 /* ParsedURL.h in Headers */,
+				B6E6994C166BCFBC005EF4B1 /* URLString.h in Headers */,
+				B6E6994D166BCFBC005EF4B1 /* RawURLBuffer.h in Headers */,
+				B6E6994E166BCFBC005EF4B1 /* URLBuffer.h in Headers */,
+				B6E6994F166BCFBC005EF4B1 /* URLCharacterTypes.h in Headers */,
+				B6E69950166BCFBC005EF4B1 /* URLComponent.h in Headers */,
+				B6E69951166BCFBC005EF4B1 /* URLEscape.h in Headers */,
+				B6E69952166BCFBC005EF4B1 /* URLParser.h in Headers */,
+				B6E69953166BCFBC005EF4B1 /* URLQueryCanonicalizer.h in Headers */,
+				B6E69954166BCFBC005EF4B1 /* URLSegments.h in Headers */,
+				B6E69955166BCFBC005EF4B1 /* ValueCheck.h in Headers */,
+				B6E69956166BCFBC005EF4B1 /* Vector.h in Headers */,
+				B6E69957166BCFBC005EF4B1 /* VectorTraits.h in Headers */,
+				B6E69958166BCFBC005EF4B1 /* VMTags.h in Headers */,
+				B6E69959166BCFBC005EF4B1 /* WTFThreadData.h in Headers */,
+				B6E6995A166BCFBC005EF4B1 /* config.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
@@ -1046,6 +1465,25 @@
 			name = WTF;
 			productName = WTF;
 			productReference = 5D247B6214689B8600E78B76 /* libWTF.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		B6E6986F166BCFBC005EF4B1 /* WTF iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B6E6995B166BCFBC005EF4B1 /* Build configuration list for PBXNativeTarget "WTF iOS" */;
+			buildPhases = (
+				B6E69870166BCFBC005EF4B1 /* Copy WTF Headers */,
+				B6E69871166BCFBC005EF4B1 /* Detect Available Headers */,
+				B6E69872166BCFBC005EF4B1 /* Sources */,
+				B6E698AC166BCFBC005EF4B1 /* Frameworks */,
+				B6E698AD166BCFBC005EF4B1 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "WTF iOS";
+			productName = WTF;
+			productReference = B6E6995F166BCFBC005EF4B1 /* libWTF.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 /* End PBXNativeTarget section */
@@ -1069,6 +1507,7 @@
 			projectRoot = "";
 			targets = (
 				5D247B6114689B8600E78B76 /* WTF */,
+				B6E6986F166BCFBC005EF4B1 /* WTF iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -1089,6 +1528,36 @@
 			shellScript = "if [[ \"${DEPLOYMENT_LOCATION}\" == \"NO\" ]]; then\n    PRIVATE_HEADERS_PATH=\"${TARGET_BUILD_DIR%%/}${PRIVATE_HEADERS_FOLDER_PATH}\"\nelse\n    PRIVATE_HEADERS_PATH=\"${DSTROOT%%/}${PRIVATE_HEADERS_FOLDER_PATH}\"\nfi;\n\nmkdir -p \"${PRIVATE_HEADERS_PATH}\"\nrsync -av --no-owner --no-group --prune-empty-dirs --exclude \".svn\" --exclude \"usr\" --exclude \"DerivedSources\" --include \"*/\" --include \"*.h\" --exclude \"*\" \"${SRCROOT}/wtf/\" \"${PRIVATE_HEADERS_PATH}\"\n";
 		};
 		5D247E9D1468AEE200E78B76 /* Detect Available Headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SDKROOT)/System/Library/CoreServices/SystemVersion.plist",
+			);
+			name = "Detect Available Headers";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WTF/HeaderDetection.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "OUTPUT_FILE=\"${BUILT_PRODUCTS_DIR}/DerivedSources/WTF/HeaderDetection.h\"\necho \"/* This is a generated file. Do not edit. */\" > \"${OUTPUT_FILE}\"\n\nif [[ -f \"${SDKROOT}/System/Library/Frameworks/System.framework/PrivateHeaders/pthread_machdep.h\" ]]; then\n    echo \"#define HAVE_PTHREAD_MACHDEP_H 1\" >> \"${OUTPUT_FILE}\"\nfi\n";
+		};
+		B6E69870166BCFBC005EF4B1 /* Copy WTF Headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy WTF Headers";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [[ \"${DEPLOYMENT_LOCATION}\" == \"NO\" ]]; then\n    PRIVATE_HEADERS_PATH=\"${TARGET_BUILD_DIR%%/}${PRIVATE_HEADERS_FOLDER_PATH}\"\nelse\n    PRIVATE_HEADERS_PATH=\"${DSTROOT%%/}${PRIVATE_HEADERS_FOLDER_PATH}\"\nfi;\n\nmkdir -p \"${PRIVATE_HEADERS_PATH}\"\nrsync -av --no-owner --no-group --prune-empty-dirs --exclude \".svn\" --exclude \"usr\" --exclude \"DerivedSources\" --include \"*/\" --include \"*.h\" --exclude \"*\" \"${SRCROOT}/wtf/\" \"${PRIVATE_HEADERS_PATH}\"\n";
+		};
+		B6E69871166BCFBC005EF4B1 /* Detect Available Headers */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1171,6 +1640,70 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B6E69872166BCFBC005EF4B1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B6E69873166BCFBC005EF4B1 /* ArrayBuffer.cpp in Sources */,
+				B6E69874166BCFBC005EF4B1 /* ArrayBufferView.cpp in Sources */,
+				B6E69875166BCFBC005EF4B1 /* Assertions.cpp in Sources */,
+				B6E69876166BCFBC005EF4B1 /* BitVector.cpp in Sources */,
+				B6E69877166BCFBC005EF4B1 /* CryptographicallyRandomNumber.cpp in Sources */,
+				B6E69878166BCFBC005EF4B1 /* CurrentTime.cpp in Sources */,
+				B6E69879166BCFBC005EF4B1 /* DataLog.cpp in Sources */,
+				B6E6987A166BCFBC005EF4B1 /* DateMath.cpp in Sources */,
+				B6E6987B166BCFBC005EF4B1 /* DecimalNumber.cpp in Sources */,
+				B6E6987C166BCFBC005EF4B1 /* bignum-dtoa.cc in Sources */,
+				B6E6987D166BCFBC005EF4B1 /* bignum.cc in Sources */,
+				B6E6987E166BCFBC005EF4B1 /* cached-powers.cc in Sources */,
+				B6E6987F166BCFBC005EF4B1 /* diy-fp.cc in Sources */,
+				B6E69880166BCFBC005EF4B1 /* double-conversion.cc in Sources */,
+				B6E69881166BCFBC005EF4B1 /* fast-dtoa.cc in Sources */,
+				B6E69882166BCFBC005EF4B1 /* fixed-dtoa.cc in Sources */,
+				B6E69883166BCFBC005EF4B1 /* strtod.cc in Sources */,
+				B6E69884166BCFBC005EF4B1 /* dtoa.cpp in Sources */,
+				B6E69885166BCFBC005EF4B1 /* DynamicAnnotations.cpp in Sources */,
+				B6E69886166BCFBC005EF4B1 /* FastMalloc.cpp in Sources */,
+				B6E69887166BCFBC005EF4B1 /* HashTable.cpp in Sources */,
+				B6E69888166BCFBC005EF4B1 /* MainThreadMac.mm in Sources */,
+				B6E69889166BCFBC005EF4B1 /* MainThread.cpp in Sources */,
+				B6E6988A166BCFBC005EF4B1 /* MD5.cpp in Sources */,
+				B6E6988B166BCFBC005EF4B1 /* MetaAllocator.cpp in Sources */,
+				B6E6988C166BCFBC005EF4B1 /* NullPtr.cpp in Sources */,
+				B6E6988D166BCFBC005EF4B1 /* NumberOfCores.cpp in Sources */,
+				B6E6988E166BCFBC005EF4B1 /* OSAllocatorPosix.cpp in Sources */,
+				B6E6988F166BCFBC005EF4B1 /* OSRandomSource.cpp in Sources */,
+				B6E69890166BCFBC005EF4B1 /* PageAllocationAligned.cpp in Sources */,
+				B6E69891166BCFBC005EF4B1 /* PageBlock.cpp in Sources */,
+				B6E69892166BCFBC005EF4B1 /* RandomNumber.cpp in Sources */,
+				B6E69893166BCFBC005EF4B1 /* RefCountedLeakCounter.cpp in Sources */,
+				B6E69894166BCFBC005EF4B1 /* SHA1.cpp in Sources */,
+				B6E69895166BCFBC005EF4B1 /* SizeLimits.cpp in Sources */,
+				B6E69896166BCFBC005EF4B1 /* StackBounds.cpp in Sources */,
+				B6E69897166BCFBC005EF4B1 /* StringExtras.cpp in Sources */,
+				B6E69898166BCFBC005EF4B1 /* TCSystemAlloc.cpp in Sources */,
+				B6E69899166BCFBC005EF4B1 /* AtomicString.cpp in Sources */,
+				B6E6989A166BCFBC005EF4B1 /* CString.cpp in Sources */,
+				B6E6989B166BCFBC005EF4B1 /* StringBuilder.cpp in Sources */,
+				B6E6989C166BCFBC005EF4B1 /* StringImpl.cpp in Sources */,
+				B6E6989D166BCFBC005EF4B1 /* StringStatics.cpp in Sources */,
+				B6E6989E166BCFBC005EF4B1 /* WTFString.cpp in Sources */,
+				B6E6989F166BCFBC005EF4B1 /* ThreadIdentifierDataPthreads.cpp in Sources */,
+				B6E698A0166BCFBC005EF4B1 /* Threading.cpp in Sources */,
+				B6E698A1166BCFBC005EF4B1 /* ThreadingPthreads.cpp in Sources */,
+				B6E698A2166BCFBC005EF4B1 /* BinarySemaphore.cpp in Sources */,
+				B6E698A3166BCFBC005EF4B1 /* TypeTraits.cpp in Sources */,
+				B6E698A4166BCFBC005EF4B1 /* CollatorDefault.cpp in Sources */,
+				B6E698A5166BCFBC005EF4B1 /* CollatorICU.cpp in Sources */,
+				B6E698A6166BCFBC005EF4B1 /* UTF8.cpp in Sources */,
+				B6E698A7166BCFBC005EF4B1 /* ParsedURL.cpp in Sources */,
+				B6E698A8166BCFBC005EF4B1 /* URLCharacterTypes.cpp in Sources */,
+				B6E698A9166BCFBC005EF4B1 /* URLEscape.cpp in Sources */,
+				B6E698AA166BCFBC005EF4B1 /* URLSegments.cpp in Sources */,
+				B6E698AB166BCFBC005EF4B1 /* WTFThreadData.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -1217,6 +1750,40 @@
 			};
 			name = Production;
 		};
+		B6E6995C166BCFBC005EF4B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
+			buildSettings = {
+				DEBUG_DEFINES = "$(DEBUG_DEFINES_debug)";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				PRODUCT_NAME = WTF;
+				SDKROOT = iphoneos;
+				VALID_ARCHS = armv7;
+			};
+			name = Debug;
+		};
+		B6E6995D166BCFBC005EF4B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
+			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				PRODUCT_NAME = WTF;
+				SDKROOT = iphoneos;
+				VALID_ARCHS = armv7;
+			};
+			name = Release;
+		};
+		B6E6995E166BCFBC005EF4B1 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
+			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				PRODUCT_NAME = WTF;
+				SDKROOT = iphoneos;
+				VALID_ARCHS = armv7;
+			};
+			name = Production;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1236,6 +1803,16 @@
 				5D247B6714689B8600E78B76 /* Debug */,
 				5D247B6814689B8600E78B76 /* Release */,
 				5D247B7514689CC900E78B76 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		B6E6995B166BCFBC005EF4B1 /* Build configuration list for PBXNativeTarget "WTF iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B6E6995C166BCFBC005EF4B1 /* Debug */,
+				B6E6995D166BCFBC005EF4B1 /* Release */,
+				B6E6995E166BCFBC005EF4B1 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;

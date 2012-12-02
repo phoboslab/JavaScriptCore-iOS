@@ -8,7 +8,7 @@ Currently, the [Safari 6.0.2 release](https://svn.webkit.org/repository/webkit/r
 
 ## Binaries
 
-A compiled version of the `libJavaScriptCore.a` for armv7 and the Simulator can be found in the [source tree](https://github.com/phoboslab/Ejecta/tree/master/Source/lib) of the (Ejecta project)[https://github.com/phoboslab/Ejecta].
+A compiled version of the `libJavaScriptCore.a` for armv7 and the Simulator can be found in the [source tree](https://github.com/phoboslab/Ejecta/tree/master/Source/lib) of the [Ejecta project](https://github.com/phoboslab/Ejecta).
 
 ## How to Compile
 
@@ -17,5 +17,5 @@ A compiled version of the `libJavaScriptCore.a` for armv7 and the Simulator can 
 2. Open the `WTF/WTF.xcodeproj` file and compile the "WTF iOS" target once for "iOS Device" and once for "iPhone Simulator". Compile the release version (Shift+Command+I).
 3. Compile the "Combine iOS lib" target. This will execute a script that will combine the device and simulator libraries into one and place it in your `Build/` directory.
 
-4. Open the `JavaScriptCore/JavaScriptCore.xcodepro` file and compile the "JavaScriptCore iOS" target once for "iOS Device" and once for "iPhone Simulator". Compile the release version (Shift+Command+I).
+4. Open the `JavaScriptCore/JavaScriptCore.xcodeproj` file and compile the "JavaScriptCore iOS" target once for "iOS Device" and once for "iPhone Simulator". Compile the release version (Shift+Command+I).
 5. Compile the "Combine iOS lib" target. This will execute a script that will combine the device and simulator libraries into one and place it in your `Build/` directory.

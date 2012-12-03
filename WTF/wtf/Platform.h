@@ -1105,3 +1105,11 @@
 #endif
 
 #endif /* WTF_Platform_h */
+
+
+// Disable the DFG JIT on the iPhone; it can't be used anyway.
+// This saves us about ~600kb
+#if defined(TARGET_OS_IPHONE) && defined(ENABLE_LLINT)
+	#undef ENABLE_DFG_JIT
+	#define ENABLE_DFG_JIT 0
+#endif

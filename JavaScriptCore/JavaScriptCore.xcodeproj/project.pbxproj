@@ -549,6 +549,10 @@
 		B6D18835166FA73400D1037C /* JSArrayBufferView.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D18818166FA73400D1037C /* JSArrayBufferView.h */; };
 		B6D18836166FA73400D1037C /* JSArrayBufferViewHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D18819166FA73400D1037C /* JSArrayBufferViewHelper.h */; };
 		B6D18837166FA73400D1037C /* JSArrayBufferViewHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D18819166FA73400D1037C /* JSArrayBufferViewHelper.h */; };
+		B6D188701672DFE800D1037C /* JSFloat32Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6D1886E1672DFE700D1037C /* JSFloat32Array.cpp */; };
+		B6D188711672DFE800D1037C /* JSFloat32Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6D1886E1672DFE700D1037C /* JSFloat32Array.cpp */; };
+		B6D188721672DFE800D1037C /* JSFloat32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D1886F1672DFE700D1037C /* JSFloat32Array.h */; };
+		B6D188731672DFE800D1037C /* JSFloat32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D1886F1672DFE700D1037C /* JSFloat32Array.h */; };
 		B6E69991166BD63D005EF4B1 /* AbstractMacroAssembler.h in Headers */ = {isa = PBXBuildFile; fileRef = 860161DF0F3A83C100F84710 /* AbstractMacroAssembler.h */; };
 		B6E69992166BD63D005EF4B1 /* APICast.h in Headers */ = {isa = PBXBuildFile; fileRef = 1482B78A0A4305AB00517CFC /* APICast.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		B6E69993166BD63D005EF4B1 /* APIShims.h in Headers */ = {isa = PBXBuildFile; fileRef = 865F408710E7D56300947361 /* APIShims.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1822,6 +1826,8 @@
 		B6D18817166FA73400D1037C /* JSArrayBufferView.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSArrayBufferView.cpp; sourceTree = "<group>"; };
 		B6D18818166FA73400D1037C /* JSArrayBufferView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSArrayBufferView.h; sourceTree = "<group>"; };
 		B6D18819166FA73400D1037C /* JSArrayBufferViewHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSArrayBufferViewHelper.h; sourceTree = "<group>"; };
+		B6D1886E1672DFE700D1037C /* JSFloat32Array.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSFloat32Array.cpp; sourceTree = "<group>"; };
+		B6D1886F1672DFE700D1037C /* JSFloat32Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSFloat32Array.h; sourceTree = "<group>"; };
 		B6E69BC4166BD63D005EF4B1 /* libJavaScriptCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJavaScriptCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6E69BDB166BD6C1005EF4B1 /* libJSCLLIntOffsetsExtractor.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJSCLLIntOffsetsExtractor.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6E69BFD166BDCE7005EF4B1 /* libWTF.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libWTF.a; path = ../Build/libWTF.a; sourceTree = "<group>"; };
@@ -2877,6 +2883,8 @@
 				B6D18817166FA73400D1037C /* JSArrayBufferView.cpp */,
 				B6D18818166FA73400D1037C /* JSArrayBufferView.h */,
 				B6D18819166FA73400D1037C /* JSArrayBufferViewHelper.h */,
+				B6D1886E1672DFE700D1037C /* JSFloat32Array.cpp */,
+				B6D1886F1672DFE700D1037C /* JSFloat32Array.h */,
 			);
 			path = TypedArrays;
 			sourceTree = "<group>";
@@ -3241,6 +3249,7 @@
 				B6D1882E166FA73400D1037C /* JSArrayBuffer.h in Headers */,
 				B6D18834166FA73400D1037C /* JSArrayBufferView.h in Headers */,
 				B6D18836166FA73400D1037C /* JSArrayBufferViewHelper.h in Headers */,
+				B6D188721672DFE800D1037C /* JSFloat32Array.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3589,6 +3598,7 @@
 				B6D1882F166FA73400D1037C /* JSArrayBuffer.h in Headers */,
 				B6D18835166FA73400D1037C /* JSArrayBufferView.h in Headers */,
 				B6D18837166FA73400D1037C /* JSArrayBufferViewHelper.h in Headers */,
+				B6D188731672DFE800D1037C /* JSFloat32Array.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4337,6 +4347,7 @@
 				B6D1882C166FA73400D1037C /* JSArrayBuffer.cpp in Sources */,
 				B6D18830166FA73400D1037C /* JSArrayBufferCustom.cpp in Sources */,
 				B6D18832166FA73400D1037C /* JSArrayBufferView.cpp in Sources */,
+				B6D188701672DFE800D1037C /* JSFloat32Array.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4564,6 +4575,7 @@
 				B6D1882D166FA73400D1037C /* JSArrayBuffer.cpp in Sources */,
 				B6D18831166FA73400D1037C /* JSArrayBufferCustom.cpp in Sources */,
 				B6D18833166FA73400D1037C /* JSArrayBufferView.cpp in Sources */,
+				B6D188711672DFE800D1037C /* JSFloat32Array.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

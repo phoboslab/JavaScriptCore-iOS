@@ -1110,6 +1110,54 @@
 		B6E69BB9166BD63D005EF4B1 /* libobjc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 51F0EC0705C86C9A00E6DF1B /* libobjc.dylib */; };
 		B6E69BD4166BD6C1005EF4B1 /* LLIntOffsetsExtractor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F4680A114BA7F8200BFE272 /* LLIntOffsetsExtractor.cpp */; };
 		B6E69BFE166BDCE7005EF4B1 /* libWTF.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B6E69BFD166BDCE7005EF4B1 /* libWTF.a */; };
+		B6F114931673B116001F1324 /* JSFloat64Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1147B1673B115001F1324 /* JSFloat64Array.cpp */; };
+		B6F114941673B116001F1324 /* JSFloat64Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1147B1673B115001F1324 /* JSFloat64Array.cpp */; };
+		B6F114951673B116001F1324 /* JSFloat64Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F1147C1673B115001F1324 /* JSFloat64Array.h */; };
+		B6F114961673B116001F1324 /* JSFloat64Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F1147C1673B115001F1324 /* JSFloat64Array.h */; };
+		B6F114971673B116001F1324 /* JSFloat64ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1147D1673B115001F1324 /* JSFloat64ArrayCustom.cpp */; };
+		B6F114981673B116001F1324 /* JSFloat64ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1147D1673B115001F1324 /* JSFloat64ArrayCustom.cpp */; };
+		B6F114991673B116001F1324 /* JSInt8Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1147E1673B115001F1324 /* JSInt8Array.cpp */; };
+		B6F1149A1673B116001F1324 /* JSInt8Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1147E1673B115001F1324 /* JSInt8Array.cpp */; };
+		B6F1149B1673B116001F1324 /* JSInt8Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F1147F1673B115001F1324 /* JSInt8Array.h */; };
+		B6F1149C1673B116001F1324 /* JSInt8Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F1147F1673B115001F1324 /* JSInt8Array.h */; };
+		B6F1149D1673B116001F1324 /* JSInt8ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114801673B115001F1324 /* JSInt8ArrayCustom.cpp */; };
+		B6F1149E1673B116001F1324 /* JSInt8ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114801673B115001F1324 /* JSInt8ArrayCustom.cpp */; };
+		B6F1149F1673B116001F1324 /* JSInt16Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114811673B115001F1324 /* JSInt16Array.cpp */; };
+		B6F114A01673B116001F1324 /* JSInt16Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114811673B115001F1324 /* JSInt16Array.cpp */; };
+		B6F114A11673B116001F1324 /* JSInt16Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F114821673B115001F1324 /* JSInt16Array.h */; };
+		B6F114A21673B116001F1324 /* JSInt16Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F114821673B115001F1324 /* JSInt16Array.h */; };
+		B6F114A31673B116001F1324 /* JSInt16ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114831673B115001F1324 /* JSInt16ArrayCustom.cpp */; };
+		B6F114A41673B116001F1324 /* JSInt16ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114831673B115001F1324 /* JSInt16ArrayCustom.cpp */; };
+		B6F114A51673B116001F1324 /* JSInt32Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114841673B115001F1324 /* JSInt32Array.cpp */; };
+		B6F114A61673B116001F1324 /* JSInt32Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114841673B115001F1324 /* JSInt32Array.cpp */; };
+		B6F114A71673B116001F1324 /* JSInt32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F114851673B115001F1324 /* JSInt32Array.h */; };
+		B6F114A81673B116001F1324 /* JSInt32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F114851673B115001F1324 /* JSInt32Array.h */; };
+		B6F114A91673B116001F1324 /* JSInt32ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114861673B115001F1324 /* JSInt32ArrayCustom.cpp */; };
+		B6F114AA1673B116001F1324 /* JSInt32ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114861673B115001F1324 /* JSInt32ArrayCustom.cpp */; };
+		B6F114AB1673B116001F1324 /* JSUint8Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114871673B115001F1324 /* JSUint8Array.cpp */; };
+		B6F114AC1673B116001F1324 /* JSUint8Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114871673B115001F1324 /* JSUint8Array.cpp */; };
+		B6F114AD1673B116001F1324 /* JSUint8Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F114881673B115001F1324 /* JSUint8Array.h */; };
+		B6F114AE1673B116001F1324 /* JSUint8Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F114881673B115001F1324 /* JSUint8Array.h */; };
+		B6F114AF1673B116001F1324 /* JSUint8ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114891673B115001F1324 /* JSUint8ArrayCustom.cpp */; };
+		B6F114B01673B116001F1324 /* JSUint8ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114891673B115001F1324 /* JSUint8ArrayCustom.cpp */; };
+		B6F114B11673B116001F1324 /* JSUint8ClampedArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1148A1673B115001F1324 /* JSUint8ClampedArray.cpp */; };
+		B6F114B21673B116001F1324 /* JSUint8ClampedArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1148A1673B115001F1324 /* JSUint8ClampedArray.cpp */; };
+		B6F114B31673B116001F1324 /* JSUint8ClampedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F1148B1673B115001F1324 /* JSUint8ClampedArray.h */; };
+		B6F114B41673B116001F1324 /* JSUint8ClampedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F1148B1673B115001F1324 /* JSUint8ClampedArray.h */; };
+		B6F114B51673B116001F1324 /* JSUint8ClampedArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1148C1673B115001F1324 /* JSUint8ClampedArrayCustom.cpp */; };
+		B6F114B61673B116001F1324 /* JSUint8ClampedArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1148C1673B115001F1324 /* JSUint8ClampedArrayCustom.cpp */; };
+		B6F114B71673B116001F1324 /* JSUint16Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1148D1673B115001F1324 /* JSUint16Array.cpp */; };
+		B6F114B81673B116001F1324 /* JSUint16Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1148D1673B115001F1324 /* JSUint16Array.cpp */; };
+		B6F114B91673B116001F1324 /* JSUint16Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F1148E1673B115001F1324 /* JSUint16Array.h */; };
+		B6F114BA1673B116001F1324 /* JSUint16Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F1148E1673B115001F1324 /* JSUint16Array.h */; };
+		B6F114BB1673B116001F1324 /* JSUint16ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1148F1673B115001F1324 /* JSUint16ArrayCustom.cpp */; };
+		B6F114BC1673B116001F1324 /* JSUint16ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F1148F1673B115001F1324 /* JSUint16ArrayCustom.cpp */; };
+		B6F114BD1673B116001F1324 /* JSUint32Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114901673B115001F1324 /* JSUint32Array.cpp */; };
+		B6F114BE1673B116001F1324 /* JSUint32Array.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114901673B115001F1324 /* JSUint32Array.cpp */; };
+		B6F114BF1673B116001F1324 /* JSUint32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F114911673B115001F1324 /* JSUint32Array.h */; };
+		B6F114C01673B116001F1324 /* JSUint32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6F114911673B115001F1324 /* JSUint32Array.h */; };
+		B6F114C11673B116001F1324 /* JSUint32ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114921673B115001F1324 /* JSUint32ArrayCustom.cpp */; };
+		B6F114C21673B116001F1324 /* JSUint32ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6F114921673B115001F1324 /* JSUint32ArrayCustom.cpp */; };
 		BC02E90D0E1839DB000F9297 /* ErrorConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = BC02E9050E1839DB000F9297 /* ErrorConstructor.h */; };
 		BC02E90F0E1839DB000F9297 /* ErrorPrototype.h in Headers */ = {isa = PBXBuildFile; fileRef = BC02E9070E1839DB000F9297 /* ErrorPrototype.h */; };
 		BC02E9110E1839DB000F9297 /* NativeErrorConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = BC02E9090E1839DB000F9297 /* NativeErrorConstructor.h */; };
@@ -1837,6 +1885,30 @@
 		B6E69BC4166BD63D005EF4B1 /* libJavaScriptCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJavaScriptCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6E69BDB166BD6C1005EF4B1 /* libJSCLLIntOffsetsExtractor.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJSCLLIntOffsetsExtractor.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6E69BFD166BDCE7005EF4B1 /* libWTF.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libWTF.a; path = ../Build/libWTF.a; sourceTree = "<group>"; };
+		B6F1147B1673B115001F1324 /* JSFloat64Array.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSFloat64Array.cpp; sourceTree = "<group>"; };
+		B6F1147C1673B115001F1324 /* JSFloat64Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSFloat64Array.h; sourceTree = "<group>"; };
+		B6F1147D1673B115001F1324 /* JSFloat64ArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSFloat64ArrayCustom.cpp; sourceTree = "<group>"; };
+		B6F1147E1673B115001F1324 /* JSInt8Array.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSInt8Array.cpp; sourceTree = "<group>"; };
+		B6F1147F1673B115001F1324 /* JSInt8Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSInt8Array.h; sourceTree = "<group>"; };
+		B6F114801673B115001F1324 /* JSInt8ArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSInt8ArrayCustom.cpp; sourceTree = "<group>"; };
+		B6F114811673B115001F1324 /* JSInt16Array.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSInt16Array.cpp; sourceTree = "<group>"; };
+		B6F114821673B115001F1324 /* JSInt16Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSInt16Array.h; sourceTree = "<group>"; };
+		B6F114831673B115001F1324 /* JSInt16ArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSInt16ArrayCustom.cpp; sourceTree = "<group>"; };
+		B6F114841673B115001F1324 /* JSInt32Array.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSInt32Array.cpp; sourceTree = "<group>"; };
+		B6F114851673B115001F1324 /* JSInt32Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSInt32Array.h; sourceTree = "<group>"; };
+		B6F114861673B115001F1324 /* JSInt32ArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSInt32ArrayCustom.cpp; sourceTree = "<group>"; };
+		B6F114871673B115001F1324 /* JSUint8Array.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSUint8Array.cpp; sourceTree = "<group>"; };
+		B6F114881673B115001F1324 /* JSUint8Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSUint8Array.h; sourceTree = "<group>"; };
+		B6F114891673B115001F1324 /* JSUint8ArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSUint8ArrayCustom.cpp; sourceTree = "<group>"; };
+		B6F1148A1673B115001F1324 /* JSUint8ClampedArray.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSUint8ClampedArray.cpp; sourceTree = "<group>"; };
+		B6F1148B1673B115001F1324 /* JSUint8ClampedArray.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSUint8ClampedArray.h; sourceTree = "<group>"; };
+		B6F1148C1673B115001F1324 /* JSUint8ClampedArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSUint8ClampedArrayCustom.cpp; sourceTree = "<group>"; };
+		B6F1148D1673B115001F1324 /* JSUint16Array.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSUint16Array.cpp; sourceTree = "<group>"; };
+		B6F1148E1673B115001F1324 /* JSUint16Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSUint16Array.h; sourceTree = "<group>"; };
+		B6F1148F1673B115001F1324 /* JSUint16ArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSUint16ArrayCustom.cpp; sourceTree = "<group>"; };
+		B6F114901673B115001F1324 /* JSUint32Array.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSUint32Array.cpp; sourceTree = "<group>"; };
+		B6F114911673B115001F1324 /* JSUint32Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSUint32Array.h; sourceTree = "<group>"; };
+		B6F114921673B115001F1324 /* JSUint32ArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSUint32ArrayCustom.cpp; sourceTree = "<group>"; };
 		BC021BF1136900C300FC5467 /* CompilerVersion.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = CompilerVersion.xcconfig; sourceTree = "<group>"; };
 		BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = ToolExecutable.xcconfig; sourceTree = "<group>"; };
 		BC02E9040E1839DB000F9297 /* ErrorConstructor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ErrorConstructor.cpp; sourceTree = "<group>"; };
@@ -2893,6 +2965,30 @@
 				B6D1888D167381A300D1037C /* JSFloat32ArrayCustom.cpp */,
 				B6D1886E1672DFE700D1037C /* JSFloat32Array.cpp */,
 				B6D1886F1672DFE700D1037C /* JSFloat32Array.h */,
+				B6F1147B1673B115001F1324 /* JSFloat64Array.cpp */,
+				B6F1147C1673B115001F1324 /* JSFloat64Array.h */,
+				B6F1147D1673B115001F1324 /* JSFloat64ArrayCustom.cpp */,
+				B6F1147E1673B115001F1324 /* JSInt8Array.cpp */,
+				B6F1147F1673B115001F1324 /* JSInt8Array.h */,
+				B6F114801673B115001F1324 /* JSInt8ArrayCustom.cpp */,
+				B6F114811673B115001F1324 /* JSInt16Array.cpp */,
+				B6F114821673B115001F1324 /* JSInt16Array.h */,
+				B6F114831673B115001F1324 /* JSInt16ArrayCustom.cpp */,
+				B6F114841673B115001F1324 /* JSInt32Array.cpp */,
+				B6F114851673B115001F1324 /* JSInt32Array.h */,
+				B6F114861673B115001F1324 /* JSInt32ArrayCustom.cpp */,
+				B6F114871673B115001F1324 /* JSUint8Array.cpp */,
+				B6F114881673B115001F1324 /* JSUint8Array.h */,
+				B6F114891673B115001F1324 /* JSUint8ArrayCustom.cpp */,
+				B6F1148A1673B115001F1324 /* JSUint8ClampedArray.cpp */,
+				B6F1148B1673B115001F1324 /* JSUint8ClampedArray.h */,
+				B6F1148C1673B115001F1324 /* JSUint8ClampedArrayCustom.cpp */,
+				B6F1148D1673B115001F1324 /* JSUint16Array.cpp */,
+				B6F1148E1673B115001F1324 /* JSUint16Array.h */,
+				B6F1148F1673B115001F1324 /* JSUint16ArrayCustom.cpp */,
+				B6F114901673B115001F1324 /* JSUint32Array.cpp */,
+				B6F114911673B115001F1324 /* JSUint32Array.h */,
+				B6F114921673B115001F1324 /* JSUint32ArrayCustom.cpp */,
 			);
 			path = TypedArrays;
 			sourceTree = "<group>";
@@ -3259,6 +3355,14 @@
 				B6D18836166FA73400D1037C /* JSArrayBufferViewHelper.h in Headers */,
 				B6D188721672DFE800D1037C /* JSFloat32Array.h in Headers */,
 				B6D1888B1673751400D1037C /* GlobalDataHelper.h in Headers */,
+				B6F114951673B116001F1324 /* JSFloat64Array.h in Headers */,
+				B6F1149B1673B116001F1324 /* JSInt8Array.h in Headers */,
+				B6F114A11673B116001F1324 /* JSInt16Array.h in Headers */,
+				B6F114A71673B116001F1324 /* JSInt32Array.h in Headers */,
+				B6F114AD1673B116001F1324 /* JSUint8Array.h in Headers */,
+				B6F114B31673B116001F1324 /* JSUint8ClampedArray.h in Headers */,
+				B6F114B91673B116001F1324 /* JSUint16Array.h in Headers */,
+				B6F114BF1673B116001F1324 /* JSUint32Array.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3609,6 +3713,14 @@
 				B6D18837166FA73400D1037C /* JSArrayBufferViewHelper.h in Headers */,
 				B6D188731672DFE800D1037C /* JSFloat32Array.h in Headers */,
 				B6D1888C1673751400D1037C /* GlobalDataHelper.h in Headers */,
+				B6F114961673B116001F1324 /* JSFloat64Array.h in Headers */,
+				B6F1149C1673B116001F1324 /* JSInt8Array.h in Headers */,
+				B6F114A21673B116001F1324 /* JSInt16Array.h in Headers */,
+				B6F114A81673B116001F1324 /* JSInt32Array.h in Headers */,
+				B6F114AE1673B116001F1324 /* JSUint8Array.h in Headers */,
+				B6F114B41673B116001F1324 /* JSUint8ClampedArray.h in Headers */,
+				B6F114BA1673B116001F1324 /* JSUint16Array.h in Headers */,
+				B6F114C01673B116001F1324 /* JSUint32Array.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4359,6 +4471,22 @@
 				B6D18832166FA73400D1037C /* JSArrayBufferView.cpp in Sources */,
 				B6D188701672DFE800D1037C /* JSFloat32Array.cpp in Sources */,
 				B6D1888E167381A400D1037C /* JSFloat32ArrayCustom.cpp in Sources */,
+				B6F114931673B116001F1324 /* JSFloat64Array.cpp in Sources */,
+				B6F114971673B116001F1324 /* JSFloat64ArrayCustom.cpp in Sources */,
+				B6F114991673B116001F1324 /* JSInt8Array.cpp in Sources */,
+				B6F1149D1673B116001F1324 /* JSInt8ArrayCustom.cpp in Sources */,
+				B6F1149F1673B116001F1324 /* JSInt16Array.cpp in Sources */,
+				B6F114A31673B116001F1324 /* JSInt16ArrayCustom.cpp in Sources */,
+				B6F114A51673B116001F1324 /* JSInt32Array.cpp in Sources */,
+				B6F114A91673B116001F1324 /* JSInt32ArrayCustom.cpp in Sources */,
+				B6F114AB1673B116001F1324 /* JSUint8Array.cpp in Sources */,
+				B6F114AF1673B116001F1324 /* JSUint8ArrayCustom.cpp in Sources */,
+				B6F114B11673B116001F1324 /* JSUint8ClampedArray.cpp in Sources */,
+				B6F114B51673B116001F1324 /* JSUint8ClampedArrayCustom.cpp in Sources */,
+				B6F114B71673B116001F1324 /* JSUint16Array.cpp in Sources */,
+				B6F114BB1673B116001F1324 /* JSUint16ArrayCustom.cpp in Sources */,
+				B6F114BD1673B116001F1324 /* JSUint32Array.cpp in Sources */,
+				B6F114C11673B116001F1324 /* JSUint32ArrayCustom.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4588,6 +4716,22 @@
 				B6D18833166FA73400D1037C /* JSArrayBufferView.cpp in Sources */,
 				B6D188711672DFE800D1037C /* JSFloat32Array.cpp in Sources */,
 				B6D1888F167381A400D1037C /* JSFloat32ArrayCustom.cpp in Sources */,
+				B6F114941673B116001F1324 /* JSFloat64Array.cpp in Sources */,
+				B6F114981673B116001F1324 /* JSFloat64ArrayCustom.cpp in Sources */,
+				B6F1149A1673B116001F1324 /* JSInt8Array.cpp in Sources */,
+				B6F1149E1673B116001F1324 /* JSInt8ArrayCustom.cpp in Sources */,
+				B6F114A01673B116001F1324 /* JSInt16Array.cpp in Sources */,
+				B6F114A41673B116001F1324 /* JSInt16ArrayCustom.cpp in Sources */,
+				B6F114A61673B116001F1324 /* JSInt32Array.cpp in Sources */,
+				B6F114AA1673B116001F1324 /* JSInt32ArrayCustom.cpp in Sources */,
+				B6F114AC1673B116001F1324 /* JSUint8Array.cpp in Sources */,
+				B6F114B01673B116001F1324 /* JSUint8ArrayCustom.cpp in Sources */,
+				B6F114B21673B116001F1324 /* JSUint8ClampedArray.cpp in Sources */,
+				B6F114B61673B116001F1324 /* JSUint8ClampedArrayCustom.cpp in Sources */,
+				B6F114B81673B116001F1324 /* JSUint16Array.cpp in Sources */,
+				B6F114BC1673B116001F1324 /* JSUint16ArrayCustom.cpp in Sources */,
+				B6F114BE1673B116001F1324 /* JSUint32Array.cpp in Sources */,
+				B6F114C21673B116001F1324 /* JSUint32ArrayCustom.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

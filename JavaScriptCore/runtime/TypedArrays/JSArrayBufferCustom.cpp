@@ -29,11 +29,11 @@
 #include <runtime/Error.h>
 #include <wtf/ArrayBuffer.h>
 
-namespace JSC {
+namespace WebCore {
 
-EncodedJSValue JSC_HOST_CALL JSArrayBufferConstructor::constructJSArrayBuffer(ExecState* exec)
+JSC::EncodedJSValue JSC_HOST_CALL JSArrayBufferConstructor::constructJSArrayBuffer(JSC::ExecState* exec)
 {
-    JSArrayBufferConstructor* jsConstructor = jsCast<JSArrayBufferConstructor*>(exec->callee());
+    JSArrayBufferConstructor* jsConstructor = JSC::jsCast<JSArrayBufferConstructor*>(exec->callee());
 
     int length = 0;
     if (exec->argumentCount() > 0)
@@ -42,8 +42,8 @@ EncodedJSValue JSC_HOST_CALL JSArrayBufferConstructor::constructJSArrayBuffer(Ex
     if (length >= 0)
         buffer = ArrayBuffer::create(static_cast<unsigned>(length), 1);
     if (!buffer.get())
-        return throwVMError(exec, createRangeError(exec, "ArrayBuffer size is not a small enough positive integer."));
-    return JSValue::encode(asObject(toJS(exec, jsConstructor->globalObject(), buffer.get())));
+        return JSC::throwVMError(exec, JSC::createRangeError(exec, "ArrayBuffer size is not a small enough positive integer."));
+    return JSC::JSValue::encode(asObject(toJS(exec, jsConstructor->globalObject(), buffer.get())));
 }
 
 } // namespace WebCore

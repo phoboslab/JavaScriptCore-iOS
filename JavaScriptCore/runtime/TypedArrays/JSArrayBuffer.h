@@ -29,12 +29,12 @@
 #include <runtime/ObjectPrototype.h>
 #include <wtf/ArrayBuffer.h>
 
-namespace JSC {
+namespace WebCore {
 
-class JSArrayBuffer : public JSNonFinalObject {
+class JSArrayBuffer : public JSC::JSNonFinalObject {
 public:
-    typedef JSNonFinalObject Base;
-    static JSArrayBuffer* create(JSC::Structure* structure, JSGlobalObject* globalObject, PassRefPtr<ArrayBuffer> impl)
+    typedef JSC::JSNonFinalObject Base;
+    static JSArrayBuffer* create(JSC::Structure* structure, JSC::JSGlobalObject* globalObject, PassRefPtr<ArrayBuffer> impl)
     {
         JSArrayBuffer* ptr = new (NotNull, JSC::allocateCell<JSArrayBuffer>(globalObject->globalData().heap)) JSArrayBuffer(structure, globalObject, impl);
         ptr->finishCreation(globalObject->globalData());
@@ -62,7 +62,7 @@ public:
 private:
     ArrayBuffer* m_impl;
 protected:
-    JSArrayBuffer(JSC::Structure*, JSGlobalObject*, PassRefPtr<ArrayBuffer>);
+    JSArrayBuffer(JSC::Structure*, JSC::JSGlobalObject*, PassRefPtr<ArrayBuffer>);
     void finishCreation(JSC::JSGlobalData&);
     static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
@@ -85,7 +85,7 @@ inline void* wrapperContext(DOMWrapperWorld* world, ArrayBuffer*)
 }
 */
 
-JSC::JSValue toJS(JSC::ExecState*, JSGlobalObject*, ArrayBuffer*);
+JSC::JSValue toJS(JSC::ExecState*, JSC::JSGlobalObject*, ArrayBuffer*);
 ArrayBuffer* toArrayBuffer(JSC::JSValue);
 
 class JSArrayBufferPrototype : public JSC::JSNonFinalObject {
@@ -113,14 +113,14 @@ protected:
     static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
 
-class JSArrayBufferConstructor : public InternalFunction {
+class JSArrayBufferConstructor : public JSC::InternalFunction {
 private:
-	JSArrayBufferConstructor(JSGlobalObject* globalObject, Structure* structure);
-    void finishCreation(JSC::ExecState*, JSGlobalObject*);
+	JSArrayBufferConstructor(JSC::JSGlobalObject* globalObject, JSC::Structure* structure);
+    void finishCreation(JSC::ExecState*, JSC::JSGlobalObject*);
 
 public:
-    typedef InternalFunction Base;
-    static JSArrayBufferConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSGlobalObject* globalObject)
+    typedef JSC::InternalFunction Base;
+    static JSArrayBufferConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSC::JSGlobalObject* globalObject)
     {
         JSArrayBufferConstructor* ptr = new (NotNull, JSC::allocateCell<JSArrayBufferConstructor>(*exec->heap())) JSArrayBufferConstructor(globalObject, structure);
         ptr->finishCreation(exec, globalObject);
@@ -135,7 +135,7 @@ public:
         return JSC::Structure::create(globalData, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);
     }
 protected:
-    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | InternalFunction::StructureFlags;
+    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | JSC::InternalFunction::StructureFlags;
     static JSC::EncodedJSValue JSC_HOST_CALL constructJSArrayBuffer(JSC::ExecState*);
     static JSC::ConstructType getConstructData(JSC::JSCell*, JSC::ConstructData&);
 };

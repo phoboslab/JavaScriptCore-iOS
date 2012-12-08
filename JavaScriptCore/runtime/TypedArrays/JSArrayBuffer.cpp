@@ -29,7 +29,7 @@
 
 using namespace JSC;
 
-namespace JSC {
+namespace WebCore {
 
 enum ParameterDefaultPolicy {
     DefaultIsUndefined,

@@ -26,12 +26,12 @@
 #include <runtime/ObjectPrototype.h>
 #include <wtf/ArrayBufferView.h>
 
-namespace JSC {
+namespace WebCore {
 
-class JSArrayBufferView : public JSNonFinalObject {
+class JSArrayBufferView : public JSC::JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
-    static JSArrayBufferView* create(JSC::Structure* structure, JSGlobalObject* globalObject, PassRefPtr<ArrayBufferView> impl)
+    static JSArrayBufferView* create(JSC::Structure* structure, JSC::JSGlobalObject* globalObject, PassRefPtr<ArrayBufferView> impl)
     {
         JSArrayBufferView* ptr = new (NotNull, JSC::allocateCell<JSArrayBufferView>(globalObject->globalData().heap)) JSArrayBufferView(structure, globalObject, impl);
         ptr->finishCreation(globalObject->globalData());
@@ -58,7 +58,7 @@ public:
 private:
     ArrayBufferView* m_impl;
 protected:
-    JSArrayBufferView(JSC::Structure*, JSGlobalObject*, PassRefPtr<ArrayBufferView>);
+    JSArrayBufferView(JSC::Structure*, JSC::JSGlobalObject*, PassRefPtr<ArrayBufferView>);
     void finishCreation(JSC::JSGlobalData&);
     static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
@@ -82,7 +82,7 @@ inline void* wrapperContext(DOMWrapperWorld* world, ArrayBufferView*)
 }
 */
 
-JSC::JSValue toJS(JSC::ExecState*, JSGlobalObject*, ArrayBufferView*);
+JSC::JSValue toJS(JSC::ExecState*, JSC::JSGlobalObject*, ArrayBufferView*);
 ArrayBufferView* toArrayBufferView(JSC::JSValue);
 
 class JSArrayBufferViewPrototype : public JSC::JSNonFinalObject {

@@ -29,7 +29,7 @@
 
 using namespace JSC;
 
-namespace JSC {
+namespace WebCore {
 
 ASSERT_CLASS_FITS_IN_CELL(JSArrayBufferView);
 /* Hash table */

@@ -21,6 +21,7 @@
 #include "config.h"
 #include "JSArrayBufferView.h"
 
+#include "Lookup.h"
 #include "JSArrayBuffer.h"
 #include <wtf/ArrayBuffer.h>
 #include <wtf/ArrayBufferView.h>
@@ -28,7 +29,7 @@
 
 using namespace JSC;
 
-namespace WebCore {
+namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSArrayBufferView);
 /* Hash table */
@@ -52,25 +53,36 @@ static const HashTableValue JSArrayBufferViewPrototypeTableValues[] =
 static const HashTable JSArrayBufferViewPrototypeTable = { 1, 0, JSArrayBufferViewPrototypeTableValues, 0 };
 static const HashTable* getJSArrayBufferViewPrototypeTable(ExecState* exec)
 {
-    return getHashTableForGlobalData(exec->globalData(), &JSArrayBufferViewPrototypeTable);
+	ASSERT_UNUSED(exec, exec);
+	return &JSArrayBufferViewPrototypeTable; // PL FIXME: should be one instance per global data, not super global
 }
 
 const ClassInfo JSArrayBufferViewPrototype::s_info = { "ArrayBufferViewPrototype", &Base::s_info, 0, getJSArrayBufferViewPrototypeTable, CREATE_METHOD_TABLE(JSArrayBufferViewPrototype) };
 
+
+static JSObject * globalProto = NULL;
 JSObject* JSArrayBufferViewPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSArrayBufferView>(exec, globalObject);
+	// PL FIXME: dirty hack to provide one global prototype
+	if( !globalProto ) {
+		JSGlobalData &data = exec->globalData();
+			globalProto = JSArrayBufferViewPrototype::create(data, globalObject,
+				JSArrayBufferViewPrototype::createStructure(data, globalObject,
+					globalObject->objectPrototype()));
+	}
+	return globalProto;
 }
 
 static const HashTable* getJSArrayBufferViewTable(ExecState* exec)
 {
-    return getHashTableForGlobalData(exec->globalData(), &JSArrayBufferViewTable);
+	ASSERT_UNUSED(exec, exec);
+	return &JSArrayBufferViewTable;
 }
 
 const ClassInfo JSArrayBufferView::s_info = { "ArrayBufferView", &Base::s_info, 0, getJSArrayBufferViewTable , CREATE_METHOD_TABLE(JSArrayBufferView) };
 
-JSArrayBufferView::JSArrayBufferView(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<ArrayBufferView> impl)
-    : JSDOMWrapper(structure, globalObject)
+JSArrayBufferView::JSArrayBufferView(Structure* structure, JSGlobalObject* globalObject, PassRefPtr<ArrayBufferView> impl)
+    : JSNonFinalObject(globalObject->globalData(), structure)
     , m_impl(impl.leakRef())
 {
 }
@@ -159,9 +171,8 @@ bool JSArrayBufferViewOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown
 
 void JSArrayBufferViewOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
+	ASSERT_UNUSED(context, context);
     JSArrayBufferView* jsArrayBufferView = jsCast<JSArrayBufferView*>(handle.get().asCell());
-    DOMWrapperWorld* world = static_cast<DOMWrapperWorld*>(context);
-    uncacheWrapper(world, jsArrayBufferView->impl(), jsArrayBufferView);
     jsArrayBufferView->releaseImpl();
 }
 

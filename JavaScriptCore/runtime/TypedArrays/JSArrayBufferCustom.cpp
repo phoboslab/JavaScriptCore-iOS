@@ -26,13 +26,10 @@
 #include "config.h"
 #include "JSArrayBuffer.h"
 
-#include "ExceptionCode.h"
 #include <runtime/Error.h>
 #include <wtf/ArrayBuffer.h>
 
-namespace WebCore {
-
-using namespace JSC;
+namespace JSC {
 
 EncodedJSValue JSC_HOST_CALL JSArrayBufferConstructor::constructJSArrayBuffer(ExecState* exec)
 {

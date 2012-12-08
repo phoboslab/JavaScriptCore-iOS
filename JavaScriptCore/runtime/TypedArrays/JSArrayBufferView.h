@@ -21,18 +21,17 @@
 #ifndef JSArrayBufferView_h
 #define JSArrayBufferView_h
 
-#include "JSDOMBinding.h"
 #include <runtime/JSGlobalObject.h>
 #include <runtime/JSObject.h>
 #include <runtime/ObjectPrototype.h>
 #include <wtf/ArrayBufferView.h>
 
-namespace WebCore {
+namespace JSC {
 
-class JSArrayBufferView : public JSDOMWrapper {
+class JSArrayBufferView : public JSNonFinalObject {
 public:
-    typedef JSDOMWrapper Base;
-    static JSArrayBufferView* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<ArrayBufferView> impl)
+    typedef JSNonFinalObject Base;
+    static JSArrayBufferView* create(JSC::Structure* structure, JSGlobalObject* globalObject, PassRefPtr<ArrayBufferView> impl)
     {
         JSArrayBufferView* ptr = new (NotNull, JSC::allocateCell<JSArrayBufferView>(globalObject->globalData().heap)) JSArrayBufferView(structure, globalObject, impl);
         ptr->finishCreation(globalObject->globalData());
@@ -59,7 +58,7 @@ public:
 private:
     ArrayBufferView* m_impl;
 protected:
-    JSArrayBufferView(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<ArrayBufferView>);
+    JSArrayBufferView(JSC::Structure*, JSGlobalObject*, PassRefPtr<ArrayBufferView>);
     void finishCreation(JSC::JSGlobalData&);
     static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
@@ -69,18 +68,21 @@ class JSArrayBufferViewOwner : public JSC::WeakHandleOwner {
     virtual void finalize(JSC::Handle<JSC::Unknown>, void* context);
 };
 
+/*
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld*, ArrayBufferView*)
 {
     DEFINE_STATIC_LOCAL(JSArrayBufferViewOwner, jsArrayBufferViewOwner, ());
     return &jsArrayBufferViewOwner;
 }
 
+
 inline void* wrapperContext(DOMWrapperWorld* world, ArrayBufferView*)
 {
     return world;
 }
+*/
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, ArrayBufferView*);
+JSC::JSValue toJS(JSC::ExecState*, JSGlobalObject*, ArrayBufferView*);
 ArrayBufferView* toArrayBufferView(JSC::JSValue);
 
 class JSArrayBufferViewPrototype : public JSC::JSNonFinalObject {

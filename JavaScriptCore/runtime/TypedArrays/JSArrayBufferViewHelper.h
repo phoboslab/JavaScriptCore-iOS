@@ -37,7 +37,7 @@
 #include <runtime/JSValue.h>
 #include <wtf/ArrayBufferView.h>
 
-namespace WebCore {
+namespace JSC {
 
 template <class T>
 JSC::JSValue setWebGLArrayHelper(JSC::ExecState* exec, T* impl, T* (*conversionFunc)(JSC::JSValue))

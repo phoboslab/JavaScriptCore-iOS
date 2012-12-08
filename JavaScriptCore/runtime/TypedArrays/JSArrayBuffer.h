@@ -21,18 +21,20 @@
 #ifndef JSArrayBuffer_h
 #define JSArrayBuffer_h
 
-#include "JSDOMBinding.h"
+#include "JSObject.h"
+#include "InternalFunction.h"
+
 #include <runtime/JSGlobalObject.h>
 #include <runtime/JSObject.h>
 #include <runtime/ObjectPrototype.h>
 #include <wtf/ArrayBuffer.h>
 
-namespace WebCore {
+namespace JSC {
 
-class JSArrayBuffer : public JSDOMWrapper {
+class JSArrayBuffer : public JSNonFinalObject {
 public:
-    typedef JSDOMWrapper Base;
-    static JSArrayBuffer* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<ArrayBuffer> impl)
+    typedef JSNonFinalObject Base;
+    static JSArrayBuffer* create(JSC::Structure* structure, JSGlobalObject* globalObject, PassRefPtr<ArrayBuffer> impl)
     {
         JSArrayBuffer* ptr = new (NotNull, JSC::allocateCell<JSArrayBuffer>(globalObject->globalData().heap)) JSArrayBuffer(structure, globalObject, impl);
         ptr->finishCreation(globalObject->globalData());
@@ -60,7 +62,7 @@ public:
 private:
     ArrayBuffer* m_impl;
 protected:
-    JSArrayBuffer(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<ArrayBuffer>);
+    JSArrayBuffer(JSC::Structure*, JSGlobalObject*, PassRefPtr<ArrayBuffer>);
     void finishCreation(JSC::JSGlobalData&);
     static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
@@ -70,6 +72,7 @@ class JSArrayBufferOwner : public JSC::WeakHandleOwner {
     virtual void finalize(JSC::Handle<JSC::Unknown>, void* context);
 };
 
+/*
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld*, ArrayBuffer*)
 {
     DEFINE_STATIC_LOCAL(JSArrayBufferOwner, jsArrayBufferOwner, ());
@@ -80,8 +83,9 @@ inline void* wrapperContext(DOMWrapperWorld* world, ArrayBuffer*)
 {
     return world;
 }
+*/
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, ArrayBuffer*);
+JSC::JSValue toJS(JSC::ExecState*, JSGlobalObject*, ArrayBuffer*);
 ArrayBuffer* toArrayBuffer(JSC::JSValue);
 
 class JSArrayBufferPrototype : public JSC::JSNonFinalObject {
@@ -109,16 +113,16 @@ protected:
     static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
 
-class JSArrayBufferConstructor : public DOMConstructorObject {
+class JSArrayBufferConstructor : public InternalFunction {
 private:
-    JSArrayBufferConstructor(JSC::Structure*, JSDOMGlobalObject*);
-    void finishCreation(JSC::ExecState*, JSDOMGlobalObject*);
+	JSArrayBufferConstructor(JSGlobalObject* globalObject, Structure* structure);
+    void finishCreation(JSC::ExecState*, JSGlobalObject*);
 
 public:
-    typedef DOMConstructorObject Base;
-    static JSArrayBufferConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSDOMGlobalObject* globalObject)
+    typedef InternalFunction Base;
+    static JSArrayBufferConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSGlobalObject* globalObject)
     {
-        JSArrayBufferConstructor* ptr = new (NotNull, JSC::allocateCell<JSArrayBufferConstructor>(*exec->heap())) JSArrayBufferConstructor(structure, globalObject);
+        JSArrayBufferConstructor* ptr = new (NotNull, JSC::allocateCell<JSArrayBufferConstructor>(*exec->heap())) JSArrayBufferConstructor(globalObject, structure);
         ptr->finishCreation(exec, globalObject);
         return ptr;
     }
@@ -131,7 +135,7 @@ public:
         return JSC::Structure::create(globalData, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);
     }
 protected:
-    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | DOMConstructorObject::StructureFlags;
+    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | InternalFunction::StructureFlags;
     static JSC::EncodedJSValue JSC_HOST_CALL constructJSArrayBuffer(JSC::ExecState*);
     static JSC::ConstructType getConstructData(JSC::JSCell*, JSC::ConstructData&);
 };

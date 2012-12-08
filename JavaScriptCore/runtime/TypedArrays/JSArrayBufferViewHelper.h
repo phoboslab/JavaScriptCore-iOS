@@ -163,12 +163,11 @@ PassRefPtr<C> constructArrayBufferView(JSC::ExecState* exec)
 template <typename JSType, typename WebCoreType>
 static JSC::JSValue toJSArrayBufferView(JSC::ExecState* exec, JSC::JSGlobalObject* globalObject, WebCoreType* object)
 {
-	ASSERT_UNUSED(globalObject, globalObject);
     if (!object)
         return JSC::jsNull();
 	
 	exec->heap()->reportExtraMemoryCost(object->byteLength());
-	JSC::JSCell* jsCell = reinterpret_cast<JSC::JSCell*>(object);
+	JSC::JSCell * jsCell = JSType::create(JSType::createStructure(exec->globalData(), globalObject,JSType::createPrototype(exec, globalObject)), globalObject, object);
 	return jsCell;
 }
 

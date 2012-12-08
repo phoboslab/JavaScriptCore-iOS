@@ -2883,6 +2883,7 @@
 		B6D18813166FA73300D1037C /* TypedArrays */ = {
 			isa = PBXGroup;
 			children = (
+				B6D188881673751400D1037C /* GlobalDataHelper.h */,
 				B6D18814166FA73400D1037C /* JSArrayBuffer.cpp */,
 				B6D18815166FA73400D1037C /* JSArrayBuffer.h */,
 				B6D18816166FA73400D1037C /* JSArrayBufferCustom.cpp */,
@@ -2892,7 +2893,6 @@
 				B6D1888D167381A300D1037C /* JSFloat32ArrayCustom.cpp */,
 				B6D1886E1672DFE700D1037C /* JSFloat32Array.cpp */,
 				B6D1886F1672DFE700D1037C /* JSFloat32Array.h */,
-				B6D188881673751400D1037C /* GlobalDataHelper.h */,
 			);
 			path = TypedArrays;
 			sourceTree = "<group>";

@@ -22,7 +22,7 @@
 #define JSFloat32Array_h
 
 #include "JSArrayBufferView.h"
-#include "JSDOMBinding.h"
+#include "InternalFunction.h"
 #include <runtime/JSObject.h>
 #include <wtf/Float32Array.h>
 
@@ -31,7 +31,7 @@ namespace WebCore {
 class JSFloat32Array : public JSArrayBufferView {
 public:
     typedef JSArrayBufferView Base;
-    static JSFloat32Array* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<Float32Array> impl)
+    static JSFloat32Array* create(JSC::Structure* structure, JSC::JSGlobalObject* globalObject, PassRefPtr<Float32Array> impl)
     {
         JSFloat32Array* ptr = new (NotNull, JSC::allocateCell<JSFloat32Array>(globalObject->globalData().heap)) JSFloat32Array(structure, globalObject, impl);
         ptr->finishCreation(globalObject->globalData());
@@ -64,14 +64,14 @@ public:
     intptr_t m_storageLength;
     void* m_storage;
 protected:
-    JSFloat32Array(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<Float32Array>);
+    JSFloat32Array(JSC::Structure*, JSC::JSGlobalObject*, PassRefPtr<Float32Array>);
     void finishCreation(JSC::JSGlobalData&);
     static const unsigned StructureFlags = JSC::OverridesGetPropertyNames | JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
     JSC::JSValue getByIndex(JSC::ExecState*, unsigned index);
     void indexSetter(JSC::ExecState*, unsigned index, JSC::JSValue);
 };
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, Float32Array*);
+JSC::JSValue toJS(JSC::ExecState*, JSC::JSGlobalObject*, Float32Array*);
 Float32Array* toFloat32Array(JSC::JSValue);
 
 class JSFloat32ArrayPrototype : public JSC::JSNonFinalObject {
@@ -99,14 +99,14 @@ protected:
     static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
 
-class JSFloat32ArrayConstructor : public DOMConstructorObject {
+class JSFloat32ArrayConstructor : public JSC::InternalFunction {
 private:
-    JSFloat32ArrayConstructor(JSC::Structure*, JSDOMGlobalObject*);
-    void finishCreation(JSC::ExecState*, JSDOMGlobalObject*);
+    JSFloat32ArrayConstructor(JSC::Structure*, JSC::JSGlobalObject*);
+    void finishCreation(JSC::ExecState*, JSC::JSGlobalObject*);
 
 public:
-    typedef DOMConstructorObject Base;
-    static JSFloat32ArrayConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSDOMGlobalObject* globalObject)
+    typedef JSC::InternalFunction Base;
+    static JSFloat32ArrayConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSC::JSGlobalObject* globalObject)
     {
         JSFloat32ArrayConstructor* ptr = new (NotNull, JSC::allocateCell<JSFloat32ArrayConstructor>(*exec->heap())) JSFloat32ArrayConstructor(structure, globalObject);
         ptr->finishCreation(exec, globalObject);
@@ -121,7 +121,7 @@ public:
         return JSC::Structure::create(globalData, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);
     }
 protected:
-    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | DOMConstructorObject::StructureFlags;
+    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | InternalFunction::StructureFlags;
     static JSC::EncodedJSValue JSC_HOST_CALL constructJSFloat32Array(JSC::ExecState*);
     static JSC::ConstructType getConstructData(JSC::JSCell*, JSC::ConstructData&);
 };

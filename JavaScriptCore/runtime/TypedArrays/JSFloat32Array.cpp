@@ -21,8 +21,9 @@
 #include "config.h"
 #include "JSFloat32Array.h"
 
-#include "ExceptionCode.h"
-#include "JSDOMBinding.h"
+#include "Lookup.h"
+#include "GlobalDataHelper.h"
+
 #include "JSFloat32Array.h"
 #include <runtime/Error.h>
 #include <runtime/PropertyNameArray.h>
@@ -55,14 +56,15 @@ static const HashTableValue JSFloat32ArrayConstructorTableValues[] =
 static const HashTable JSFloat32ArrayConstructorTable = { 2, 1, JSFloat32ArrayConstructorTableValues, 0 };
 const ClassInfo JSFloat32ArrayConstructor::s_info = { "Float32ArrayConstructor", &Base::s_info, &JSFloat32ArrayConstructorTable, 0, CREATE_METHOD_TABLE(JSFloat32ArrayConstructor) };
 
-JSFloat32ArrayConstructor::JSFloat32ArrayConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
-    : DOMConstructorObject(structure, globalObject)
+JSFloat32ArrayConstructor::JSFloat32ArrayConstructor(Structure* structure, JSGlobalObject* globalObject)
+    : InternalFunction(globalObject, structure)
 {
 }
 
-void JSFloat32ArrayConstructor::finishCreation(ExecState* exec, JSDOMGlobalObject* globalObject)
+void JSFloat32ArrayConstructor::finishCreation(ExecState* exec, JSGlobalObject* globalObject)
 {
-    Base::finishCreation(exec->globalData());
+	JSC::JSObject * proto = JSFloat32ArrayPrototype::self(exec, globalObject);
+    Base::finishCreation(exec->globalData(), Identifier(exec, proto->classInfo()->className));
     ASSERT(inherits(&s_info));
     putDirect(exec->globalData(), exec->propertyNames().prototype, JSFloat32ArrayPrototype::self(exec, globalObject), DontDelete | ReadOnly);
     putDirect(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontDelete | DontEnum);
@@ -70,12 +72,12 @@ void JSFloat32ArrayConstructor::finishCreation(ExecState* exec, JSDOMGlobalObjec
 
 bool JSFloat32ArrayConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    return getStaticValueSlot<JSFloat32ArrayConstructor, JSDOMWrapper>(exec, &JSFloat32ArrayConstructorTable, jsCast<JSFloat32ArrayConstructor*>(cell), propertyName, slot);
+    return getStaticFunctionSlot<InternalFunction>(exec, &JSFloat32ArrayConstructorTable, jsCast<JSFloat32ArrayConstructor*>(cell), propertyName, slot);
 }
 
 bool JSFloat32ArrayConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-    return getStaticValueDescriptor<JSFloat32ArrayConstructor, JSDOMWrapper>(exec, &JSFloat32ArrayConstructorTable, jsCast<JSFloat32ArrayConstructor*>(object), propertyName, descriptor);
+    return getStaticFunctionDescriptor<InternalFunction>(exec, &JSFloat32ArrayConstructorTable, jsCast<JSFloat32ArrayConstructor*>(object), propertyName, descriptor);
 }
 
 ConstructType JSFloat32ArrayConstructor::getConstructData(JSCell*, ConstructData& constructData)
@@ -104,7 +106,7 @@ const ClassInfo JSFloat32ArrayPrototype::s_info = { "Float32ArrayPrototype", &Ba
 
 JSObject* JSFloat32ArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSFloat32Array>(exec, globalObject);
+    return getDOMPrototype<JSFloat32ArrayPrototype>(exec, globalObject);
 }
 
 bool JSFloat32ArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -126,7 +128,7 @@ static const HashTable* getJSFloat32ArrayTable(ExecState* exec)
 
 const ClassInfo JSFloat32Array::s_info = { "Float32Array", &Base::s_info, 0, getJSFloat32ArrayTable , CREATE_METHOD_TABLE(JSFloat32Array) };
 
-JSFloat32Array::JSFloat32Array(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<Float32Array> impl)
+JSFloat32Array::JSFloat32Array(Structure* structure, JSGlobalObject* globalObject, PassRefPtr<Float32Array> impl)
     : JSArrayBufferView(structure, globalObject, impl)
 {
 }
@@ -231,7 +233,7 @@ void JSFloat32Array::getOwnPropertyNames(JSObject* object, ExecState* exec, Prop
 
 JSValue JSFloat32Array::getConstructor(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSFloat32ArrayConstructor>(exec, jsCast<JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSFloat32ArrayConstructor>(exec, jsCast<JSGlobalObject*>(globalObject));
 }
 
 EncodedJSValue JSC_HOST_CALL jsFloat32ArrayPrototypeFunctionSubarray(ExecState* exec)

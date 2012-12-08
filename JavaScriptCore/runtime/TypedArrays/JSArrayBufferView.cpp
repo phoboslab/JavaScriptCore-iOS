@@ -27,6 +27,8 @@
 #include <wtf/ArrayBufferView.h>
 #include <wtf/GetPtr.h>
 
+#include "GlobalDataHelper.h"
+
 using namespace JSC;
 
 namespace WebCore {
@@ -60,23 +62,14 @@ static const HashTable* getJSArrayBufferViewPrototypeTable(ExecState* exec)
 const ClassInfo JSArrayBufferViewPrototype::s_info = { "ArrayBufferViewPrototype", &Base::s_info, 0, getJSArrayBufferViewPrototypeTable, CREATE_METHOD_TABLE(JSArrayBufferViewPrototype) };
 
 
-static JSObject * globalProto = NULL;
 JSObject* JSArrayBufferViewPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-	// PL FIXME: dirty hack to provide one global prototype
-	if( !globalProto ) {
-		JSGlobalData &data = exec->globalData();
-			globalProto = JSArrayBufferViewPrototype::create(data, globalObject,
-				JSArrayBufferViewPrototype::createStructure(data, globalObject,
-					globalObject->objectPrototype()));
-	}
-	return globalProto;
+	return getDOMPrototype<JSArrayBufferViewPrototype>(exec, globalObject);
 }
 
 static const HashTable* getJSArrayBufferViewTable(ExecState* exec)
 {
-	ASSERT_UNUSED(exec, exec);
-	return &JSArrayBufferViewTable;
+	return getHashTableForGlobalData(exec->globalData(), &JSArrayBufferViewTable);
 }
 
 const ClassInfo JSArrayBufferView::s_info = { "ArrayBufferView", &Base::s_info, 0, getJSArrayBufferViewTable , CREATE_METHOD_TABLE(JSArrayBufferView) };

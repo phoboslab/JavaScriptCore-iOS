@@ -27,16 +27,11 @@
 #include <wtf/ArrayBuffer.h>
 #include <wtf/GetPtr.h>
 
+#include "GlobalDataHelper.h"
+
 using namespace JSC;
 
 namespace WebCore {
-
-enum ParameterDefaultPolicy {
-    DefaultIsUndefined,
-    DefaultIsNullString
-};
-
-#define MAYBE_MISSING_PARAMETER(exec, index, policy) (((policy) == DefaultIsNullString && (index) >= (exec)->argumentCount()) ? (JSValue()) : ((exec)->argument(index)))
 
 
 ASSERT_CLASS_FITS_IN_CELL(JSArrayBuffer);
@@ -195,14 +190,9 @@ JSValue jsArrayBufferConstructor(ExecState* exec, JSValue slotBase, const Identi
     return JSArrayBuffer::getConstructor(exec, domObject->globalObject());
 }
 
-static JSObject * globalConstructor;
 JSValue JSArrayBuffer::getConstructor(ExecState* exec, JSGlobalObject* globalObject)
 {
-	if( !globalConstructor ) {
-		JSArrayBufferConstructor * constructor = JSArrayBufferConstructor::create(exec, JSArrayBufferConstructor::createStructure(exec->globalData(), globalObject, globalObject->objectPrototype()), globalObject);
-		globalConstructor = constructor;
-	}
-	return globalConstructor;
+	return getDOMConstructor<JSArrayBufferConstructor>(exec, jsCast<JSGlobalObject*>(globalObject));
 }
 
 EncodedJSValue JSC_HOST_CALL jsArrayBufferPrototypeFunctionSlice(ExecState* exec)

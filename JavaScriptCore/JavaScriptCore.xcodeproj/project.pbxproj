@@ -555,6 +555,8 @@
 		B6D188731672DFE800D1037C /* JSFloat32Array.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D1886F1672DFE700D1037C /* JSFloat32Array.h */; };
 		B6D1888B1673751400D1037C /* GlobalDataHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D188881673751400D1037C /* GlobalDataHelper.h */; };
 		B6D1888C1673751400D1037C /* GlobalDataHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D188881673751400D1037C /* GlobalDataHelper.h */; };
+		B6D1888E167381A400D1037C /* JSFloat32ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6D1888D167381A300D1037C /* JSFloat32ArrayCustom.cpp */; };
+		B6D1888F167381A400D1037C /* JSFloat32ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6D1888D167381A300D1037C /* JSFloat32ArrayCustom.cpp */; };
 		B6E69991166BD63D005EF4B1 /* AbstractMacroAssembler.h in Headers */ = {isa = PBXBuildFile; fileRef = 860161DF0F3A83C100F84710 /* AbstractMacroAssembler.h */; };
 		B6E69992166BD63D005EF4B1 /* APICast.h in Headers */ = {isa = PBXBuildFile; fileRef = 1482B78A0A4305AB00517CFC /* APICast.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		B6E69993166BD63D005EF4B1 /* APIShims.h in Headers */ = {isa = PBXBuildFile; fileRef = 865F408710E7D56300947361 /* APIShims.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1831,6 +1833,7 @@
 		B6D1886E1672DFE700D1037C /* JSFloat32Array.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSFloat32Array.cpp; sourceTree = "<group>"; };
 		B6D1886F1672DFE700D1037C /* JSFloat32Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSFloat32Array.h; sourceTree = "<group>"; };
 		B6D188881673751400D1037C /* GlobalDataHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GlobalDataHelper.h; sourceTree = "<group>"; };
+		B6D1888D167381A300D1037C /* JSFloat32ArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSFloat32ArrayCustom.cpp; sourceTree = "<group>"; };
 		B6E69BC4166BD63D005EF4B1 /* libJavaScriptCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJavaScriptCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6E69BDB166BD6C1005EF4B1 /* libJSCLLIntOffsetsExtractor.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJSCLLIntOffsetsExtractor.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6E69BFD166BDCE7005EF4B1 /* libWTF.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libWTF.a; path = ../Build/libWTF.a; sourceTree = "<group>"; };
@@ -2886,6 +2889,7 @@
 				B6D18817166FA73400D1037C /* JSArrayBufferView.cpp */,
 				B6D18818166FA73400D1037C /* JSArrayBufferView.h */,
 				B6D18819166FA73400D1037C /* JSArrayBufferViewHelper.h */,
+				B6D1888D167381A300D1037C /* JSFloat32ArrayCustom.cpp */,
 				B6D1886E1672DFE700D1037C /* JSFloat32Array.cpp */,
 				B6D1886F1672DFE700D1037C /* JSFloat32Array.h */,
 				B6D188881673751400D1037C /* GlobalDataHelper.h */,
@@ -4354,6 +4358,7 @@
 				B6D18830166FA73400D1037C /* JSArrayBufferCustom.cpp in Sources */,
 				B6D18832166FA73400D1037C /* JSArrayBufferView.cpp in Sources */,
 				B6D188701672DFE800D1037C /* JSFloat32Array.cpp in Sources */,
+				B6D1888E167381A400D1037C /* JSFloat32ArrayCustom.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4582,6 +4587,7 @@
 				B6D18831166FA73400D1037C /* JSArrayBufferCustom.cpp in Sources */,
 				B6D18833166FA73400D1037C /* JSArrayBufferView.cpp in Sources */,
 				B6D188711672DFE800D1037C /* JSFloat32Array.cpp in Sources */,
+				B6D1888F167381A400D1037C /* JSFloat32ArrayCustom.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

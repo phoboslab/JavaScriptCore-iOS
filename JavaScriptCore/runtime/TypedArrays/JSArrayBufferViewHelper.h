@@ -27,9 +27,7 @@
 #ifndef JSArrayBufferViewHelper_h
 #define JSArrayBufferViewHelper_h
 
-#include "ExceptionCode.h"
 #include "JSArrayBuffer.h"
-#include "JSDOMBinding.h"
 #include <interpreter/CallFrame.h>
 #include <runtime/ArgList.h>
 #include <runtime/Error.h>
@@ -37,7 +35,7 @@
 #include <runtime/JSValue.h>
 #include <wtf/ArrayBufferView.h>
 
-namespace JSC {
+namespace WebCore {
 
 template <class T>
 JSC::JSValue setWebGLArrayHelper(JSC::ExecState* exec, T* impl, T* (*conversionFunc)(JSC::JSValue))
@@ -52,7 +50,7 @@ JSC::JSValue setWebGLArrayHelper(JSC::ExecState* exec, T* impl, T* (*conversionF
         if (exec->argumentCount() == 2)
             offset = exec->argument(1).toInt32(exec);
         if (!impl->set(array, offset))
-            setDOMException(exec, INDEX_SIZE_ERR);
+			throwTypeError(exec);
 
         return JSC::jsUndefined();
     }
@@ -67,7 +65,7 @@ JSC::JSValue setWebGLArrayHelper(JSC::ExecState* exec, T* impl, T* (*conversionF
         if (offset > impl->length()
             || offset + length > impl->length()
             || offset + length < offset)
-            setDOMException(exec, INDEX_SIZE_ERR);
+            throwTypeError(exec);
         else {
             for (uint32_t i = 0; i < length; i++) {
                 JSC::JSValue v = array->get(exec, i);
@@ -105,7 +103,7 @@ PassRefPtr<C> constructArrayBufferViewWithArrayBufferArgument(JSC::ExecState* ex
     }
     RefPtr<C> array = C::create(buffer, offset, length);
     if (!array)
-        setDOMException(exec, INDEX_SIZE_ERR);
+		throwTypeError(exec);
     return array;
 }
 
@@ -142,7 +140,7 @@ PassRefPtr<C> constructArrayBufferView(JSC::ExecState* exec)
         uint32_t length = srcArray->get(exec, JSC::Identifier(exec, "length")).toUInt32(exec);
         RefPtr<C> array = C::create(length);
         if (!array) {
-            setDOMException(exec, INDEX_SIZE_ERR);
+			throwTypeError(exec);
             return array;
         }
 
@@ -163,16 +161,15 @@ PassRefPtr<C> constructArrayBufferView(JSC::ExecState* exec)
 }
 
 template <typename JSType, typename WebCoreType>
-static JSC::JSValue toJSArrayBufferView(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, WebCoreType* object)
+static JSC::JSValue toJSArrayBufferView(JSC::ExecState* exec, JSC::JSGlobalObject* globalObject, WebCoreType* object)
 {
+	ASSERT_UNUSED(globalObject, globalObject);
     if (!object)
         return JSC::jsNull();
-
-    if (JSDOMWrapper* wrapper = getCachedWrapper(currentWorld(exec), object))
-        return wrapper;
-
-    exec->heap()->reportExtraMemoryCost(object->byteLength());
-    return createWrapper<JSType>(exec, globalObject, object);
+	
+	exec->heap()->reportExtraMemoryCost(object->byteLength());
+	JSC::JSCell* jsCell = reinterpret_cast<JSC::JSCell*>(object);
+	return jsCell;
 }
 
 } // namespace WebCore

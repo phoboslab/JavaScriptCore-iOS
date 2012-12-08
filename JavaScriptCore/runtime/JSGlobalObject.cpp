@@ -72,6 +72,10 @@
 #include "StringPrototype.h"
 #include "Debugger.h"
 
+// PL Typed Arrays
+
+#include "JSFloat32Array.h"
+
 #include "JSGlobalObject.lut.h"
 
 namespace JSC {
@@ -290,6 +294,12 @@ void JSGlobalObject::reset(JSValue prototype)
     putDirectWithoutTransition(exec->globalData(), Identifier(exec, "SyntaxError"), m_syntaxErrorConstructor.get(), DontEnum);
     putDirectWithoutTransition(exec->globalData(), Identifier(exec, "TypeError"), m_typeErrorConstructor.get(), DontEnum);
     putDirectWithoutTransition(exec->globalData(), Identifier(exec, "URIError"), m_URIErrorConstructor.get(), DontEnum);
+	
+	
+	// PL Typed Arrays
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSFloat32Array::s_info.className),
+		WebCore::JSFloat32Array::getConstructor(exec, this), DontEnum);	
+	
 
     m_evalFunction.set(exec->globalData(), this, JSFunction::create(exec, this, 1, exec->propertyNames().eval, globalFuncEval));
     putDirectWithoutTransition(exec->globalData(), exec->propertyNames().eval, m_evalFunction.get(), DontEnum);

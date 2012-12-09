@@ -38,7 +38,7 @@ void JSInt32Array::indexSetter(JSC::ExecState* exec, unsigned index, JSC::JSValu
     impl()->set(index, static_cast<signed int>(value.toInt32(exec)));
 }
 
-JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, Int32Array* object)
+JSC::JSValue toJS(JSC::ExecState* exec, JSGlobalObject* globalObject, Int32Array* object)
 {
     return toJSArrayBufferView<JSInt32Array>(exec, globalObject, object);
 }

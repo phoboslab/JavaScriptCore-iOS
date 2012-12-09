@@ -21,8 +21,9 @@
 #include "config.h"
 #include "JSUint8ClampedArray.h"
 
-#include "ExceptionCode.h"
-#include "JSDOMBinding.h"
+#include "Lookup.h"
+#include "GlobalDataHelper.h"
+
 #include "JSUint8ClampedArray.h"
 #include <runtime/Error.h>
 #include <runtime/PropertyNameArray.h>
@@ -55,27 +56,28 @@ static const HashTableValue JSUint8ClampedArrayConstructorTableValues[] =
 static const HashTable JSUint8ClampedArrayConstructorTable = { 2, 1, JSUint8ClampedArrayConstructorTableValues, 0 };
 const ClassInfo JSUint8ClampedArrayConstructor::s_info = { "Uint8ClampedArrayConstructor", &Base::s_info, &JSUint8ClampedArrayConstructorTable, 0, CREATE_METHOD_TABLE(JSUint8ClampedArrayConstructor) };
 
-JSUint8ClampedArrayConstructor::JSUint8ClampedArrayConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
-    : DOMConstructorObject(structure, globalObject)
+JSUint8ClampedArrayConstructor::JSUint8ClampedArrayConstructor(Structure* structure, JSGlobalObject* globalObject)
+    : InternalFunction(globalObject, structure)
 {
 }
 
-void JSUint8ClampedArrayConstructor::finishCreation(ExecState* exec, JSDOMGlobalObject* globalObject)
+void JSUint8ClampedArrayConstructor::finishCreation(ExecState* exec, JSGlobalObject* globalObject)
 {
-    Base::finishCreation(exec->globalData());
+	JSC::JSObject * proto = JSUint8ClampedArrayPrototype::self(exec, globalObject);
+    Base::finishCreation(exec->globalData(), Identifier(exec, proto->classInfo()->className));
     ASSERT(inherits(&s_info));
-    putDirect(exec->globalData(), exec->propertyNames().prototype, JSUint8ClampedArrayPrototype::self(exec, globalObject), DontDelete | ReadOnly);
+    putDirect(exec->globalData(), exec->propertyNames().prototype, proto, DontDelete | ReadOnly);
     putDirect(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontDelete | DontEnum);
 }
 
 bool JSUint8ClampedArrayConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    return getStaticValueSlot<JSUint8ClampedArrayConstructor, JSDOMWrapper>(exec, &JSUint8ClampedArrayConstructorTable, jsCast<JSUint8ClampedArrayConstructor*>(cell), propertyName, slot);
+	return getStaticFunctionSlot<InternalFunction>(exec, &JSUint8ClampedArrayConstructorTable, jsCast<JSUint8ClampedArrayConstructor*>(cell), propertyName, slot);
 }
 
 bool JSUint8ClampedArrayConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-    return getStaticValueDescriptor<JSUint8ClampedArrayConstructor, JSDOMWrapper>(exec, &JSUint8ClampedArrayConstructorTable, jsCast<JSUint8ClampedArrayConstructor*>(object), propertyName, descriptor);
+	return getStaticFunctionDescriptor<InternalFunction>(exec, &JSUint8ClampedArrayConstructorTable, jsCast<JSUint8ClampedArrayConstructor*>(object), propertyName, descriptor);
 }
 
 ConstructType JSUint8ClampedArrayConstructor::getConstructData(JSCell*, ConstructData& constructData)
@@ -104,7 +106,7 @@ const ClassInfo JSUint8ClampedArrayPrototype::s_info = { "Uint8ClampedArrayProto
 
 JSObject* JSUint8ClampedArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSUint8ClampedArray>(exec, globalObject);
+    return getDOMPrototype<JSUint8ClampedArrayPrototype>(exec, globalObject);
 }
 
 bool JSUint8ClampedArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -126,7 +128,7 @@ static const HashTable* getJSUint8ClampedArrayTable(ExecState* exec)
 
 const ClassInfo JSUint8ClampedArray::s_info = { "Uint8ClampedArray", &Base::s_info, 0, getJSUint8ClampedArrayTable , CREATE_METHOD_TABLE(JSUint8ClampedArray) };
 
-JSUint8ClampedArray::JSUint8ClampedArray(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<Uint8ClampedArray> impl)
+JSUint8ClampedArray::JSUint8ClampedArray(Structure* structure, JSGlobalObject* globalObject, PassRefPtr<Uint8ClampedArray> impl)
     : JSUint8Array(structure, globalObject, impl)
 {
 }
@@ -231,7 +233,7 @@ void JSUint8ClampedArray::getOwnPropertyNames(JSObject* object, ExecState* exec,
 
 JSValue JSUint8ClampedArray::getConstructor(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSUint8ClampedArrayConstructor>(exec, jsCast<JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSUint8ClampedArrayConstructor>(exec, jsCast<JSGlobalObject*>(globalObject));
 }
 
 EncodedJSValue JSC_HOST_CALL jsUint8ClampedArrayPrototypeFunctionSubarray(ExecState* exec)

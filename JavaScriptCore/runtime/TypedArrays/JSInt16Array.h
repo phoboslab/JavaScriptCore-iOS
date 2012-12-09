@@ -22,7 +22,7 @@
 #define JSInt16Array_h
 
 #include "JSArrayBufferView.h"
-#include "JSDOMBinding.h"
+#include "InternalFunction.h"
 #include <runtime/JSObject.h>
 #include <wtf/Int16Array.h>
 
@@ -31,7 +31,7 @@ namespace WebCore {
 class JSInt16Array : public JSArrayBufferView {
 public:
     typedef JSArrayBufferView Base;
-    static JSInt16Array* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<Int16Array> impl)
+    static JSInt16Array* create(JSC::Structure* structure, JSC::JSGlobalObject* globalObject, PassRefPtr<Int16Array> impl)
     {
         JSInt16Array* ptr = new (NotNull, JSC::allocateCell<JSInt16Array>(globalObject->globalData().heap)) JSInt16Array(structure, globalObject, impl);
         ptr->finishCreation(globalObject->globalData());
@@ -64,14 +64,14 @@ public:
     intptr_t m_storageLength;
     void* m_storage;
 protected:
-    JSInt16Array(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<Int16Array>);
+    JSInt16Array(JSC::Structure*, JSC::JSGlobalObject*, PassRefPtr<Int16Array>);
     void finishCreation(JSC::JSGlobalData&);
     static const unsigned StructureFlags = JSC::OverridesGetPropertyNames | JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
     JSC::JSValue getByIndex(JSC::ExecState*, unsigned index);
     void indexSetter(JSC::ExecState*, unsigned index, JSC::JSValue);
 };
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, Int16Array*);
+JSC::JSValue toJS(JSC::ExecState*, JSC::JSGlobalObject*, Int16Array*);
 Int16Array* toInt16Array(JSC::JSValue);
 
 class JSInt16ArrayPrototype : public JSC::JSNonFinalObject {
@@ -99,14 +99,14 @@ protected:
     static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
 
-class JSInt16ArrayConstructor : public DOMConstructorObject {
+class JSInt16ArrayConstructor : public JSC::InternalFunction {
 private:
-    JSInt16ArrayConstructor(JSC::Structure*, JSDOMGlobalObject*);
-    void finishCreation(JSC::ExecState*, JSDOMGlobalObject*);
+    JSInt16ArrayConstructor(JSC::Structure*, JSC::JSGlobalObject*);
+    void finishCreation(JSC::ExecState*, JSC::JSGlobalObject*);
 
 public:
-    typedef DOMConstructorObject Base;
-    static JSInt16ArrayConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSDOMGlobalObject* globalObject)
+    typedef JSC::InternalFunction Base;
+    static JSInt16ArrayConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSC::JSGlobalObject* globalObject)
     {
         JSInt16ArrayConstructor* ptr = new (NotNull, JSC::allocateCell<JSInt16ArrayConstructor>(*exec->heap())) JSInt16ArrayConstructor(structure, globalObject);
         ptr->finishCreation(exec, globalObject);
@@ -121,7 +121,7 @@ public:
         return JSC::Structure::create(globalData, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);
     }
 protected:
-    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | DOMConstructorObject::StructureFlags;
+    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | JSC::InternalFunction::StructureFlags;
     static JSC::EncodedJSValue JSC_HOST_CALL constructJSInt16Array(JSC::ExecState*);
     static JSC::ConstructType getConstructData(JSC::JSCell*, JSC::ConstructData&);
 };

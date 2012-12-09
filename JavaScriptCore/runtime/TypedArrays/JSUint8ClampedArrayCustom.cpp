@@ -38,7 +38,7 @@ void JSUint8ClampedArray::indexSetter(JSC::ExecState* exec, unsigned index, JSC:
     impl()->set(index, value.toNumber(exec));
 }
 
-JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, Uint8ClampedArray* object)
+JSC::JSValue toJS(JSC::ExecState* exec, JSGlobalObject* globalObject, Uint8ClampedArray* object)
 {
     return toJSArrayBufferView<JSUint8ClampedArray>(exec, globalObject, object);
 }

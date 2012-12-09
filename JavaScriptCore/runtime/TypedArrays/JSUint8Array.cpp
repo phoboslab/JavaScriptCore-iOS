@@ -21,8 +21,9 @@
 #include "config.h"
 #include "JSUint8Array.h"
 
-#include "ExceptionCode.h"
-#include "JSDOMBinding.h"
+#include "Lookup.h"
+#include "GlobalDataHelper.h"
+
 #include "JSUint8Array.h"
 #include <runtime/Error.h>
 #include <runtime/PropertyNameArray.h>
@@ -55,27 +56,28 @@ static const HashTableValue JSUint8ArrayConstructorTableValues[] =
 static const HashTable JSUint8ArrayConstructorTable = { 2, 1, JSUint8ArrayConstructorTableValues, 0 };
 const ClassInfo JSUint8ArrayConstructor::s_info = { "Uint8ArrayConstructor", &Base::s_info, &JSUint8ArrayConstructorTable, 0, CREATE_METHOD_TABLE(JSUint8ArrayConstructor) };
 
-JSUint8ArrayConstructor::JSUint8ArrayConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
-    : DOMConstructorObject(structure, globalObject)
+JSUint8ArrayConstructor::JSUint8ArrayConstructor(Structure* structure, JSGlobalObject* globalObject)
+    : InternalFunction(globalObject, structure)
 {
 }
 
-void JSUint8ArrayConstructor::finishCreation(ExecState* exec, JSDOMGlobalObject* globalObject)
+void JSUint8ArrayConstructor::finishCreation(ExecState* exec, JSGlobalObject* globalObject)
 {
-    Base::finishCreation(exec->globalData());
+	JSC::JSObject * proto = JSUint8ArrayPrototype::self(exec, globalObject);
+    Base::finishCreation(exec->globalData(), Identifier(exec, proto->classInfo()->className));
     ASSERT(inherits(&s_info));
-    putDirect(exec->globalData(), exec->propertyNames().prototype, JSUint8ArrayPrototype::self(exec, globalObject), DontDelete | ReadOnly);
+    putDirect(exec->globalData(), exec->propertyNames().prototype, proto, DontDelete | ReadOnly);
     putDirect(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontDelete | DontEnum);
 }
 
 bool JSUint8ArrayConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    return getStaticValueSlot<JSUint8ArrayConstructor, JSDOMWrapper>(exec, &JSUint8ArrayConstructorTable, jsCast<JSUint8ArrayConstructor*>(cell), propertyName, slot);
+	return getStaticFunctionSlot<InternalFunction>(exec, &JSUint8ArrayConstructorTable, jsCast<JSUint8ArrayConstructor*>(cell), propertyName, slot);
 }
 
 bool JSUint8ArrayConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-    return getStaticValueDescriptor<JSUint8ArrayConstructor, JSDOMWrapper>(exec, &JSUint8ArrayConstructorTable, jsCast<JSUint8ArrayConstructor*>(object), propertyName, descriptor);
+	return getStaticFunctionDescriptor<InternalFunction>(exec, &JSUint8ArrayConstructorTable, jsCast<JSUint8ArrayConstructor*>(object), propertyName, descriptor);
 }
 
 ConstructType JSUint8ArrayConstructor::getConstructData(JSCell*, ConstructData& constructData)
@@ -104,7 +106,7 @@ const ClassInfo JSUint8ArrayPrototype::s_info = { "Uint8ArrayPrototype", &Base::
 
 JSObject* JSUint8ArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSUint8Array>(exec, globalObject);
+    return getDOMPrototype<JSUint8ArrayPrototype>(exec, globalObject);
 }
 
 bool JSUint8ArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -126,7 +128,7 @@ static const HashTable* getJSUint8ArrayTable(ExecState* exec)
 
 const ClassInfo JSUint8Array::s_info = { "Uint8Array", &Base::s_info, 0, getJSUint8ArrayTable , CREATE_METHOD_TABLE(JSUint8Array) };
 
-JSUint8Array::JSUint8Array(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<Uint8Array> impl)
+JSUint8Array::JSUint8Array(Structure* structure, JSGlobalObject* globalObject, PassRefPtr<Uint8Array> impl)
     : JSArrayBufferView(structure, globalObject, impl)
 {
 }
@@ -231,7 +233,7 @@ void JSUint8Array::getOwnPropertyNames(JSObject* object, ExecState* exec, Proper
 
 JSValue JSUint8Array::getConstructor(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSUint8ArrayConstructor>(exec, jsCast<JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSUint8ArrayConstructor>(exec, jsCast<JSGlobalObject*>(globalObject));
 }
 
 EncodedJSValue JSC_HOST_CALL jsUint8ArrayPrototypeFunctionSubarray(ExecState* exec)

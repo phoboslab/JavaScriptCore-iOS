@@ -21,8 +21,9 @@
 #include "config.h"
 #include "JSFloat64Array.h"
 
-#include "ExceptionCode.h"
-#include "JSDOMBinding.h"
+#include "Lookup.h"
+#include "GlobalDataHelper.h"
+
 #include "JSFloat64Array.h"
 #include <runtime/Error.h>
 #include <runtime/PropertyNameArray.h>
@@ -55,27 +56,28 @@ static const HashTableValue JSFloat64ArrayConstructorTableValues[] =
 static const HashTable JSFloat64ArrayConstructorTable = { 2, 1, JSFloat64ArrayConstructorTableValues, 0 };
 const ClassInfo JSFloat64ArrayConstructor::s_info = { "Float64ArrayConstructor", &Base::s_info, &JSFloat64ArrayConstructorTable, 0, CREATE_METHOD_TABLE(JSFloat64ArrayConstructor) };
 
-JSFloat64ArrayConstructor::JSFloat64ArrayConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
-    : DOMConstructorObject(structure, globalObject)
+JSFloat64ArrayConstructor::JSFloat64ArrayConstructor(Structure* structure, JSC::JSGlobalObject* globalObject)
+    : InternalFunction(globalObject, structure)
 {
 }
 
-void JSFloat64ArrayConstructor::finishCreation(ExecState* exec, JSDOMGlobalObject* globalObject)
+void JSFloat64ArrayConstructor::finishCreation(ExecState* exec, JSC::JSGlobalObject* globalObject)
 {
-    Base::finishCreation(exec->globalData());
+	JSC::JSObject * proto = JSFloat64ArrayPrototype::self(exec, globalObject);
+    Base::finishCreation(exec->globalData(), Identifier(exec, proto->classInfo()->className));
     ASSERT(inherits(&s_info));
-    putDirect(exec->globalData(), exec->propertyNames().prototype, JSFloat64ArrayPrototype::self(exec, globalObject), DontDelete | ReadOnly);
+    putDirect(exec->globalData(), exec->propertyNames().prototype, proto, DontDelete | ReadOnly);
     putDirect(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontDelete | DontEnum);
 }
 
 bool JSFloat64ArrayConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    return getStaticValueSlot<JSFloat64ArrayConstructor, JSDOMWrapper>(exec, &JSFloat64ArrayConstructorTable, jsCast<JSFloat64ArrayConstructor*>(cell), propertyName, slot);
+    return getStaticFunctionSlot<InternalFunction>(exec, &JSFloat64ArrayConstructorTable, jsCast<JSFloat64ArrayConstructor*>(cell), propertyName, slot);
 }
 
 bool JSFloat64ArrayConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-    return getStaticValueDescriptor<JSFloat64ArrayConstructor, JSDOMWrapper>(exec, &JSFloat64ArrayConstructorTable, jsCast<JSFloat64ArrayConstructor*>(object), propertyName, descriptor);
+    return getStaticFunctionDescriptor<InternalFunction>(exec, &JSFloat64ArrayConstructorTable, jsCast<JSFloat64ArrayConstructor*>(object), propertyName, descriptor);
 }
 
 ConstructType JSFloat64ArrayConstructor::getConstructData(JSCell*, ConstructData& constructData)
@@ -104,7 +106,7 @@ const ClassInfo JSFloat64ArrayPrototype::s_info = { "Float64ArrayPrototype", &Ba
 
 JSObject* JSFloat64ArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSFloat64Array>(exec, globalObject);
+    return getDOMPrototype<JSFloat64ArrayPrototype>(exec, globalObject);
 }
 
 bool JSFloat64ArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -126,7 +128,7 @@ static const HashTable* getJSFloat64ArrayTable(ExecState* exec)
 
 const ClassInfo JSFloat64Array::s_info = { "Float64Array", &Base::s_info, 0, getJSFloat64ArrayTable , CREATE_METHOD_TABLE(JSFloat64Array) };
 
-JSFloat64Array::JSFloat64Array(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<Float64Array> impl)
+JSFloat64Array::JSFloat64Array(Structure* structure, JSGlobalObject* globalObject, PassRefPtr<Float64Array> impl)
     : JSArrayBufferView(structure, globalObject, impl)
 {
 }
@@ -231,7 +233,7 @@ void JSFloat64Array::getOwnPropertyNames(JSObject* object, ExecState* exec, Prop
 
 JSValue JSFloat64Array::getConstructor(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSFloat64ArrayConstructor>(exec, jsCast<JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSFloat64ArrayConstructor>(exec, jsCast<JSGlobalObject*>(globalObject));
 }
 
 EncodedJSValue JSC_HOST_CALL jsFloat64ArrayPrototypeFunctionSubarray(ExecState* exec)

@@ -22,7 +22,7 @@
 #define JSUint8Array_h
 
 #include "JSArrayBufferView.h"
-#include "JSDOMBinding.h"
+#include "InternalFunction.h"
 #include <runtime/JSObject.h>
 #include <wtf/Uint8Array.h>
 
@@ -31,7 +31,7 @@ namespace WebCore {
 class JSUint8Array : public JSArrayBufferView {
 public:
     typedef JSArrayBufferView Base;
-    static JSUint8Array* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<Uint8Array> impl)
+    static JSUint8Array* create(JSC::Structure* structure, JSC::JSGlobalObject* globalObject, PassRefPtr<Uint8Array> impl)
     {
         JSUint8Array* ptr = new (NotNull, JSC::allocateCell<JSUint8Array>(globalObject->globalData().heap)) JSUint8Array(structure, globalObject, impl);
         ptr->finishCreation(globalObject->globalData());
@@ -64,14 +64,14 @@ public:
     intptr_t m_storageLength;
     void* m_storage;
 protected:
-    JSUint8Array(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<Uint8Array>);
+    JSUint8Array(JSC::Structure*, JSC::JSGlobalObject*, PassRefPtr<Uint8Array>);
     void finishCreation(JSC::JSGlobalData&);
     static const unsigned StructureFlags = JSC::OverridesGetPropertyNames | JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
     JSC::JSValue getByIndex(JSC::ExecState*, unsigned index);
     void indexSetter(JSC::ExecState*, unsigned index, JSC::JSValue);
 };
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, Uint8Array*);
+JSC::JSValue toJS(JSC::ExecState*, JSC::JSGlobalObject*, Uint8Array*);
 Uint8Array* toUint8Array(JSC::JSValue);
 
 class JSUint8ArrayPrototype : public JSC::JSNonFinalObject {
@@ -99,14 +99,14 @@ protected:
     static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
 
-class JSUint8ArrayConstructor : public DOMConstructorObject {
+class JSUint8ArrayConstructor : public JSC::InternalFunction {
 private:
-    JSUint8ArrayConstructor(JSC::Structure*, JSDOMGlobalObject*);
-    void finishCreation(JSC::ExecState*, JSDOMGlobalObject*);
+    JSUint8ArrayConstructor(JSC::Structure*, JSC::JSGlobalObject*);
+    void finishCreation(JSC::ExecState*, JSC::JSGlobalObject*);
 
 public:
-    typedef DOMConstructorObject Base;
-    static JSUint8ArrayConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSDOMGlobalObject* globalObject)
+    typedef JSC::InternalFunction Base;
+    static JSUint8ArrayConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSC::JSGlobalObject* globalObject)
     {
         JSUint8ArrayConstructor* ptr = new (NotNull, JSC::allocateCell<JSUint8ArrayConstructor>(*exec->heap())) JSUint8ArrayConstructor(structure, globalObject);
         ptr->finishCreation(exec, globalObject);
@@ -121,7 +121,7 @@ public:
         return JSC::Structure::create(globalData, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);
     }
 protected:
-    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | DOMConstructorObject::StructureFlags;
+    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::ImplementsHasInstance | JSC::InternalFunction::StructureFlags;
     static JSC::EncodedJSValue JSC_HOST_CALL constructJSUint8Array(JSC::ExecState*);
     static JSC::ConstructType getConstructData(JSC::JSCell*, JSC::ConstructData&);
 };

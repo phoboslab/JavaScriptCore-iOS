@@ -21,8 +21,9 @@
 #include "config.h"
 #include "JSUint32Array.h"
 
-#include "ExceptionCode.h"
-#include "JSDOMBinding.h"
+#include "Lookup.h"
+#include "GlobalDataHelper.h"
+
 #include "JSUint32Array.h"
 #include <runtime/Error.h>
 #include <runtime/PropertyNameArray.h>
@@ -55,27 +56,28 @@ static const HashTableValue JSUint32ArrayConstructorTableValues[] =
 static const HashTable JSUint32ArrayConstructorTable = { 2, 1, JSUint32ArrayConstructorTableValues, 0 };
 const ClassInfo JSUint32ArrayConstructor::s_info = { "Uint32ArrayConstructor", &Base::s_info, &JSUint32ArrayConstructorTable, 0, CREATE_METHOD_TABLE(JSUint32ArrayConstructor) };
 
-JSUint32ArrayConstructor::JSUint32ArrayConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
-    : DOMConstructorObject(structure, globalObject)
+JSUint32ArrayConstructor::JSUint32ArrayConstructor(Structure* structure, JSGlobalObject* globalObject)
+    : InternalFunction(globalObject, structure)
 {
 }
 
-void JSUint32ArrayConstructor::finishCreation(ExecState* exec, JSDOMGlobalObject* globalObject)
+void JSUint32ArrayConstructor::finishCreation(ExecState* exec, JSGlobalObject* globalObject)
 {
-    Base::finishCreation(exec->globalData());
+	JSC::JSObject * proto = JSUint32ArrayPrototype::self(exec, globalObject);
+    Base::finishCreation(exec->globalData(), Identifier(exec, proto->classInfo()->className));
     ASSERT(inherits(&s_info));
-    putDirect(exec->globalData(), exec->propertyNames().prototype, JSUint32ArrayPrototype::self(exec, globalObject), DontDelete | ReadOnly);
+    putDirect(exec->globalData(), exec->propertyNames().prototype, proto, DontDelete | ReadOnly);
     putDirect(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontDelete | DontEnum);
 }
 
 bool JSUint32ArrayConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    return getStaticValueSlot<JSUint32ArrayConstructor, JSDOMWrapper>(exec, &JSUint32ArrayConstructorTable, jsCast<JSUint32ArrayConstructor*>(cell), propertyName, slot);
+	return getStaticFunctionSlot<InternalFunction>(exec, &JSUint32ArrayConstructorTable, jsCast<JSUint32ArrayConstructor*>(cell), propertyName, slot);
 }
 
 bool JSUint32ArrayConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-    return getStaticValueDescriptor<JSUint32ArrayConstructor, JSDOMWrapper>(exec, &JSUint32ArrayConstructorTable, jsCast<JSUint32ArrayConstructor*>(object), propertyName, descriptor);
+	return getStaticFunctionDescriptor<InternalFunction>(exec, &JSUint32ArrayConstructorTable, jsCast<JSUint32ArrayConstructor*>(object), propertyName, descriptor);
 }
 
 ConstructType JSUint32ArrayConstructor::getConstructData(JSCell*, ConstructData& constructData)
@@ -104,7 +106,7 @@ const ClassInfo JSUint32ArrayPrototype::s_info = { "Uint32ArrayPrototype", &Base
 
 JSObject* JSUint32ArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSUint32Array>(exec, globalObject);
+    return getDOMPrototype<JSUint32ArrayPrototype>(exec, globalObject);
 }
 
 bool JSUint32ArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -126,7 +128,7 @@ static const HashTable* getJSUint32ArrayTable(ExecState* exec)
 
 const ClassInfo JSUint32Array::s_info = { "Uint32Array", &Base::s_info, 0, getJSUint32ArrayTable , CREATE_METHOD_TABLE(JSUint32Array) };
 
-JSUint32Array::JSUint32Array(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<Uint32Array> impl)
+JSUint32Array::JSUint32Array(Structure* structure, JSGlobalObject* globalObject, PassRefPtr<Uint32Array> impl)
     : JSArrayBufferView(structure, globalObject, impl)
 {
 }
@@ -231,7 +233,7 @@ void JSUint32Array::getOwnPropertyNames(JSObject* object, ExecState* exec, Prope
 
 JSValue JSUint32Array::getConstructor(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMConstructor<JSUint32ArrayConstructor>(exec, jsCast<JSDOMGlobalObject*>(globalObject));
+    return getDOMConstructor<JSUint32ArrayConstructor>(exec, jsCast<JSGlobalObject*>(globalObject));
 }
 
 EncodedJSValue JSC_HOST_CALL jsUint32ArrayPrototypeFunctionSubarray(ExecState* exec)

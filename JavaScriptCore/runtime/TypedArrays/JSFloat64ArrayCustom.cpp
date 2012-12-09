@@ -38,7 +38,7 @@ void JSFloat64Array::indexSetter(JSC::ExecState* exec, unsigned index, JSC::JSVa
     impl()->set(index, value.toNumber(exec));
 }
 
-JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, Float64Array* object)
+JSC::JSValue toJS(JSC::ExecState* exec, JSGlobalObject* globalObject, Float64Array* object)
 {
     return toJSArrayBufferView<JSFloat64Array>(exec, globalObject, object);
 }

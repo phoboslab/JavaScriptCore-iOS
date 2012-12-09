@@ -74,7 +74,16 @@
 
 // PL Typed Arrays
 
+#include "JSArrayBuffer.h"
 #include "JSFloat32Array.h"
+#include "JSFloat64Array.h"
+#include "JSInt8Array.h"
+#include "JSInt16Array.h"
+#include "JSInt32Array.h"
+#include "JSUint8ClampedArray.h"
+#include "JSUint8Array.h"
+#include "JSUint16Array.h"
+#include "JSUint32Array.h"
 
 #include "JSGlobalObject.lut.h"
 
@@ -297,8 +306,38 @@ void JSGlobalObject::reset(JSValue prototype)
 	
 	
 	// PL Typed Arrays
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSArrayBuffer::s_info.className),
+		WebCore::JSArrayBuffer::getConstructor(exec, this), DontEnum);
+		
 	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSFloat32Array::s_info.className),
-		WebCore::JSFloat32Array::getConstructor(exec, this), DontEnum);	
+		WebCore::JSFloat32Array::getConstructor(exec, this), DontEnum);
+		
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSFloat32Array::s_info.className),
+		WebCore::JSFloat32Array::getConstructor(exec, this), DontEnum);
+		
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSFloat64Array::s_info.className),
+		WebCore::JSFloat64Array::getConstructor(exec, this), DontEnum);
+		
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSInt8Array::s_info.className),
+		WebCore::JSInt8Array::getConstructor(exec, this), DontEnum);
+		
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSInt16Array::s_info.className),
+		WebCore::JSInt16Array::getConstructor(exec, this), DontEnum);
+		
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSInt32Array::s_info.className),
+		WebCore::JSInt32Array::getConstructor(exec, this), DontEnum);
+		
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSUint8ClampedArray::s_info.className),
+		WebCore::JSUint8ClampedArray::getConstructor(exec, this), DontEnum);
+		
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSUint8Array::s_info.className),
+		WebCore::JSUint8Array::getConstructor(exec, this), DontEnum);
+		
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSUint16Array::s_info.className),
+		WebCore::JSUint16Array::getConstructor(exec, this), DontEnum);
+		
+	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSUint32Array::s_info.className),
+		WebCore::JSFloat32Array::getConstructor(exec, this), DontEnum);
 	
 
     m_evalFunction.set(exec->globalData(), this, JSFunction::create(exec, this, 1, exec->propertyNames().eval, globalFuncEval));

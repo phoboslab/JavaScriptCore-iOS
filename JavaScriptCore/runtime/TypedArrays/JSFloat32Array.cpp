@@ -66,7 +66,7 @@ void JSFloat32ArrayConstructor::finishCreation(ExecState* exec, JSGlobalObject* 
 	JSC::JSObject * proto = JSFloat32ArrayPrototype::self(exec, globalObject);
     Base::finishCreation(exec->globalData(), Identifier(exec, proto->classInfo()->className));
     ASSERT(inherits(&s_info));
-    putDirect(exec->globalData(), exec->propertyNames().prototype, JSFloat32ArrayPrototype::self(exec, globalObject), DontDelete | ReadOnly);
+    putDirect(exec->globalData(), exec->propertyNames().prototype, proto, DontDelete | ReadOnly);
     putDirect(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontDelete | DontEnum);
 }
 

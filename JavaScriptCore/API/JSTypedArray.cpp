@@ -39,6 +39,8 @@ const JSTypedArrayType TypedArrayTypes[] = {
     [TypedArrayFloat64] = kJSTypedArrayTypeFloat64Array
 };
 
+const int kJSTypedArrayTypeLast = kJSTypedArrayTypeFloat64Array;
+
 
 template <typename ArrayType>JSObject * CreateTypedArray(JSC::ExecState* exec, size_t length) {
     RefPtr<ArrayType> array = ArrayType::create(length);
@@ -81,7 +83,7 @@ JSValueRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayType, size_t
     APIEntryShim entryShim(exec);
     
     JSObject* result;
-    if( arrayType > kJSTypedArrayTypeNone && arrayType < kJSTypedArrayTypeLast ) {
+    if( arrayType > kJSTypedArrayTypeNone && arrayType <= kJSTypedArrayTypeLast ) {
         result = CreateTypedArrayFunc[arrayType]( exec, numElements );
     }
 

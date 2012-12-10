@@ -14,6 +14,12 @@ The compiled .idl files of the WebCore project were adapted to work directly in 
 
 I also wrote some new API methods to work with Typed Arrays in native code. Have a lookt at the `API/JSTypedArray.h`, it declares three new API functions. The documentation for these functoins can be found in this header file as well.
 
+## Binaries
+
+A binary version of the libJavaScriptCore.a that includes Typed Array support can be found here; don't expect this to be up to date, though:
+
+http://phoboslab.org/crap/libJavaScriptCore-TypedArrays.zip
+
 ## How to Compile
 
 1. Create a `Build/` directory in the top level of this repo. The combined `libWTF.a` and `JavaScriptCore.a` will be placed here

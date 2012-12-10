@@ -51,7 +51,7 @@ JS_EXPORT JSTypedArrayType JSTypedArrayGetType(JSContextRef ctx, JSValueRef valu
 @param numElements  The number of elements for the array.
 @result             A JSValueRef that is a Typed Array or NULL if there was an error
 */
-JS_EXPORT JSValueRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayClass, size_t numElements);
+JS_EXPORT JSValueRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements);
 
 /*!
 @function

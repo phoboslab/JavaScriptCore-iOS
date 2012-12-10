@@ -78,7 +78,7 @@ JSTypedArrayType JSTypedArrayGetType(JSContextRef ctx, JSValueRef value) {
     return kJSTypedArrayTypeNone;
 }
 
-JSValueRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements) {
+JSObjectRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements) {
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
     

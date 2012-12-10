@@ -49,9 +49,9 @@ JS_EXPORT JSTypedArrayType JSTypedArrayGetType(JSContextRef ctx, JSValueRef valu
 @param ctx          The execution context to use.
 @param arrayClass   A value of type JSTypedArrayType identifying the type of array you want to create
 @param numElements  The number of elements for the array.
-@result             A JSValueRef that is a Typed Array or NULL if there was an error
+@result             A JSObjectRef that is a Typed Array or NULL if there was an error
 */
-JS_EXPORT JSValueRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements);
+JS_EXPORT JSObjectRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements);
 
 /*!
 @function

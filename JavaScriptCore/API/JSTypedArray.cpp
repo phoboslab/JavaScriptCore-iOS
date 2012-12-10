@@ -102,6 +102,9 @@ void * JSTypedArrayGetDataPtr(JSContextRef ctx, JSValueRef value, size_t * byteL
         return view->baseAddress();
     }
     
+    if( byteLength ) {
+        *byteLength = 0;
+    }
     return NULL;
 }
 

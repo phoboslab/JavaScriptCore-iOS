@@ -6,9 +6,13 @@ This repo aims to re-produce the missing iOS targets while staying on a somewhat
 
 Currently, the [Safari 6.0.2 release](https://svn.webkit.org/repository/webkit/releases/Apple/Safari%206.0.2/) is used as the basis. With the current settings, the WTF and JavaScriptCore libraries can be compiled for armv7 and x86 (for the iOS simulator). It will be compiled without Unicode collation support, because Apple claims [ICU](http://site.icu-project.org/) is a private framework on iOS. It should be AppStore compatible this way.
 
-## Binaries
+## Typed Array Branch
 
-A compiled version of the `libJavaScriptCore.a` for armv7 and the Simulator can be found in the [source tree](https://github.com/phoboslab/Ejecta/tree/master/Source/lib) of the [Ejecta project](https://github.com/phoboslab/Ejecta).
+This branch enables support for JavaScript's Typed Arrays which are normally a part of WebKit, not of JavaScriptCore. 
+
+The compiled .idl files of the WebCore project were adapted to work directly in JavaScriptCore; all DOM references were removed or replaced. As far as I can tell everything works. However, I took some shortcuts for defining the Array's prototypes and constructors: they're all shared across all JSC Contexts - so it will probably explode in your face when you use several Contexts _and_ modify the prototypes in JavaScript.
+
+I also wrote some new API methods to work with Typed Arrays in native code. Have a lookt at the `API/JSTypedArray.h`, it declares three new API functions. The documentation for these functoins can be found in this header file as well.
 
 ## How to Compile
 

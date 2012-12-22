@@ -36,14 +36,23 @@ const JSTypedArrayType TypedArrayTypes[] = {
     [TypedArrayUint16] = kJSTypedArrayTypeUint16Array,
     [TypedArrayUint32] = kJSTypedArrayTypeUint32Array,
     [TypedArrayFloat32] = kJSTypedArrayTypeFloat32Array,
-    [TypedArrayFloat64] = kJSTypedArrayTypeFloat64Array
+    [TypedArrayFloat64] = kJSTypedArrayTypeFloat64Array,
+    /* not a TypedArray */ kJSTypedArrayTypeArrayBuffer
 };
 
-const int kJSTypedArrayTypeLast = kJSTypedArrayTypeFloat64Array;
+const int kJSTypedArrayTypeLast = kJSTypedArrayTypeArrayBuffer;
 
 
 template <typename ArrayType>JSObject * CreateTypedArray(JSC::ExecState* exec, size_t length) {
     RefPtr<ArrayType> array = ArrayType::create(length);
+    if( !array.get() ) {
+        return NULL;
+    }
+    return asObject(toJS(exec, exec->lexicalGlobalObject(), array.get()));
+}
+
+template <typename BufferType>JSObject * CreateArrayBuffer(JSC::ExecState* exec, size_t length) {
+    RefPtr<BufferType> array = BufferType::create(length, 1);
     if( !array.get() ) {
         return NULL;
     }
@@ -61,7 +70,8 @@ const CreateTypedArrayFuncPtr CreateTypedArrayFunc[] = {
     [kJSTypedArrayTypeUint16Array] = CreateTypedArray<Uint16Array>,
     [kJSTypedArrayTypeUint32Array] = CreateTypedArray<Uint32Array>,
     [kJSTypedArrayTypeFloat32Array] = CreateTypedArray<Float32Array>,
-    [kJSTypedArrayTypeFloat64Array] = CreateTypedArray<Float64Array>
+    [kJSTypedArrayTypeFloat64Array] = CreateTypedArray<Float64Array>,
+    [kJSTypedArrayTypeArrayBuffer] = CreateArrayBuffer<ArrayBuffer>,
 };
 
 
@@ -72,10 +82,15 @@ JSTypedArrayType JSTypedArrayGetType(JSContextRef ctx, JSValueRef value) {
     APIEntryShim entryShim(exec);
 
     JSValue jsValue = toJS(exec, value);
-    if( JSObject* object = jsValue.getObject() ) {
-        return TypedArrayTypes[object->classInfo()->typedArrayStorageType];
+    JSTypedArrayType type = kJSTypedArrayTypeNone;
+    if( jsValue.inherits(&JSArrayBufferView::s_info) ) {
+        JSObject* object = jsValue.getObject();
+        type = TypedArrayTypes[object->classInfo()->typedArrayStorageType];
     }
-    return kJSTypedArrayTypeNone;
+    else if( jsValue.inherits(&JSArrayBuffer::s_info) ) {
+        type = kJSTypedArrayTypeArrayBuffer;
+    }
+    return type;
 }
 
 JSObjectRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements) {
@@ -100,6 +115,12 @@ void * JSTypedArrayGetDataPtr(JSContextRef ctx, JSValueRef value, size_t * byteL
             *byteLength = view->byteLength();
         }
         return view->baseAddress();
+    }
+    else if( ArrayBuffer * buffer = toArrayBuffer(jsValue) ) {
+        if( byteLength ) {
+            *byteLength = buffer->byteLength();
+        }
+        return buffer->data();
     }
     
     if( byteLength ) {

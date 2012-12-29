@@ -312,9 +312,6 @@ void JSGlobalObject::reset(JSValue prototype)
 	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSFloat32Array::s_info.className),
 		WebCore::JSFloat32Array::getConstructor(exec, this), DontEnum);
 		
-	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSFloat32Array::s_info.className),
-		WebCore::JSFloat32Array::getConstructor(exec, this), DontEnum);
-		
 	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSFloat64Array::s_info.className),
 		WebCore::JSFloat64Array::getConstructor(exec, this), DontEnum);
 		
@@ -337,7 +334,7 @@ void JSGlobalObject::reset(JSValue prototype)
 		WebCore::JSUint16Array::getConstructor(exec, this), DontEnum);
 		
 	putDirectWithoutTransition(exec->globalData(), Identifier(exec, WebCore::JSUint32Array::s_info.className),
-		WebCore::JSFloat32Array::getConstructor(exec, this), DontEnum);
+		WebCore::JSUint32Array::getConstructor(exec, this), DontEnum);
 	
 
     m_evalFunction.set(exec->globalData(), this, JSFunction::create(exec, this, 1, exec->propertyNames().eval, globalFuncEval));

@@ -72,12 +72,12 @@ void JSFloat32ArrayConstructor::finishCreation(ExecState* exec, JSGlobalObject* 
 
 bool JSFloat32ArrayConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    return getStaticFunctionSlot<InternalFunction>(exec, &JSFloat32ArrayConstructorTable, jsCast<JSFloat32ArrayConstructor*>(cell), propertyName, slot);
+	return getStaticValueSlot<JSFloat32ArrayConstructor, JSObject>(exec, &JSFloat32ArrayConstructorTable, jsCast<JSFloat32ArrayConstructor*>(cell), propertyName, slot);
 }
 
 bool JSFloat32ArrayConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-    return getStaticFunctionDescriptor<InternalFunction>(exec, &JSFloat32ArrayConstructorTable, jsCast<JSFloat32ArrayConstructor*>(object), propertyName, descriptor);
+    return getStaticValueDescriptor<JSFloat32ArrayConstructor, JSObject>(exec, &JSFloat32ArrayConstructorTable, jsCast<JSFloat32ArrayConstructor*>(object), propertyName, descriptor);
 }
 
 ConstructType JSFloat32ArrayConstructor::getConstructData(JSCell*, ConstructData& constructData)

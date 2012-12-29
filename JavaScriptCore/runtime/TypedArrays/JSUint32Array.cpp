@@ -72,12 +72,12 @@ void JSUint32ArrayConstructor::finishCreation(ExecState* exec, JSGlobalObject* g
 
 bool JSUint32ArrayConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-	return getStaticFunctionSlot<InternalFunction>(exec, &JSUint32ArrayConstructorTable, jsCast<JSUint32ArrayConstructor*>(cell), propertyName, slot);
+	return getStaticValueSlot<JSUint32ArrayConstructor, JSObject>(exec, &JSUint32ArrayConstructorTable, jsCast<JSUint32ArrayConstructor*>(cell), propertyName, slot);
 }
 
 bool JSUint32ArrayConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-	return getStaticFunctionDescriptor<InternalFunction>(exec, &JSUint32ArrayConstructorTable, jsCast<JSUint32ArrayConstructor*>(object), propertyName, descriptor);
+	return getStaticValueDescriptor<JSUint32ArrayConstructor, JSObject>(exec, &JSUint32ArrayConstructorTable, jsCast<JSUint32ArrayConstructor*>(object), propertyName, descriptor);
 }
 
 ConstructType JSUint32ArrayConstructor::getConstructData(JSCell*, ConstructData& constructData)

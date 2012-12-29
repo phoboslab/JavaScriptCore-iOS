@@ -72,12 +72,12 @@ void JSUint8ClampedArrayConstructor::finishCreation(ExecState* exec, JSGlobalObj
 
 bool JSUint8ClampedArrayConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-	return getStaticFunctionSlot<InternalFunction>(exec, &JSUint8ClampedArrayConstructorTable, jsCast<JSUint8ClampedArrayConstructor*>(cell), propertyName, slot);
+	return getStaticValueSlot<JSUint8ClampedArrayConstructor, JSObject>(exec, &JSUint8ClampedArrayConstructorTable, jsCast<JSUint8ClampedArrayConstructor*>(cell), propertyName, slot);
 }
 
 bool JSUint8ClampedArrayConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-	return getStaticFunctionDescriptor<InternalFunction>(exec, &JSUint8ClampedArrayConstructorTable, jsCast<JSUint8ClampedArrayConstructor*>(object), propertyName, descriptor);
+	return getStaticValueDescriptor<JSUint8ClampedArrayConstructor, JSObject>(exec, &JSUint8ClampedArrayConstructorTable, jsCast<JSUint8ClampedArrayConstructor*>(object), propertyName, descriptor);
 }
 
 ConstructType JSUint8ClampedArrayConstructor::getConstructData(JSCell*, ConstructData& constructData)

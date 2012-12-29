@@ -71,12 +71,12 @@ void JSArrayBufferConstructor::finishCreation(ExecState* exec, JSGlobalObject* g
 
 bool JSArrayBufferConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    return getStaticFunctionSlot<InternalFunction>(exec, &JSArrayBufferConstructorTable, jsCast<JSArrayBufferConstructor*>(cell), propertyName, slot);
+    return getStaticValueSlot<JSArrayBufferConstructor, JSObject>(exec, &JSArrayBufferConstructorTable, jsCast<JSArrayBufferConstructor*>(cell), propertyName, slot);
 }
 
 bool JSArrayBufferConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-    return getStaticFunctionDescriptor<InternalFunction>(exec, &JSArrayBufferConstructorTable, jsCast<JSArrayBufferConstructor*>(object), propertyName, descriptor);
+    return getStaticValueDescriptor<JSArrayBufferConstructor, JSObject>(exec, &JSArrayBufferConstructorTable, jsCast<JSArrayBufferConstructor*>(object), propertyName, descriptor);
 }
 
 ConstructType JSArrayBufferConstructor::getConstructData(JSCell*, ConstructData& constructData)

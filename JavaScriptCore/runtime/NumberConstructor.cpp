@@ -61,6 +61,8 @@ NumberConstructor::NumberConstructor(JSGlobalObject* globalObject, Structure* st
 {
 }
 
+static double MinValueAccountingForDenormals = DBL_MIN;
+
 void NumberConstructor::finishCreation(ExecState* exec, NumberPrototype* numberPrototype)
 {
     Base::finishCreation(exec->globalData(), Identifier(exec, numberPrototype->s_info.className));
@@ -71,6 +73,14 @@ void NumberConstructor::finishCreation(ExecState* exec, NumberPrototype* numberP
 
     // no. of arguments for constructor
     putDirectWithoutTransition(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontEnum | DontDelete);
+	
+	// Test for denormal support. Use 5E-324 as MIN_VALUE if we have denormals
+	// Careful: this test gets easily optimized away by the compiler, hence
+	// the assignment to another var.
+	double denormalTest = MinValueAccountingForDenormals / 2;
+	if( denormalTest != 0 ) {
+		MinValueAccountingForDenormals = 5E-324;
+	}
 }
 
 bool NumberConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -110,7 +120,7 @@ static JSValue numberConstructorMaxValue(ExecState*, JSValue, const Identifier&)
 
 static JSValue numberConstructorMinValue(ExecState*, JSValue, const Identifier&)
 {
-    return jsNumber(5E-324);
+	return jsNumber(MinValueAccountingForDenormals);
 }
 
 // ECMA 15.7.1

@@ -1794,7 +1794,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				PRODUCT_NAME = WTF;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 armv7s";
 			};
 			name = Debug;
 		};
@@ -1811,9 +1811,10 @@
 					"UCONFIG_NO_COLLATION=1",
 				);
 				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = WTF;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 armv7s";
 			};
 			name = Release;
 		};
@@ -1832,7 +1833,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				PRODUCT_NAME = WTF;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 armv7s";
 			};
 			name = Production;
 		};
@@ -1898,6 +1899,7 @@
 				B6E69982166BD499005EF4B1 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
 		};
 /* End XCConfigurationList section */
 	};

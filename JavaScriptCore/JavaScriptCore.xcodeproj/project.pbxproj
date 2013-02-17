@@ -557,6 +557,10 @@
 		B6D1888C1673751400D1037C /* GlobalDataHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D188881673751400D1037C /* GlobalDataHelper.h */; };
 		B6D1888E167381A400D1037C /* JSFloat32ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6D1888D167381A300D1037C /* JSFloat32ArrayCustom.cpp */; };
 		B6D1888F167381A400D1037C /* JSFloat32ArrayCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6D1888D167381A300D1037C /* JSFloat32ArrayCustom.cpp */; };
+		B6E02BB916D1666300616925 /* TypedArrayHashTableMap.h in Headers */ = {isa = PBXBuildFile; fileRef = B6E02BB616D1666300616925 /* TypedArrayHashTableMap.h */; };
+		B6E02BBA16D1666300616925 /* TypedArrayHashTableMap.h in Headers */ = {isa = PBXBuildFile; fileRef = B6E02BB616D1666300616925 /* TypedArrayHashTableMap.h */; };
+		B6E02BBC16D17CC400616925 /* TypedArrayHashTableMap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6E02BBB16D17CC400616925 /* TypedArrayHashTableMap.cpp */; };
+		B6E02BBD16D17CC400616925 /* TypedArrayHashTableMap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6E02BBB16D17CC400616925 /* TypedArrayHashTableMap.cpp */; };
 		B6E69991166BD63D005EF4B1 /* AbstractMacroAssembler.h in Headers */ = {isa = PBXBuildFile; fileRef = 860161DF0F3A83C100F84710 /* AbstractMacroAssembler.h */; };
 		B6E69992166BD63D005EF4B1 /* APICast.h in Headers */ = {isa = PBXBuildFile; fileRef = 1482B78A0A4305AB00517CFC /* APICast.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		B6E69993166BD63D005EF4B1 /* APIShims.h in Headers */ = {isa = PBXBuildFile; fileRef = 865F408710E7D56300947361 /* APIShims.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1886,6 +1890,8 @@
 		B6D1886F1672DFE700D1037C /* JSFloat32Array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSFloat32Array.h; sourceTree = "<group>"; };
 		B6D188881673751400D1037C /* GlobalDataHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GlobalDataHelper.h; sourceTree = "<group>"; };
 		B6D1888D167381A300D1037C /* JSFloat32ArrayCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSFloat32ArrayCustom.cpp; sourceTree = "<group>"; };
+		B6E02BB616D1666300616925 /* TypedArrayHashTableMap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TypedArrayHashTableMap.h; sourceTree = "<group>"; };
+		B6E02BBB16D17CC400616925 /* TypedArrayHashTableMap.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TypedArrayHashTableMap.cpp; sourceTree = "<group>"; };
 		B6E69BC4166BD63D005EF4B1 /* libJavaScriptCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJavaScriptCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6E69BDB166BD6C1005EF4B1 /* libJSCLLIntOffsetsExtractor.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJSCLLIntOffsetsExtractor.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6E69BFD166BDCE7005EF4B1 /* libWTF.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libWTF.a; path = ../Build/libWTF.a; sourceTree = "<group>"; };
@@ -2964,6 +2970,8 @@
 			isa = PBXGroup;
 			children = (
 				B6D188881673751400D1037C /* GlobalDataHelper.h */,
+				B6E02BBB16D17CC400616925 /* TypedArrayHashTableMap.cpp */,
+				B6E02BB616D1666300616925 /* TypedArrayHashTableMap.h */,
 				B6D18814166FA73400D1037C /* JSArrayBuffer.cpp */,
 				B6D18815166FA73400D1037C /* JSArrayBuffer.h */,
 				B6D18816166FA73400D1037C /* JSArrayBufferCustom.cpp */,
@@ -3372,6 +3380,7 @@
 				B6F114B91673B116001F1324 /* JSUint16Array.h in Headers */,
 				B6F114BF1673B116001F1324 /* JSUint32Array.h in Headers */,
 				B6F114CA16755F98001F1324 /* JSTypedArray.h in Headers */,
+				B6E02BB916D1666300616925 /* TypedArrayHashTableMap.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3731,6 +3740,7 @@
 				B6F114BA1673B116001F1324 /* JSUint16Array.h in Headers */,
 				B6F114C01673B116001F1324 /* JSUint32Array.h in Headers */,
 				B6F114CB16755F98001F1324 /* JSTypedArray.h in Headers */,
+				B6E02BBA16D1666300616925 /* TypedArrayHashTableMap.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4498,6 +4508,7 @@
 				B6F114BD1673B116001F1324 /* JSUint32Array.cpp in Sources */,
 				B6F114C11673B116001F1324 /* JSUint32ArrayCustom.cpp in Sources */,
 				B6F114C816755F98001F1324 /* JSTypedArray.cpp in Sources */,
+				B6E02BBC16D17CC400616925 /* TypedArrayHashTableMap.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4744,6 +4755,7 @@
 				B6F114BE1673B116001F1324 /* JSUint32Array.cpp in Sources */,
 				B6F114C21673B116001F1324 /* JSUint32ArrayCustom.cpp in Sources */,
 				B6F114C916755F98001F1324 /* JSTypedArray.cpp in Sources */,
+				B6E02BBD16D17CC400616925 /* TypedArrayHashTableMap.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

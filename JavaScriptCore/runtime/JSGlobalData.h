@@ -55,6 +55,8 @@
 #include <wtf/ListHashSet.h>
 #endif
 
+#include "TypedArrayHashTableMap.h"
+
 struct OpaqueJSClass;
 struct OpaqueJSClassContextData;
 
@@ -405,6 +407,9 @@ namespace JSC {
         registerTypedArrayFunction(float32, Float32);
         registerTypedArrayFunction(float64, Float64);
 #undef registerTypedArrayFunction
+		
+		WebCore::TypedArrayHashTableMap typedArrayHashTableMap;
+
 
         JSLock& apiLock() { return m_apiLock; }
 

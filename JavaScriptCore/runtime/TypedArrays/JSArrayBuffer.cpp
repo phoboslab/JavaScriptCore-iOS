@@ -96,8 +96,7 @@ static const HashTableValue JSArrayBufferPrototypeTableValues[] =
 static const HashTable JSArrayBufferPrototypeTable = { 2, 1, JSArrayBufferPrototypeTableValues, 0 };
 static const HashTable* getJSArrayBufferPrototypeTable(ExecState* exec)
 {
-	ASSERT_UNUSED(exec, exec);
-	return &JSArrayBufferPrototypeTable; // PL FIXME: should be one instance per global data, not super global
+	return getHashTableForGlobalData(exec->globalData(), &JSArrayBufferPrototypeTable);
 }
 
 const ClassInfo JSArrayBufferPrototype::s_info = { "ArrayBufferPrototype", &Base::s_info, 0, getJSArrayBufferPrototypeTable, CREATE_METHOD_TABLE(JSArrayBufferPrototype) };
@@ -105,11 +104,7 @@ const ClassInfo JSArrayBufferPrototype::s_info = { "ArrayBufferPrototype", &Base
 static JSObject * globalProto = NULL;
 JSObject* JSArrayBufferPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-	// PL FIXME: dirty hack to provide one global prototype
-	if( !globalProto ) {
-		globalProto = JSArrayBuffer::createPrototype(exec, globalObject);
-	}
-	return globalProto;
+	return getDOMPrototype<JSArrayBufferPrototype>(exec, globalObject);
 }
 
 bool JSArrayBufferPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)

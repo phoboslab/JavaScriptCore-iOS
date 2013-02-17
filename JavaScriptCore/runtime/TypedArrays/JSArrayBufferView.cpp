@@ -55,8 +55,7 @@ static const HashTableValue JSArrayBufferViewPrototypeTableValues[] =
 static const HashTable JSArrayBufferViewPrototypeTable = { 1, 0, JSArrayBufferViewPrototypeTableValues, 0 };
 static const HashTable* getJSArrayBufferViewPrototypeTable(ExecState* exec)
 {
-	ASSERT_UNUSED(exec, exec);
-	return &JSArrayBufferViewPrototypeTable; // PL FIXME: should be one instance per global data, not super global
+	return getHashTableForGlobalData(exec->globalData(), &JSArrayBufferViewPrototypeTable);
 }
 
 const ClassInfo JSArrayBufferViewPrototype::s_info = { "ArrayBufferViewPrototype", &Base::s_info, 0, getJSArrayBufferViewPrototypeTable, CREATE_METHOD_TABLE(JSArrayBufferViewPrototype) };

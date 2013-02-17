@@ -34,6 +34,8 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/RandomNumber.h>
 
+#include "WriteBarrier.h"
+
 namespace JSC {
 
     class ArrayPrototype;
@@ -167,6 +169,9 @@ namespace JSC {
         }
 
         static JS_EXPORTDATA const ClassInfo s_info;
+				
+		HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::JSObject> > typedArrayConstructorMap;
+		HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::JSObject> > typedArrayPrototypeMap;
 
     protected:
         explicit JSGlobalObject(JSGlobalData& globalData, Structure* structure, const GlobalObjectMethodTable* globalObjectMethodTable = 0)

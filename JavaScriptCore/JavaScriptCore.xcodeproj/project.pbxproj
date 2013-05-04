@@ -5195,7 +5195,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 i386";
 			};
 			name = Debug;
 		};
@@ -5219,7 +5219,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 i386";
 			};
 			name = Release;
 		};
@@ -5243,7 +5243,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 i386";
 			};
 			name = Profiling;
 		};
@@ -5267,7 +5267,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 i386";
 			};
 			name = Production;
 		};
@@ -5286,7 +5286,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SOURCE_ROOT)/../WTF";
 				PRODUCT_NAME = JSCLLIntOffsetsExtractor;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 i386";
 			};
 			name = Debug;
 		};
@@ -5305,7 +5305,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SOURCE_ROOT)/../WTF";
 				PRODUCT_NAME = JSCLLIntOffsetsExtractor;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 i386";
 			};
 			name = Release;
 		};
@@ -5324,7 +5324,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SOURCE_ROOT)/../WTF";
 				PRODUCT_NAME = JSCLLIntOffsetsExtractor;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 i386";
 			};
 			name = Profiling;
 		};
@@ -5343,7 +5343,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SOURCE_ROOT)/../WTF";
 				PRODUCT_NAME = JSCLLIntOffsetsExtractor;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 i386";
 			};
 			name = Production;
 		};

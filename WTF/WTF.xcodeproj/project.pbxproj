@@ -1754,6 +1754,7 @@
 			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
 			buildSettings = {
 				DEBUG_DEFINES = "$(DEBUG_DEFINES_debug)";
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 			};
 			name = Debug;
 		};
@@ -1761,6 +1762,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 			};
 			name = Release;
 		};
@@ -1775,6 +1777,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 			};
 			name = Production;
 		};
@@ -1791,6 +1794,7 @@
 					"$(GCC_PREPROCESSOR_DEFINITIONS)",
 					"UCONFIG_NO_COLLATION=1",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				PRODUCT_NAME = WTF;
 				SDKROOT = iphoneos;
@@ -1810,6 +1814,7 @@
 					"$(GCC_PREPROCESSOR_DEFINITIONS)",
 					"UCONFIG_NO_COLLATION=1",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				PRODUCT_NAME = WTF;
 				SDKROOT = iphoneos;
@@ -1829,6 +1834,7 @@
 					"$(GCC_PREPROCESSOR_DEFINITIONS)",
 					"UCONFIG_NO_COLLATION=1",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				PRODUCT_NAME = WTF;
 				SDKROOT = iphoneos;
@@ -1839,6 +1845,7 @@
 		B6E69980166BD499005EF4B1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1846,6 +1853,7 @@
 		B6E69981166BD499005EF4B1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -1853,6 +1861,7 @@
 		B6E69982166BD499005EF4B1 /* Production */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Production;

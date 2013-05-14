@@ -106,7 +106,7 @@ const ClassInfo JSFloat64ArrayPrototype::s_info = { "Float64ArrayPrototype", &Ba
 
 JSObject* JSFloat64ArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSFloat64ArrayPrototype>(exec, globalObject);
+    return getDOMPrototype<JSFloat64Array>(exec, globalObject);
 }
 
 bool JSFloat64ArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)

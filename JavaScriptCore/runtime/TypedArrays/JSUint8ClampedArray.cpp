@@ -106,7 +106,7 @@ const ClassInfo JSUint8ClampedArrayPrototype::s_info = { "Uint8ClampedArrayProto
 
 JSObject* JSUint8ClampedArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSUint8ClampedArrayPrototype>(exec, globalObject);
+    return getDOMPrototype<JSUint8ClampedArray>(exec, globalObject);
 }
 
 bool JSUint8ClampedArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)

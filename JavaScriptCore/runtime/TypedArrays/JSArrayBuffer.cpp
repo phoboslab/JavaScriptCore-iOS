@@ -104,7 +104,7 @@ const ClassInfo JSArrayBufferPrototype::s_info = { "ArrayBufferPrototype", &Base
 static JSObject * globalProto = NULL;
 JSObject* JSArrayBufferPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-	return getDOMPrototype<JSArrayBufferPrototype>(exec, globalObject);
+	return getDOMPrototype<JSArrayBuffer>(exec, globalObject);
 }
 
 bool JSArrayBufferPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -244,7 +244,7 @@ void JSArrayBufferOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* contex
 
 JSC::JSValue toJS(JSC::ExecState* exec, JSGlobalObject* globalObject, ArrayBuffer* impl)
 {
-	JSArrayBuffer * buf = JSArrayBuffer::create( JSArrayBuffer::createStructure(exec->globalData(), globalObject, JSArrayBufferPrototype::self(exec, globalObject)), globalObject, impl);
+	JSArrayBuffer * buf = JSArrayBuffer::create( getDOMStructure<JSArrayBuffer>(exec, globalObject), globalObject, impl);
 	JSC::JSCell* jsCell = reinterpret_cast<JSC::JSCell*>(buf);
 	return jsCell;
 }

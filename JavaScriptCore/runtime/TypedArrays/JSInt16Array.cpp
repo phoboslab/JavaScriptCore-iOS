@@ -106,7 +106,7 @@ const ClassInfo JSInt16ArrayPrototype::s_info = { "Int16ArrayPrototype", &Base::
 
 JSObject* JSInt16ArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSInt16ArrayPrototype>(exec, globalObject);
+    return getDOMPrototype<JSInt16Array>(exec, globalObject);
 }
 
 bool JSInt16ArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)

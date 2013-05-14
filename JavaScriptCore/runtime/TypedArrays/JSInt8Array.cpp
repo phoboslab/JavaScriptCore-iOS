@@ -106,7 +106,7 @@ const ClassInfo JSInt8ArrayPrototype::s_info = { "Int8ArrayPrototype", &Base::s_
 
 JSObject* JSInt8ArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSInt8ArrayPrototype>(exec, globalObject);
+    return getDOMPrototype<JSInt8Array>(exec, globalObject);
 }
 
 bool JSInt8ArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)

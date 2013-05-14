@@ -169,9 +169,12 @@ namespace JSC {
         }
 
         static JS_EXPORTDATA const ClassInfo s_info;
-				
-		HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::JSObject> > typedArrayConstructorMap;
-		HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::JSObject> > typedArrayPrototypeMap;
+		
+		typedef HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::JSObject> > JSObjectMap;
+		typedef HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::Structure> > JSStructureMap;
+			
+		JSObjectMap typedArrayConstructorMap;
+		JSStructureMap typedArrayStructureMap;
 
     protected:
         explicit JSGlobalObject(JSGlobalData& globalData, Structure* structure, const GlobalObjectMethodTable* globalObjectMethodTable = 0)

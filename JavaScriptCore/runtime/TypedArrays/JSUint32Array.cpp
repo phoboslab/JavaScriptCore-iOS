@@ -106,7 +106,7 @@ const ClassInfo JSUint32ArrayPrototype::s_info = { "Uint32ArrayPrototype", &Base
 
 JSObject* JSUint32ArrayPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-    return getDOMPrototype<JSUint32ArrayPrototype>(exec, globalObject);
+    return getDOMPrototype<JSUint32Array>(exec, globalObject);
 }
 
 bool JSUint32ArrayPrototype::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)

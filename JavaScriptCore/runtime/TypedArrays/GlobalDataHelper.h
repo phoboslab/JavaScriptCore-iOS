@@ -40,19 +40,28 @@ inline JSC::JSObject* getDOMConstructor(JSC::ExecState* exec, JSC::JSGlobalObjec
 	return constructor;
 }
 
-template<class PrototypeClass>
+template<class TypeClass>
+inline JSC::Structure* getDOMStructure(JSC::ExecState* exec, JSC::JSGlobalObject* globalObject)
+{
+	if (JSC::Structure* structure = globalObject->typedArrayStructureMap.get(&TypeClass::s_info).get()) {
+		return structure;
+	}
+	
+	
+	JSC::JSObject * proto = TypeClass::createPrototype(exec, globalObject);
+	JSC::Structure *structure = TypeClass::createStructure(exec->globalData(), globalObject, proto);
+	
+	globalObject->typedArrayStructureMap.set(
+		&TypeClass::s_info,
+		JSC::WriteBarrier<JSC::Structure>(globalObject->globalData(), globalObject, structure)
+	);
+	return structure;
+}
+
+template<class TypeClass>
 inline JSC::JSObject* getDOMPrototype(JSC::ExecState* exec, JSC::JSGlobalObject* globalObject)
 {
-	if (JSC::JSObject* prototype = globalObject->typedArrayPrototypeMap.get(&PrototypeClass::s_info).get())
-		return prototype;
-		
-	JSC::JSObject* prototype = PrototypeClass::create(exec->globalData(), globalObject,
-		PrototypeClass::createStructure(exec->globalData(), globalObject, globalObject->objectPrototype()));
-	
-	ASSERT(!globalObject->typedArrayPrototypeMap.contains(&PrototypeClass::s_info));
-	JSC::WriteBarrier<JSC::JSObject> temp;
-	globalObject->typedArrayPrototypeMap.add(&PrototypeClass::s_info, temp).iterator->second.set(exec->globalData(), globalObject, prototype);
-	return prototype;
+	return JSC::jsCast<JSC::JSObject*>(asObject(getDOMStructure<TypeClass>(exec, globalObject)->storedPrototype()));
 }
 
 }

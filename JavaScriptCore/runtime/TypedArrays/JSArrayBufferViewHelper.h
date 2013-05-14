@@ -34,6 +34,7 @@
 #include <runtime/JSObject.h>
 #include <runtime/JSValue.h>
 #include <wtf/ArrayBufferView.h>
+#include "GlobalDataHelper.h"
 
 namespace WebCore {
 
@@ -167,8 +168,7 @@ static JSC::JSValue toJSArrayBufferView(JSC::ExecState* exec, JSC::JSGlobalObjec
         return JSC::jsNull();
 	
 	exec->heap()->reportExtraMemoryCost(object->byteLength());
-	JSC::JSCell * jsCell = JSType::create(JSType::createStructure(exec->globalData(), globalObject,JSType::createPrototype(exec, globalObject)), globalObject, object);
-	return jsCell;
+	return JSType::create(getDOMStructure<JSType>(exec, globalObject), globalObject, object);
 }
 
 } // namespace WebCore

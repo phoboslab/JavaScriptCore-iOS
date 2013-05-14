@@ -425,6 +425,20 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitIfNeeded(visitor, &thisObject->m_regExpStructure);
     visitIfNeeded(visitor, &thisObject->m_stringObjectStructure);
     visitIfNeeded(visitor, &thisObject->m_internalFunctionStructure);
+	
+	
+	// PL: Visit Typed Array Constructors
+	JSObjectMap::iterator cEnd = thisObject->typedArrayConstructorMap.end();
+	for( JSObjectMap::iterator it = thisObject->typedArrayConstructorMap.begin(); it != cEnd; ++it ) {
+		visitIfNeeded(visitor, &it->second);
+	}
+	
+	// PL: Visit Typed Array Structures
+	JSStructureMap::iterator sEnd = thisObject->typedArrayStructureMap.end();
+	for( JSStructureMap::iterator it = thisObject->typedArrayStructureMap.begin(); it != sEnd; ++it ) {
+		visitIfNeeded(visitor, &it->second);
+	}
+	
 
     if (thisObject->m_registerArray) {
         // Outside the execution of global code, when our variables are torn off,

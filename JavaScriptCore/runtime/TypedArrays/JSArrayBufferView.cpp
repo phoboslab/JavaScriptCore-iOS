@@ -63,7 +63,7 @@ const ClassInfo JSArrayBufferViewPrototype::s_info = { "ArrayBufferViewPrototype
 
 JSObject* JSArrayBufferViewPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
 {
-	return getDOMPrototype<JSArrayBufferViewPrototype>(exec, globalObject);
+	return getDOMPrototype<JSArrayBufferView>(exec, globalObject);
 }
 
 static const HashTable* getJSArrayBufferViewTable(ExecState* exec)

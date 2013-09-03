@@ -1,6 +1,10 @@
 # About this fork
 
-The objective of this fork is to bring the JavaScriptCore to the latest version which implements all the goodies in iOS 7 and make it usable in iOS 5 and 6. A pull request has been submitted to merge this into the main repo.
+The goal is to bring the new Objective-C to Javascript bridge to be featured in iOS 7 to iOS 5 and 6. That means that the same code will transition seamlessly to iOS 7 when the time to drop older iOS version comes.
+Some refactoring was involved but nothing major mostly just making sure the projects doesn't use undocumented frameworks/functions.
+A pull request was submitted to merge this into the main repo.
+
+Thanks!
 
 # JavaScriptCore iOS
 

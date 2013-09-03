@@ -27,43 +27,78 @@
 #include "JITExceptions.h"
 
 #include "CallFrame.h"
+#include "CallFrameInlines.h"
 #include "CodeBlock.h"
 #include "Interpreter.h"
-#include "JSGlobalData.h"
-#include "JSValue.h"
+#include "JSCJSValue.h"
+#include "VM.h"
+#include "Operations.h"
 
-#if ENABLE(JIT)
+#if ENABLE(JIT) || ENABLE(LLINT)
 
 namespace JSC {
 
-ExceptionHandler genericThrow(JSGlobalData* globalData, ExecState* callFrame, JSValue exceptionValue, unsigned vPCIndex)
+static unsigned getExceptionLocation(VM* vm, CallFrame* callFrame)
 {
-    ASSERT(exceptionValue);
+    UNUSED_PARAM(vm);
+    ASSERT(!callFrame->hasHostCallFrameFlag());
 
-    globalData->exception = JSValue();
-    HandlerInfo* handler = globalData->interpreter->throwException(callFrame, exceptionValue, vPCIndex); // This may update callFrame & exceptionValue!
-    globalData->exception = exceptionValue;
+#if ENABLE(DFG_JIT)
+    if (callFrame->hasLocationAsCodeOriginIndex())
+        return callFrame->bytecodeOffsetFromCodeOriginIndex();
+#endif
+
+    return callFrame->locationAsBytecodeOffset();
+}
+
+#if USE(JSVALUE32_64)
+EncodedExceptionHandler encode(ExceptionHandler handler)
+{
+    ExceptionHandlerUnion u;
+    u.handler = handler;
+    return u.encodedHandler;
+}
+#endif
+
+ExceptionHandler uncaughtExceptionHandler()
+{
+    void* catchRoutine = FunctionPtr(LLInt::getCodePtr(ctiOpThrowNotCaught)).value();
+    ExceptionHandler exceptionHandler = { 0, catchRoutine};
+    return exceptionHandler;
+}
+
+ExceptionHandler genericThrow(VM* vm, ExecState* callFrame, JSValue exceptionValue, unsigned vPCIndex)
+{
+    RELEASE_ASSERT(exceptionValue);
+    HandlerInfo* handler = vm->interpreter->unwind(callFrame, exceptionValue, vPCIndex); // This may update callFrame.
 
     void* catchRoutine;
     Instruction* catchPCForInterpreter = 0;
     if (handler) {
-        catchRoutine = handler->nativeCode.executableAddress();
         catchPCForInterpreter = &callFrame->codeBlock()->instructions()[handler->target];
+        catchRoutine = ExecutableBase::catchRoutineFor(handler, catchPCForInterpreter);
     } else
-        catchRoutine = FunctionPtr(ctiOpThrowNotCaught).value();
+        catchRoutine = FunctionPtr(LLInt::getCodePtr(ctiOpThrowNotCaught)).value();
     
-    globalData->callFrameForThrow = callFrame;
-    globalData->targetMachinePCForThrow = catchRoutine;
-    globalData->targetInterpreterPCForThrow = catchPCForInterpreter;
+    vm->callFrameForThrow = callFrame;
+    vm->targetMachinePCForThrow = catchRoutine;
+    vm->targetInterpreterPCForThrow = catchPCForInterpreter;
     
-    ASSERT(catchRoutine);
-    ExceptionHandler exceptionHandler = { catchRoutine, callFrame };
+    RELEASE_ASSERT(catchRoutine);
+    ExceptionHandler exceptionHandler = { callFrame, catchRoutine};
     return exceptionHandler;
 }
 
-ExceptionHandler jitThrow(JSGlobalData* globalData, ExecState* callFrame, JSValue exceptionValue, ReturnAddressPtr faultLocation)
+ExceptionHandler jitThrowNew(VM* vm, ExecState* callFrame, JSValue exceptionValue)
 {
-    return genericThrow(globalData, callFrame, exceptionValue, callFrame->codeBlock()->bytecodeOffset(callFrame, faultLocation));
+    unsigned bytecodeOffset = getExceptionLocation(vm, callFrame);
+    
+    return genericThrow(vm, callFrame, exceptionValue, bytecodeOffset);
+}
+
+ExceptionHandler jitThrow(VM* vm, ExecState* callFrame, JSValue exceptionValue, ReturnAddressPtr faultLocation)
+{
+    return genericThrow(vm, callFrame, exceptionValue, callFrame->codeBlock()->bytecodeOffset(callFrame, faultLocation));
 }
 
 }

@@ -27,25 +27,27 @@
 #include "ProfileGenerator.h"
 
 #include "CallFrame.h"
+#include "CallFrameInlines.h"
 #include "CodeBlock.h"
 #include "JSGlobalObject.h"
 #include "JSStringRef.h"
 #include "JSFunction.h"
-#include "Interpreter.h"
+#include "LegacyProfiler.h"
+#include "Operations.h"
 #include "Profile.h"
-#include "Profiler.h"
+#include "StackIterator.h"
 #include "Tracing.h"
 
 namespace JSC {
 
 static const char* NonJSExecution = "(idle)";
 
-PassRefPtr<ProfileGenerator> ProfileGenerator::create(ExecState* exec, const UString& title, unsigned uid)
+PassRefPtr<ProfileGenerator> ProfileGenerator::create(ExecState* exec, const String& title, unsigned uid)
 {
     return adoptRef(new ProfileGenerator(exec, title, uid));
 }
 
-ProfileGenerator::ProfileGenerator(ExecState* exec, const UString& title, unsigned uid)
+ProfileGenerator::ProfileGenerator(ExecState* exec, const String& title, unsigned uid)
     : m_origin(exec ? exec->lexicalGlobalObject() : 0)
     , m_profileGroup(exec ? exec->lexicalGlobalObject()->profileGroup() : 0)
 {
@@ -57,17 +59,21 @@ ProfileGenerator::ProfileGenerator(ExecState* exec, const UString& title, unsign
 
 void ProfileGenerator::addParentForConsoleStart(ExecState* exec)
 {
-    int lineNumber;
-    intptr_t sourceID;
-    UString sourceURL;
-    JSValue function;
-
-    exec->interpreter()->retrieveLastCaller(exec, lineNumber, sourceID, sourceURL, function);
-    m_currentNode = ProfileNode::create(exec, Profiler::createCallIdentifier(exec, function ? function.toThisObject(exec) : 0, sourceURL, lineNumber), m_head.get(), m_head.get());
+    StackIterator iter = exec->begin();
+    ++iter;
+    if (iter == exec->end()) {
+        m_currentNode = ProfileNode::create(exec, LegacyProfiler::createCallIdentifier(exec, JSValue(), String(), 0), m_head.get(), m_head.get());
+        m_head->insertNode(m_currentNode.get());
+        return;
+    }
+    unsigned line = 0;
+    unsigned unusedColumn = 0;
+    iter->computeLineAndColumn(line, unusedColumn);
+    m_currentNode = ProfileNode::create(exec, LegacyProfiler::createCallIdentifier(exec, iter->callee(), iter->sourceURL(), line), m_head.get(), m_head.get());
     m_head->insertNode(m_currentNode.get());
 }
 
-const UString& ProfileGenerator::title() const
+const String& ProfileGenerator::title() const
 {
     return m_profile->title();
 }
@@ -135,7 +141,7 @@ void ProfileGenerator::stopProfiling()
     m_currentNode = m_currentNode->parent();
 
    if (double headSelfTime = m_head->selfTime()) {
-        RefPtr<ProfileNode> idleNode = ProfileNode::create(0, CallIdentifier(NonJSExecution, UString(), 0), m_head.get(), m_head.get());
+        RefPtr<ProfileNode> idleNode = ProfileNode::create(0, CallIdentifier(NonJSExecution, String(), 0), m_head.get(), m_head.get());
 
         idleNode->setTotalTime(headSelfTime);
         idleNode->setSelfTime(headSelfTime);

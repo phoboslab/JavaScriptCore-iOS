@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2003, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2006, 2007, 2008, 2009, 2012 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -21,11 +21,11 @@
 #ifndef Identifier_h
 #define Identifier_h
 
-#include "JSGlobalData.h"
+#include "VM.h"
 #include <wtf/ThreadSpecific.h>
-#include "UString.h"
 #include <wtf/WTFThreadData.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 namespace JSC {
 
@@ -35,37 +35,40 @@ namespace JSC {
         friend class Structure;
     public:
         Identifier() { }
+        enum EmptyIdentifierFlag { EmptyIdentifier };
+        Identifier(EmptyIdentifierFlag) : m_string(StringImpl::empty()) { }
 
-        Identifier(ExecState* exec, const char* s) : m_string(add(exec, s)) { } // Only to be used with string literals.
-        Identifier(ExecState* exec, StringImpl* rep) : m_string(add(exec, rep)) { } 
-        Identifier(ExecState* exec, const UString& s) : m_string(add(exec, s.impl())) { }
+        // Only to be used with string literals.
+        template<unsigned charactersCount>
+        Identifier(ExecState* exec, const char (&characters)[charactersCount]) : m_string(add(exec, characters)) { }
+        template<unsigned charactersCount>
+        Identifier(VM* vm, const char (&characters)[charactersCount]) : m_string(add(vm, characters)) { }
 
-        Identifier(JSGlobalData* globalData, const char* s) : m_string(add(globalData, s)) { } // Only to be used with string literals.
-        Identifier(JSGlobalData* globalData, const LChar* s, int length) : m_string(add(globalData, s, length)) { }
-        Identifier(JSGlobalData* globalData, const UChar* s, int length) : m_string(add(globalData, s, length)) { }
-        Identifier(JSGlobalData* globalData, StringImpl* rep) : m_string(add(globalData, rep)) { } 
-        Identifier(JSGlobalData* globalData, const UString& s) : m_string(add(globalData, s.impl())) { }
+        Identifier(ExecState* exec, StringImpl* rep) : m_string(add(exec, rep)) { }
+        Identifier(ExecState* exec, const String& s) : m_string(add(exec, s.impl())) { }
 
-        const UString& ustring() const { return m_string; }
+        Identifier(VM* vm, const LChar* s, int length) : m_string(add(vm, s, length)) { }
+        Identifier(VM* vm, const UChar* s, int length) : m_string(add(vm, s, length)) { }
+        Identifier(VM* vm, StringImpl* rep) : m_string(add(vm, rep)) { } 
+        Identifier(VM* vm, const String& s) : m_string(add(vm, s.impl())) { }
+
+        const String& string() const { return m_string; }
         StringImpl* impl() const { return m_string.impl(); }
         
         const UChar* characters() const { return m_string.characters(); }
         int length() const { return m_string.length(); }
         
         CString ascii() const { return m_string.ascii(); }
+        CString utf8() const { return m_string.utf8(); }
 
-        static Identifier createLCharFromUChar(JSGlobalData* globalData, const UChar* s, int length) { return Identifier(globalData, add8(globalData, s, length)); }
+        static Identifier createLCharFromUChar(VM* vm, const UChar* s, int length) { return Identifier(vm, add8(vm, s, length)); }
 
         JS_EXPORT_PRIVATE static Identifier from(ExecState* exec, unsigned y);
         JS_EXPORT_PRIVATE static Identifier from(ExecState* exec, int y);
         static Identifier from(ExecState* exec, double y);
-        static Identifier from(JSGlobalData*, unsigned y);
-        static Identifier from(JSGlobalData*, int y);
-        static Identifier from(JSGlobalData*, double y);
-
-        JS_EXPORT_PRIVATE static uint32_t toUInt32(const UString&, bool& ok);
-        uint32_t toUInt32(bool& ok) const { return toUInt32(m_string, ok); }
-        unsigned toArrayIndex(bool& ok) const;
+        static Identifier from(VM*, unsigned y);
+        static Identifier from(VM*, int y);
+        static Identifier from(VM*, double y);
 
         bool isNull() const { return m_string.isNull(); }
         bool isEmpty() const { return m_string.isEmpty(); }
@@ -84,11 +87,12 @@ namespace JSC {
         static bool equal(const StringImpl*, const UChar*, unsigned length);
         static bool equal(const StringImpl* a, const StringImpl* b) { return ::equal(a, b); }
 
-        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> add(ExecState*, const char*); // Only to be used with string literals.
-        static PassRefPtr<StringImpl> add(JSGlobalData*, const char*); // Only to be used with string literals.
+        // Only to be used with string literals.
+        static PassRefPtr<StringImpl> add(VM*, const char*);
+        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> add(ExecState*, const char*);
 
     private:
-        UString m_string;
+        String m_string;
 
         template <typename CharType>
         ALWAYS_INLINE static uint32_t toUInt32FromCharacters(const CharType* characters, unsigned length, bool& ok);
@@ -96,8 +100,8 @@ namespace JSC {
         static bool equal(const Identifier& a, const Identifier& b) { return a.m_string.impl() == b.m_string.impl(); }
         static bool equal(const Identifier& a, const LChar* b) { return equal(a.m_string.impl(), b); }
 
-        template <typename T> static PassRefPtr<StringImpl> add(JSGlobalData*, const T*, int length);
-        static PassRefPtr<StringImpl> add8(JSGlobalData*, const UChar*, int length);
+        template <typename T> static PassRefPtr<StringImpl> add(VM*, const T*, int length);
+        static PassRefPtr<StringImpl> add8(VM*, const UChar*, int length);
         template <typename T> ALWAYS_INLINE static bool canUseSingleCharacterString(T);
 
         static PassRefPtr<StringImpl> add(ExecState* exec, StringImpl* r)
@@ -109,21 +113,21 @@ namespace JSC {
                 return r;
             return addSlowCase(exec, r);
         }
-        static PassRefPtr<StringImpl> add(JSGlobalData* globalData, StringImpl* r)
+        static PassRefPtr<StringImpl> add(VM* vm, StringImpl* r)
         {
 #ifndef NDEBUG
-            checkCurrentIdentifierTable(globalData);
+            checkCurrentIdentifierTable(vm);
 #endif
             if (r->isIdentifier())
                 return r;
-            return addSlowCase(globalData, r);
+            return addSlowCase(vm, r);
         }
 
         JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> addSlowCase(ExecState*, StringImpl* r);
-        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> addSlowCase(JSGlobalData*, StringImpl* r);
+        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> addSlowCase(VM*, StringImpl* r);
 
         JS_EXPORT_PRIVATE static void checkCurrentIdentifierTable(ExecState*);
-        JS_EXPORT_PRIVATE static void checkCurrentIdentifierTable(JSGlobalData*);
+        JS_EXPORT_PRIVATE static void checkCurrentIdentifierTable(VM*);
     };
 
     template <> ALWAYS_INLINE bool Identifier::canUseSingleCharacterString(LChar)
@@ -147,7 +151,7 @@ namespace JSC {
     struct IdentifierCharBufferTranslator {
         static unsigned hash(const CharBuffer<T>& buf)
         {
-            return StringHasher::computeHashAndMaskTop8Bits<T>(buf.s, buf.length);
+            return StringHasher::computeHashAndMaskTop8Bits(buf.s, buf.length);
         }
         
         static bool equal(StringImpl* str, const CharBuffer<T>& buf)
@@ -167,18 +171,18 @@ namespace JSC {
     };
 
     template <typename T>
-    PassRefPtr<StringImpl> Identifier::add(JSGlobalData* globalData, const T* s, int length)
+    PassRefPtr<StringImpl> Identifier::add(VM* vm, const T* s, int length)
     {
         if (length == 1) {
             T c = s[0];
             if (canUseSingleCharacterString(c))
-                return add(globalData, globalData->smallStrings.singleCharacterStringRep(c));
+                return add(vm, vm->smallStrings.singleCharacterStringRep(c));
         }
         
         if (!length)
             return StringImpl::empty();
-        CharBuffer<T> buf = {s, length}; 
-        HashSet<StringImpl*>::AddResult addResult = globalData->identifierTable->add<CharBuffer<T>, IdentifierCharBufferTranslator<T> >(buf);
+        CharBuffer<T> buf = { s, static_cast<unsigned>(length) };
+        HashSet<StringImpl*>::AddResult addResult = vm->identifierTable->add<CharBuffer<T>, IdentifierCharBufferTranslator<T> >(buf);
         
         // If the string is newly-translated, then we need to adopt it.
         // The boolean in the pair tells us if that is so.
@@ -244,15 +248,22 @@ namespace JSC {
     };
 
     typedef HashMap<RefPtr<StringImpl>, int, IdentifierRepHash, HashTraits<RefPtr<StringImpl> >, IdentifierMapIndexHashTraits> IdentifierMap;
+    typedef HashMap<StringImpl*, int, IdentifierRepHash, HashTraits<StringImpl*>, IdentifierMapIndexHashTraits> BorrowedIdentifierMap;
 
     template<typename U, typename V>
     HashSet<StringImpl*>::AddResult IdentifierTable::add(U value)
     {
-        HashSet<StringImpl*>::AddResult result = m_table.add<U, V>(value);
+        HashSet<StringImpl*>::AddResult result = m_table.add<V>(value);
         (*result.iterator)->setIsIdentifier(true);
         return result;
     }
 
 } // namespace JSC
+
+namespace WTF {
+
+template <> struct VectorTraits<JSC::Identifier> : SimpleClassVectorTraits { };
+
+} // namespace WTF
 
 #endif // Identifier_h

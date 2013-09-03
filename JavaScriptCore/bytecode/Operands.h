@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@
 
 #include "CallFrame.h"
 #include "JSObject.h"
-#include "ScopeChain.h"
+#include <wtf/PrintStream.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -43,8 +43,12 @@ template<typename T> struct OperandValueTraits;
 template<typename T>
 struct OperandValueTraits {
     static T defaultValue() { return T(); }
-    static void dump(const T& value, FILE* out) { value.dump(out); }
+    static bool isEmptyForDump(const T& value) { return !value; }
 };
+
+enum OperandKind { ArgumentOperand, LocalOperand };
+
+enum OperandsLikeTag { OperandsLike };
 
 template<typename T, typename Traits = OperandValueTraits<T> >
 class Operands {
@@ -57,6 +61,13 @@ public:
         m_locals.fill(Traits::defaultValue(), numLocals);
     }
     
+    template<typename U, typename OtherTraits>
+    explicit Operands(OperandsLikeTag, const Operands<U, OtherTraits>& other)
+    {
+        m_arguments.fill(Traits::defaultValue(), other.numberOfArguments());
+        m_locals.fill(Traits::defaultValue(), other.numberOfLocals());
+    }
+    
     size_t numberOfArguments() const { return m_arguments.size(); }
     size_t numberOfLocals() const { return m_locals.size(); }
     
@@ -65,6 +76,28 @@ public:
     
     T& local(size_t idx) { return m_locals[idx]; }
     const T& local(size_t idx) const { return m_locals[idx]; }
+    
+    template<OperandKind operandKind>
+    size_t sizeFor() const
+    {
+        if (operandKind == ArgumentOperand)
+            return numberOfArguments();
+        return numberOfLocals();
+    }
+    template<OperandKind operandKind>
+    T& atFor(size_t idx)
+    {
+        if (operandKind == ArgumentOperand)
+            return argument(idx);
+        return local(idx);
+    }
+    template<OperandKind operandKind>
+    const T& atFor(size_t idx) const
+    {
+        if (operandKind == ArgumentOperand)
+            return argument(idx);
+        return local(idx);
+    }
     
     void ensureLocals(size_t size)
     {
@@ -115,6 +148,13 @@ public:
     
     const T& operand(int operand) const { return const_cast<const T&>(const_cast<Operands*>(this)->operand(operand)); }
     
+    bool hasOperand(int operand) const
+    {
+        if (operandIsArgument(operand))
+            return true;
+        return static_cast<size_t>(operand) < numberOfLocals();
+    }
+    
     void setOperand(int operand, const T& value)
     {
         if (operandIsArgument(operand)) {
@@ -126,34 +166,81 @@ public:
         setLocal(operand, value);
     }
     
-    void clear()
+    size_t size() const { return numberOfArguments() + numberOfLocals(); }
+    const T& at(size_t index) const
+    {
+        if (index < numberOfArguments())
+            return m_arguments[index];
+        return m_locals[index - numberOfArguments()];
+    }
+    T& at(size_t index)
+    {
+        if (index < numberOfArguments())
+            return m_arguments[index];
+        return m_locals[index - numberOfArguments()];
+    }
+    const T& operator[](size_t index) const { return at(index); }
+    T& operator[](size_t index) { return at(index); }
+
+    bool isArgument(size_t index) const { return index < numberOfArguments(); }
+    bool isVariable(size_t index) const { return !isArgument(index); }
+    int argumentForIndex(size_t index) const
+    {
+        return index;
+    }
+    int variableForIndex(size_t index) const
+    {
+        return index - m_arguments.size();
+    }
+    int operandForIndex(size_t index) const
+    {
+        if (index < numberOfArguments())
+            return argumentToOperand(index);
+        return index - numberOfArguments();
+    }
+    
+    void setOperandFirstTime(int operand, const T& value)
+    {
+        if (operandIsArgument(operand)) {
+            setArgumentFirstTime(operandToArgument(operand), value);
+            return;
+        }
+        
+        setLocalFirstTime(operand, value);
+    }
+    
+    void fill(T value)
     {
         for (size_t i = 0; i < m_arguments.size(); ++i)
-            m_arguments[i] = Traits::defaultValue();
+            m_arguments[i] = value;
         for (size_t i = 0; i < m_locals.size(); ++i)
-            m_locals[i] = Traits::defaultValue();
+            m_locals[i] = value;
+    }
+    
+    void clear()
+    {
+        fill(Traits::defaultValue());
+    }
+    
+    bool operator==(const Operands& other) const
+    {
+        ASSERT(numberOfArguments() == other.numberOfArguments());
+        ASSERT(numberOfLocals() == other.numberOfLocals());
+        
+        return m_arguments == other.m_arguments && m_locals == other.m_locals;
+    }
+    
+    void dumpInContext(PrintStream& out, DumpContext* context) const;
+    
+    void dump(PrintStream& out) const
+    {
+        dumpInContext(out, 0);
     }
     
 private:
     Vector<T, 8> m_arguments;
     Vector<T, 16> m_locals;
 };
-
-template<typename T, typename Traits>
-void dumpOperands(Operands<T, Traits>& operands, FILE* out)
-{
-    for (size_t argument = 0; argument < operands.numberOfArguments(); ++argument) {
-        if (argument)
-            fprintf(out, " ");
-        Traits::dump(operands.argument(argument), out);
-    }
-    fprintf(out, " : ");
-    for (size_t local = 0; local < operands.numberOfLocals(); ++local) {
-        if (local)
-            fprintf(out, " ");
-        Traits::dump(operands.local(local), out);
-    }
-}
 
 } // namespace JSC
 

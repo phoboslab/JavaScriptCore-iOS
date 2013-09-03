@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,70 +24,54 @@
  */
 
 #ifndef DFGInsertionSet_h
-#define DFGInsectionSet_h
+#define DFGInsertionSet_h
 
 #include <wtf/Platform.h>
 
 #if ENABLE(DFG_JIT)
 
+#include "DFGGraph.h"
+#include <wtf/Insertion.h>
 #include <wtf/Vector.h>
 
 namespace JSC { namespace DFG {
 
-template<typename ElementType>
-class Insertion {
+typedef WTF::Insertion<Node*> Insertion;
+
+class InsertionSet {
 public:
-    Insertion() { }
-    
-    Insertion(size_t index, const ElementType& element)
-        : m_index(index)
-        , m_element(element)
+    InsertionSet(Graph& graph)
+        : m_graph(graph)
     {
     }
     
-    size_t index() const { return m_index; }
-    const ElementType& element() const { return m_element; }
-private:
-    size_t m_index;
-    ElementType m_element;
-};
-
-template<typename ElementType>
-class InsertionSet {
-public:
-    InsertionSet() { }
-    
-    void append(const Insertion<ElementType>& insertion)
+    Node* insert(const Insertion& insertion)
     {
         ASSERT(!m_insertions.size() || m_insertions.last().index() <= insertion.index());
         m_insertions.append(insertion);
+        return insertion.element();
     }
     
-    void append(size_t index, const ElementType& element)
+    Node* insert(size_t index, Node* element)
     {
-        append(Insertion<ElementType>(index, element));
+        return insert(Insertion(index, element));
     }
+
+#define DFG_DEFINE_INSERT_NODE(templatePre, templatePost, typeParams, valueParamsComma, valueParams, valueArgs) \
+    templatePre typeParams templatePost Node* insertNode(size_t index, SpeculatedType type valueParamsComma valueParams) \
+    { \
+        return insert(index, m_graph.addNode(type valueParamsComma valueArgs)); \
+    }
+    DFG_VARIADIC_TEMPLATE_FUNCTION(DFG_DEFINE_INSERT_NODE)
+#undef DFG_DEFINE_INSERT_NODE
     
-    template<typename CollectionType>
-    void execute(CollectionType& collection)
+    void execute(BasicBlock* block)
     {
-        if (!m_insertions.size())
-            return;
-        collection.grow(collection.size() + m_insertions.size());
-        size_t lastIndex = collection.size();
-        for (size_t indexInInsertions = m_insertions.size(); indexInInsertions--;) {
-            Insertion<ElementType>& insertion = m_insertions[indexInInsertions];
-            size_t firstIndex = insertion.index() + indexInInsertions;
-            size_t indexOffset = indexInInsertions + 1;
-            for (size_t i = lastIndex; i-- > firstIndex;)
-                collection[i] = collection[i - indexOffset];
-            collection[firstIndex] = insertion.element();
-            lastIndex = firstIndex;
-        }
-        m_insertions.resize(0);
+        executeInsertions(*block, m_insertions);
     }
 private:
-    Vector<Insertion<ElementType>, 8> m_insertions;
+    Graph& m_graph;
+    Vector<Insertion, 8> m_insertions;
 };
 
 } } // namespace JSC::DFG

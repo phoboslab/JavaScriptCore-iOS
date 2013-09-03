@@ -37,19 +37,22 @@
 #include <wtf/PageAllocationAligned.h>
 #include <wtf/PageBlock.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TCSpinLock.h>
 #include <wtf/ThreadingPrimitives.h>
 
 namespace JSC {
 
 class Heap;
 class CopiedBlock;
-class HeapBlock;
 
 class CopiedSpace {
+    friend class CopyVisitor;
+    friend class GCThreadSharedData;
     friend class SlotVisitor;
     friend class JIT;
 public:
     CopiedSpace(Heap*);
+    ~CopiedSpace();
     void init();
 
     CheckedBoolean tryAllocate(size_t, void**);
@@ -64,60 +67,59 @@ public:
     void pin(CopiedBlock*);
     bool isPinned(void*);
 
+    bool contains(CopiedBlock*);
     bool contains(void*, CopiedBlock*&);
+    
+    void pinIfNecessary(void* pointer);
 
     size_t size();
     size_t capacity();
 
-    void freeAllBlocks();
     bool isPagedOut(double deadline);
+    bool shouldDoCopyPhase() { return m_shouldDoCopyPhase; }
 
     static CopiedBlock* blockFor(void*);
 
 private:
-    CheckedBoolean tryAllocateSlowCase(size_t, void**);
-    CheckedBoolean addNewBlock();
-    CheckedBoolean allocateNewBlock(CopiedBlock**);
-    
-    static void* allocateFromBlock(CopiedBlock*, size_t);
+    static bool isOversize(size_t);
+
+    JS_EXPORT_PRIVATE CheckedBoolean tryAllocateSlowCase(size_t, void**);
     CheckedBoolean tryAllocateOversize(size_t, void**);
     CheckedBoolean tryReallocateOversize(void**, size_t, size_t);
     
-    static bool isOversize(size_t);
-    
-    CheckedBoolean borrowBlock(CopiedBlock**);
-    CheckedBoolean getFreshBlock(AllocationEffort, CopiedBlock**);
-    void doneFillingBlock(CopiedBlock*);
-    void recycleBlock(CopiedBlock*);
-    static bool fitsInBlock(CopiedBlock*, size_t);
-    static CopiedBlock* oversizeBlockFor(void* ptr);
+    void allocateBlock();
+    CopiedBlock* allocateBlockForCopyingPhase();
+
+    void doneFillingBlock(CopiedBlock*, CopiedBlock**);
+    void recycleEvacuatedBlock(CopiedBlock*);
+    void recycleBorrowedBlock(CopiedBlock*);
 
     Heap* m_heap;
 
     CopiedAllocator m_allocator;
 
-    TinyBloomFilter m_toSpaceFilter;
-    TinyBloomFilter m_oversizeFilter;
-    HashSet<CopiedBlock*> m_toSpaceSet;
+    TinyBloomFilter m_blockFilter;
+    HashSet<CopiedBlock*> m_blockSet;
 
-    Mutex m_toSpaceLock;
+    SpinLock m_toSpaceLock;
 
-    DoublyLinkedList<HeapBlock>* m_toSpace;
-    DoublyLinkedList<HeapBlock>* m_fromSpace;
+    DoublyLinkedList<CopiedBlock>* m_toSpace;
+    DoublyLinkedList<CopiedBlock>* m_fromSpace;
     
-    DoublyLinkedList<HeapBlock> m_blocks1;
-    DoublyLinkedList<HeapBlock> m_blocks2;
-    DoublyLinkedList<HeapBlock> m_oversizeBlocks;
+    DoublyLinkedList<CopiedBlock> m_blocks1;
+    DoublyLinkedList<CopiedBlock> m_blocks2;
+    DoublyLinkedList<CopiedBlock> m_oversizeBlocks;
    
     bool m_inCopyingPhase;
+    bool m_shouldDoCopyPhase;
 
     Mutex m_loanedBlocksLock; 
     ThreadCondition m_loanedBlocksCondition;
     size_t m_numberOfLoanedBlocks;
 
-    static const size_t s_maxAllocationSize = 32 * KB;
+    static const size_t s_maxAllocationSize = CopiedBlock::blockSize / 2;
     static const size_t s_initialBlockNum = 16;
-    static const size_t s_blockMask = ~(HeapBlock::s_blockSize - 1);
+    static const size_t s_blockMask = ~(CopiedBlock::blockSize - 1);
 };
 
 } // namespace JSC

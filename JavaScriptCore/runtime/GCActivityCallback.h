@@ -29,6 +29,7 @@
 #ifndef GCActivityCallback_h
 #define GCActivityCallback_h
 
+#include "HeapTimer.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 
@@ -40,50 +41,68 @@ namespace JSC {
 
 class Heap;
 
-class GCActivityCallback {
+class GCActivityCallback : public HeapTimer {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    virtual ~GCActivityCallback() { }
     virtual void didAllocate(size_t) { }
     virtual void willCollect() { }
-    virtual void synchronize() { }
     virtual void cancel() { }
-    virtual void didStartVMShutdown() { }
-    virtual void invalidate() { }
+    bool isEnabled() const { return m_enabled; }
+    void setEnabled(bool enabled) { m_enabled = enabled; }
 
 protected:
-    GCActivityCallback() {}
-};
+#if USE(CF)
+    GCActivityCallback(VM* vm, CFRunLoopRef runLoop)
+        : HeapTimer(vm, runLoop)
+        , m_enabled(true)
+    {
+    }
+#elif PLATFORM(EFL)
+    GCActivityCallback(VM* vm, bool flag)
+        : HeapTimer(vm)
+        , m_enabled(flag)
+    {
+    }
+#else
+    GCActivityCallback(VM* vm)
+        : HeapTimer(vm)
+        , m_enabled(true)
+    {
+    }
+#endif
 
-struct DefaultGCActivityCallbackPlatformData;
+    bool m_enabled;
+};
 
 class DefaultGCActivityCallback : public GCActivityCallback {
 public:
-    static DefaultGCActivityCallback* create(Heap*);
+    static PassOwnPtr<DefaultGCActivityCallback> create(Heap*);
 
     DefaultGCActivityCallback(Heap*);
 
-    virtual ~DefaultGCActivityCallback();
-
     virtual void didAllocate(size_t);
     virtual void willCollect();
-    virtual void synchronize();
     virtual void cancel();
-    virtual void didStartVMShutdown();
-    virtual void invalidate();
+    
+    virtual void doWork();
 
 #if USE(CF)
 protected:
     DefaultGCActivityCallback(Heap*, CFRunLoopRef);
-    void commonConstructor(Heap*, CFRunLoopRef);
 #endif
+#if USE(CF) || PLATFORM(QT) || PLATFORM(EFL)
+protected:
+    void cancelTimer();
+    void scheduleTimer(double);
 
 private:
-    OwnPtr<DefaultGCActivityCallbackPlatformData> d;
+    double m_delay;
+#endif
 };
 
-inline DefaultGCActivityCallback* DefaultGCActivityCallback::create(Heap* heap)
+inline PassOwnPtr<DefaultGCActivityCallback> DefaultGCActivityCallback::create(Heap* heap)
 {
-    return new DefaultGCActivityCallback(heap);
+    return adoptPtr(new DefaultGCActivityCallback(heap));
 }
 
 }

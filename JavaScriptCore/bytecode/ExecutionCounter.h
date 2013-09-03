@@ -26,6 +26,9 @@
 #ifndef ExecutionCounter_h
 #define ExecutionCounter_h
 
+#include "JSGlobalObject.h"
+#include "Options.h"
+#include <wtf/PrintStream.h>
 #include <wtf/SimpleStats.h>
 
 namespace JSC {
@@ -35,11 +38,26 @@ class CodeBlock;
 class ExecutionCounter {
 public:
     ExecutionCounter();
+    void forceSlowPathConcurrently(); // If you use this, checkIfThresholdCrossedAndSet() may still return false.
     bool checkIfThresholdCrossedAndSet(CodeBlock*);
     void setNewThreshold(int32_t threshold, CodeBlock*);
     void deferIndefinitely();
+    double count() const { return static_cast<double>(m_totalCount) + m_counter; }
+    void dump(PrintStream&) const;
     static double applyMemoryUsageHeuristics(int32_t value, CodeBlock*);
     static int32_t applyMemoryUsageHeuristicsAndConvertToInt(int32_t value, CodeBlock*);
+    template<typename T>
+    static T clippedThreshold(JSGlobalObject* globalObject, T threshold)
+    {
+        int32_t maxThreshold;
+        if (Options::randomizeExecutionCountsBetweenCheckpoints())
+            maxThreshold = globalObject->weakRandomInteger() % Options::maximumExecutionCountsBetweenCheckpoints();
+        else
+            maxThreshold = Options::maximumExecutionCountsBetweenCheckpoints();
+        if (threshold > maxThreshold)
+            threshold = maxThreshold;
+        return threshold;
+    }
 
     static int32_t formattedTotalCount(float value)
     {
@@ -57,7 +75,6 @@ private:
     void reset();
 
 public:
-
     // NB. These are intentionally public because it will be modified from machine code.
     
     // This counter is incremented by the JIT or LLInt. It starts out negative and is

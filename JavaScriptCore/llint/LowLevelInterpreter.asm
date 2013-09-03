@@ -1,4 +1,4 @@
-# Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+# Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -24,8 +24,15 @@
 # First come the common protocols that both interpreters use. Note that each
 # of these must have an ASSERT() in LLIntData.cpp
 
-# These declarations must match interpreter/RegisterFile.h.
+# Work-around for the fact that the toolchain's awareness of armv7s results in
+# a separate slab in the fat binary, yet the offlineasm doesn't know to expect
+# it.
+if ARMv7s
+end
+
+# These declarations must match interpreter/JSStack.h.
 const CallFrameHeaderSize = 48
+const CallFrameHeaderSlots = 6
 const ArgumentCount = -48
 const CallerFrame = -40
 const Callee = -32
@@ -35,10 +42,31 @@ const CodeBlock = -8
 
 const ThisArgumentOffset = -CallFrameHeaderSize - 8
 
+# Some value representation constants.
+if JSVALUE64
+const TagBitTypeOther = 0x2
+const TagBitBool      = 0x4
+const TagBitUndefined = 0x8
+const ValueEmpty      = 0x0
+const ValueFalse      = TagBitTypeOther | TagBitBool
+const ValueTrue       = TagBitTypeOther | TagBitBool | 1
+const ValueUndefined  = TagBitTypeOther | TagBitUndefined
+const ValueNull       = TagBitTypeOther
+else
+const Int32Tag = -1
+const BooleanTag = -2
+const NullTag = -3
+const UndefinedTag = -4
+const CellTag = -5
+const EmptyValueTag = -6
+const DeletedValueTag = -7
+const LowestTag = DeletedValueTag
+end
+
 # Some register conventions.
 if JSVALUE64
     # - Use a pair of registers to represent the PC: one register for the
-    #   base of the register file, and one register for the index.
+    #   base of the stack, and one register for the index.
     # - The PC base (or PB for short) should be stored in the csr. It will
     #   get clobbered on calls to other JS code, but will get saved on calls
     #   to C functions.
@@ -48,8 +76,28 @@ if JSVALUE64
     const PB = t6
     const tagTypeNumber = csr1
     const tagMask = csr2
+    
+    macro loadisFromInstruction(offset, dest)
+        loadis offset * 8[PB, PC, 8], dest
+    end
+    
+    macro loadpFromInstruction(offset, dest)
+        loadp offset * 8[PB, PC, 8], dest
+    end
+    
+    macro storepToInstruction(value, offset)
+        storep value, offset * 8[PB, PC, 8]
+    end
+
 else
     const PC = t4
+    macro loadisFromInstruction(offset, dest)
+        loadis offset * 4[PC], dest
+    end
+    
+    macro loadpFromInstruction(offset, dest)
+        loadp offset * 4[PC], dest
+    end
 end
 
 # Constants for reasoning about value representation.
@@ -61,9 +109,20 @@ else
     const PayloadOffset = 0
 end
 
+# Constant for reasoning about butterflies.
+const IsArray                  = 1
+const IndexingShapeMask        = 30
+const NoIndexingShape          = 0
+const Int32Shape               = 20
+const DoubleShape              = 22
+const ContiguousShape          = 26
+const ArrayStorageShape        = 28
+const SlowPutArrayStorageShape = 30
+
 # Type constants.
 const StringType = 5
-const ObjectType = 13
+const ObjectType = 17
+const FinalObjectType = 18
 
 # Type flags constants.
 const MasqueradesAsUndefined = 1
@@ -82,7 +141,21 @@ const FunctionCode = 2
 const LLIntReturnPC = ArgumentCount + TagOffset
 
 # String flags.
-const HashFlags8BitBuffer = 64
+const HashFlags8BitBuffer = 32
+
+# Copied from PropertyOffset.h
+const firstOutOfLineOffset = 100
+
+# ResolveType
+const GlobalProperty = 0
+const GlobalVar = 1
+const ClosureVar = 2
+const GlobalPropertyWithVarInjectionChecks = 3
+const GlobalVarWithVarInjectionChecks = 4
+const ClosureVarWithVarInjectionChecks = 5
+const Dynamic = 6
+
+const ResolveModeMask = 0xffff
 
 # Allocation constants
 if JSVALUE64
@@ -92,20 +165,22 @@ else
 end
 
 # This must match wtf/Vector.h
+const VectorBufferOffset = 0
 if JSVALUE64
-    const VectorSizeOffset = 0
-    const VectorBufferOffset = 8
+    const VectorSizeOffset = 12
 else
-    const VectorSizeOffset = 0
-    const VectorBufferOffset = 4
+    const VectorSizeOffset = 8
 end
-
 
 # Some common utilities.
 macro crash()
-    storei 0, 0xbbadbeef[]
-    move 0, t0
-    call t0
+    if C_LOOP
+        cloopCrash
+    else
+        storei t0, 0xbbadbeef[]
+        move 0, t0
+        call t0
+    end
 end
 
 macro assert(assertion)
@@ -117,8 +192,11 @@ macro assert(assertion)
 end
 
 macro preserveReturnAddressAfterCall(destinationRegister)
-    if ARMv7
+    if C_LOOP or ARM or ARMv7 or ARMv7_TRADITIONAL or MIPS
+        # In C_LOOP case, we're only preserving the bytecode vPC.
         move lr, destinationRegister
+    elsif SH4
+        stspr destinationRegister
     elsif X86 or X86_64
         pop destinationRegister
     else
@@ -127,8 +205,11 @@ macro preserveReturnAddressAfterCall(destinationRegister)
 end
 
 macro restoreReturnAddressBeforeReturn(sourceRegister)
-    if ARMv7
+    if C_LOOP or ARM or ARMv7 or ARMv7_TRADITIONAL or MIPS
+        # In C_LOOP case, we're only restoring the bytecode vPC.
         move sourceRegister, lr
+    elsif SH4
+        ldspr sourceRegister
     elsif X86 or X86_64
         push sourceRegister
     else
@@ -142,14 +223,35 @@ macro traceExecution()
     end
 end
 
-macro slowPathForCall(advance, slowPath)
+macro callTargetFunction(callLinkInfo)
+    if C_LOOP
+        cloopCallJSFunction LLIntCallLinkInfo::machineCodeTarget[callLinkInfo]
+    else
+        call LLIntCallLinkInfo::machineCodeTarget[callLinkInfo]
+        dispatchAfterCall()
+    end
+end
+
+macro slowPathForCall(slowPath)
     callCallSlowPath(
-        advance,
         slowPath,
         macro (callee)
-            call callee
-            dispatchAfterCall()
+            if C_LOOP
+                cloopCallJSFunction callee
+            else
+                call callee
+                dispatchAfterCall()
+            end
         end)
+end
+
+macro arrayProfile(structureAndIndexingType, profile, scratch)
+    const structure = structureAndIndexingType
+    const indexingType = structureAndIndexingType
+    if VALUE_PROFILER
+        storep structure, ArrayProfile::m_lastSeenStructure[profile]
+    end
+    loadb Structure::m_indexingType[structure], indexingType
 end
 
 macro checkSwitchToJIT(increment, action)
@@ -253,9 +355,9 @@ macro functionInitialization(profileArgSkip)
         addp t2, t3
     .argumentProfileLoop:
         if JSVALUE64
-            loadp ThisArgumentOffset + 8 - profileArgSkip * 8[cfr, t0], t2
+            loadq ThisArgumentOffset + 8 - profileArgSkip * 8[cfr, t0], t2
             subp sizeof ValueProfile, t3
-            storep t2, profileArgSkip * sizeof ValueProfile + ValueProfile::m_buckets[t3]
+            storeq t2, profileArgSkip * sizeof ValueProfile + ValueProfile::m_buckets[t3]
         else
             loadi ThisArgumentOffset + TagOffset + 8 - profileArgSkip * 8[cfr, t0], t2
             subp sizeof ValueProfile, t3
@@ -269,51 +371,36 @@ macro functionInitialization(profileArgSkip)
         
     # Check stack height.
     loadi CodeBlock::m_numCalleeRegisters[t1], t0
-    loadp CodeBlock::m_globalData[t1], t2
-    loadp JSGlobalData::interpreter[t2], t2   # FIXME: Can get to the RegisterFile from the JITStackFrame
+    loadp CodeBlock::m_vm[t1], t2
+    loadp VM::interpreter[t2], t2   # FIXME: Can get to the JSStack from the JITStackFrame
     lshifti 3, t0
     addp t0, cfr, t0
-    bpaeq Interpreter::m_registerFile + RegisterFile::m_end[t2], t0, .stackHeightOK
+    bpaeq Interpreter::m_stack + JSStack::m_end[t2], t0, .stackHeightOK
 
     # Stack height check failed - need to call a slow_path.
-    callSlowPath(_llint_register_file_check)
+    callSlowPath(_llint_stack_check)
 .stackHeightOK:
 end
 
-macro allocateBasicJSObject(sizeClassIndex, classInfoOffset, structure, result, scratch1, scratch2, slowCase)
+macro allocateJSObject(allocator, structure, result, scratch1, slowCase)
     if ALWAYS_ALLOCATE_SLOW
         jmp slowCase
     else
-        const offsetOfMySizeClass =
-            JSGlobalData::heap +
-            Heap::m_objectSpace +
-            MarkedSpace::m_normalSpace +
-            MarkedSpace::Subspace::preciseAllocators +
-            sizeClassIndex * sizeof MarkedAllocator
-        
         const offsetOfFirstFreeCell = 
             MarkedAllocator::m_freeList + 
             MarkedBlock::FreeList::head
 
-        # FIXME: we can get the global data in one load from the stack.
-        loadp CodeBlock[cfr], scratch1
-        loadp CodeBlock::m_globalData[scratch1], scratch1
-        
         # Get the object from the free list.   
-        loadp offsetOfMySizeClass + offsetOfFirstFreeCell[scratch1], result
+        loadp offsetOfFirstFreeCell[allocator], result
         btpz result, slowCase
         
         # Remove the object from the free list.
-        loadp [result], scratch2
-        storep scratch2, offsetOfMySizeClass + offsetOfFirstFreeCell[scratch1]
+        loadp [result], scratch1
+        storep scratch1, offsetOfFirstFreeCell[allocator]
     
         # Initialize the object.
-        loadp classInfoOffset[scratch1], scratch2
-        storep scratch2, [result]
         storep structure, JSCell::m_structure[result]
-        storep 0, JSObject::m_inheritorID[result]
-        addp sizeof JSObject, result, scratch1
-        storep scratch1, JSObject::m_propertyStorage[result]
+        storep 0, JSObject::m_butterfly[result]
     end
 end
 
@@ -356,12 +443,12 @@ _llint_function_for_construct_prologue:
 
 _llint_function_for_call_arity_check:
     prologue(functionForCallCodeBlockGetter, functionCodeBlockSetter, _llint_entry_osr_function_for_call_arityCheck, _llint_trace_arityCheck_for_call)
-    functionArityCheck(.functionForCallBegin, _llint_slow_path_call_arityCheck)
+    functionArityCheck(.functionForCallBegin, _slow_path_call_arityCheck)
 
 
 _llint_function_for_construct_arity_check:
     prologue(functionForConstructCodeBlockGetter, functionCodeBlockSetter, _llint_entry_osr_function_for_construct_arityCheck, _llint_trace_arityCheck_for_construct)
-    functionArityCheck(.functionForConstructBegin, _llint_slow_path_construct_arityCheck)
+    functionArityCheck(.functionForConstructBegin, _slow_path_construct_arityCheck)
 
 
 # Value-representation-specific code.
@@ -376,13 +463,19 @@ end
 _llint_op_new_array:
     traceExecution()
     callSlowPath(_llint_slow_path_new_array)
+    dispatch(5)
+
+
+_llint_op_new_array_with_size:
+    traceExecution()
+    callSlowPath(_llint_slow_path_new_array_with_size)
     dispatch(4)
 
 
 _llint_op_new_array_buffer:
     traceExecution()
     callSlowPath(_llint_slow_path_new_array_buffer)
-    dispatch(4)
+    dispatch(5)
 
 
 _llint_op_new_regexp:
@@ -393,92 +486,70 @@ _llint_op_new_regexp:
 
 _llint_op_less:
     traceExecution()
-    callSlowPath(_llint_slow_path_less)
+    callSlowPath(_slow_path_less)
     dispatch(4)
 
 
 _llint_op_lesseq:
     traceExecution()
-    callSlowPath(_llint_slow_path_lesseq)
+    callSlowPath(_slow_path_lesseq)
     dispatch(4)
 
 
 _llint_op_greater:
     traceExecution()
-    callSlowPath(_llint_slow_path_greater)
+    callSlowPath(_slow_path_greater)
     dispatch(4)
 
 
 _llint_op_greatereq:
     traceExecution()
-    callSlowPath(_llint_slow_path_greatereq)
+    callSlowPath(_slow_path_greatereq)
     dispatch(4)
 
 
 _llint_op_mod:
     traceExecution()
-    callSlowPath(_llint_slow_path_mod)
+    callSlowPath(_slow_path_mod)
     dispatch(4)
 
 
 _llint_op_typeof:
     traceExecution()
-    callSlowPath(_llint_slow_path_typeof)
+    callSlowPath(_slow_path_typeof)
     dispatch(3)
 
 
 _llint_op_is_object:
     traceExecution()
-    callSlowPath(_llint_slow_path_is_object)
+    callSlowPath(_slow_path_is_object)
     dispatch(3)
 
 
 _llint_op_is_function:
     traceExecution()
-    callSlowPath(_llint_slow_path_is_function)
+    callSlowPath(_slow_path_is_function)
     dispatch(3)
 
 
 _llint_op_in:
     traceExecution()
-    callSlowPath(_llint_slow_path_in)
+    callSlowPath(_slow_path_in)
     dispatch(4)
 
+macro withInlineStorage(object, propertyStorage, continuation)
+    # Indicate that the object is the property storage, and that the
+    # property storage register is unused.
+    continuation(object, propertyStorage)
+end
 
-_llint_op_resolve:
-    traceExecution()
-    callSlowPath(_llint_slow_path_resolve)
-    dispatch(4)
-
-
-_llint_op_resolve_skip:
-    traceExecution()
-    callSlowPath(_llint_slow_path_resolve_skip)
-    dispatch(5)
-
-
-_llint_op_resolve_base:
-    traceExecution()
-    callSlowPath(_llint_slow_path_resolve_base)
-    dispatch(5)
-
-
-_llint_op_ensure_property_exists:
-    traceExecution()
-    callSlowPath(_llint_slow_path_ensure_property_exists)
-    dispatch(3)
-
-
-_llint_op_resolve_with_base:
-    traceExecution()
-    callSlowPath(_llint_slow_path_resolve_with_base)
-    dispatch(5)
-
-
-_llint_op_resolve_with_this:
-    traceExecution()
-    callSlowPath(_llint_slow_path_resolve_with_this)
-    dispatch(5)
+macro withOutOfLineStorage(object, propertyStorage, continuation)
+    loadp JSObject::m_butterfly[object], propertyStorage
+    # Indicate that the propertyStorage register now points to the
+    # property storage, and that the object register may be reused
+    # if the object pointer is not needed anymore.
+    continuation(propertyStorage, object)
+end
 
 
 _llint_op_del_by_id:
@@ -505,14 +576,6 @@ _llint_op_put_getter_setter:
     dispatch(5)
 
 
-_llint_op_jmp_scopes:
-    traceExecution()
-    callSlowPath(_llint_slow_path_jmp_scopes)
-    dispatch(0)
-
-
-_llint_op_loop_if_true:
-    nop
 _llint_op_jtrue:
     traceExecution()
     jumpTrueOrFalse(
@@ -520,8 +583,6 @@ _llint_op_jtrue:
         _llint_slow_path_jtrue)
 
 
-_llint_op_loop_if_false:
-    nop
 _llint_op_jfalse:
     traceExecution()
     jumpTrueOrFalse(
@@ -529,8 +590,6 @@ _llint_op_jfalse:
         _llint_slow_path_jfalse)
 
 
-_llint_op_loop_if_less:
-    nop
 _llint_op_jless:
     traceExecution()
     compare(
@@ -547,8 +606,6 @@ _llint_op_jnless:
         _llint_slow_path_jnless)
 
 
-_llint_op_loop_if_greater:
-    nop
 _llint_op_jgreater:
     traceExecution()
     compare(
@@ -565,8 +622,6 @@ _llint_op_jngreater:
         _llint_slow_path_jngreater)
 
 
-_llint_op_loop_if_lesseq:
-    nop
 _llint_op_jlesseq:
     traceExecution()
     compare(
@@ -583,8 +638,6 @@ _llint_op_jnlesseq:
         _llint_slow_path_jnlesseq)
 
 
-_llint_op_loop_if_greatereq:
-    nop
 _llint_op_jgreatereq:
     traceExecution()
     compare(
@@ -603,9 +656,17 @@ _llint_op_jngreatereq:
 
 _llint_op_loop_hint:
     traceExecution()
+    loadp JITStackFrame::vm[sp], t1
+    loadb VM::watchdog+Watchdog::m_timerDidFire[t1], t0
+    btbnz t0, .handleWatchdogTimer
+.afterWatchdogTimerCheck:
     checkSwitchToJITForLoop()
     dispatch(1)
-
+.handleWatchdogTimer:
+    callWatchdogTimerHandler(.throwHandler)
+    jmp .afterWatchdogTimerCheck
+.throwHandler:
+    jmp _llint_throw_from_slow_path_trampoline
 
 _llint_op_switch_string:
     traceExecution()
@@ -621,6 +682,7 @@ _llint_op_new_func_exp:
 
 _llint_op_call:
     traceExecution()
+    arrayProfileForCall()
     doCall(_llint_slow_path_call)
 
 
@@ -631,7 +693,7 @@ _llint_op_construct:
 
 _llint_op_call_varargs:
     traceExecution()
-    slowPathForCall(6, _llint_slow_path_call_varargs)
+    slowPathForCall(_llint_slow_path_call_varargs)
 
 
 _llint_op_call_eval:
@@ -670,7 +732,7 @@ _llint_op_call_eval:
     # and a PC to call, and that PC may be a dummy thunk that just
     # returns the JS value that the eval returned.
     
-    slowPathForCall(4, _llint_slow_path_call_eval)
+    slowPathForCall(_llint_slow_path_call_eval)
 
 
 _llint_generic_return_point:
@@ -679,14 +741,8 @@ _llint_generic_return_point:
 
 _llint_op_strcat:
     traceExecution()
-    callSlowPath(_llint_slow_path_strcat)
+    callSlowPath(_slow_path_strcat)
     dispatch(4)
-
-
-_llint_op_method_check:
-    traceExecution()
-    # We ignore method checks and use normal get_by_id optimizations.
-    dispatch(1)
 
 
 _llint_op_get_pnames:
@@ -695,9 +751,9 @@ _llint_op_get_pnames:
     dispatch(0) # The slow_path either advances the PC or jumps us to somewhere else.
 
 
-_llint_op_push_scope:
+_llint_op_push_with_scope:
     traceExecution()
-    callSlowPath(_llint_slow_path_push_scope)
+    callSlowPath(_llint_slow_path_push_with_scope)
     dispatch(2)
 
 
@@ -707,9 +763,9 @@ _llint_op_pop_scope:
     dispatch(1)
 
 
-_llint_op_push_new_scope:
+_llint_op_push_name_scope:
     traceExecution()
-    callSlowPath(_llint_slow_path_push_new_scope)
+    callSlowPath(_llint_slow_path_push_name_scope)
     dispatch(4)
 
 
@@ -719,34 +775,28 @@ _llint_op_throw:
     dispatch(2)
 
 
-_llint_op_throw_reference_error:
+_llint_op_throw_static_error:
     traceExecution()
-    callSlowPath(_llint_slow_path_throw_reference_error)
-    dispatch(2)
+    callSlowPath(_llint_slow_path_throw_static_error)
+    dispatch(3)
 
 
 _llint_op_profile_will_call:
     traceExecution()
-    loadp JITStackFrame::enabledProfilerReference[sp], t0
-    btpz [t0], .opProfileWillCallDone
     callSlowPath(_llint_slow_path_profile_will_call)
-.opProfileWillCallDone:
     dispatch(2)
 
 
 _llint_op_profile_did_call:
     traceExecution()
-    loadp JITStackFrame::enabledProfilerReference[sp], t0
-    btpz [t0], .opProfileWillCallDone
     callSlowPath(_llint_slow_path_profile_did_call)
-.opProfileDidCallDone:
     dispatch(2)
 
 
 _llint_op_debug:
     traceExecution()
     callSlowPath(_llint_slow_path_debug)
-    dispatch(4)
+    dispatch(5)
 
 
 _llint_native_call_trampoline:
@@ -774,9 +824,6 @@ macro notSupported()
         break
     end
 end
-
-_llint_op_get_array_length:
-    notSupported()
 
 _llint_op_get_by_id_chain:
     notSupported()
@@ -820,6 +867,8 @@ _llint_op_put_by_id_replace:
 _llint_op_put_by_id_transition:
     notSupported()
 
+_llint_op_init_global_const_nop:
+    dispatch(5)
 
 # Indicate the end of LLInt.
 _llint_end:

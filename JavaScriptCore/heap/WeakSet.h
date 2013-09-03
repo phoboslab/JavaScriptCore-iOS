@@ -35,20 +35,23 @@ class WeakImpl;
 
 class WeakSet {
 public:
-    WeakSet(Heap*);
-    void finalizeAll();
-    ~WeakSet();
-
     static WeakImpl* allocate(JSValue, WeakHandleOwner* = 0, void* context = 0);
     static void deallocate(WeakImpl*);
 
-    void visitLiveWeakImpls(HeapRootVisitor&);
-    void visitDeadWeakImpls(HeapRootVisitor&);
+    WeakSet(VM*);
+    ~WeakSet();
+    void lastChanceToFinalize();
 
+    Heap* heap() const;
+    VM* vm() const;
+
+    bool isEmpty() const;
+
+    void visit(HeapRootVisitor&);
+    void reap();
     void sweep();
-    void resetAllocator();
-
     void shrink();
+    void resetAllocator();
 
 private:
     JS_EXPORT_PRIVATE WeakBlock::FreeCell* findAllocator();
@@ -59,19 +62,71 @@ private:
     WeakBlock::FreeCell* m_allocator;
     WeakBlock* m_nextAllocator;
     DoublyLinkedList<WeakBlock> m_blocks;
-    Heap* m_heap;
+    VM* m_vm;
 };
 
-inline WeakSet::WeakSet(Heap* heap)
+inline WeakSet::WeakSet(VM* vm)
     : m_allocator(0)
     , m_nextAllocator(0)
-    , m_heap(heap)
+    , m_vm(vm)
 {
+}
+
+inline VM* WeakSet::vm() const
+{
+    return m_vm;
+}
+
+inline bool WeakSet::isEmpty() const
+{
+    for (WeakBlock* block = m_blocks.head(); block; block = block->next()) {
+        if (!block->isEmpty())
+            return false;
+    }
+
+    return true;
 }
 
 inline void WeakSet::deallocate(WeakImpl* weakImpl)
 {
     weakImpl->setState(WeakImpl::Deallocated);
+}
+
+inline void WeakSet::lastChanceToFinalize()
+{
+    for (WeakBlock* block = m_blocks.head(); block; block = block->next())
+        block->lastChanceToFinalize();
+}
+
+inline void WeakSet::visit(HeapRootVisitor& visitor)
+{
+    for (WeakBlock* block = m_blocks.head(); block; block = block->next())
+        block->visit(visitor);
+}
+
+inline void WeakSet::reap()
+{
+    for (WeakBlock* block = m_blocks.head(); block; block = block->next())
+        block->reap();
+}
+
+inline void WeakSet::shrink()
+{
+    WeakBlock* next;
+    for (WeakBlock* block = m_blocks.head(); block; block = next) {
+        next = block->next();
+
+        if (block->isEmpty())
+            removeAllocator(block);
+    }
+
+    resetAllocator();
+}
+
+inline void WeakSet::resetAllocator()
+{
+    m_allocator = 0;
+    m_nextAllocator = m_blocks.head();
 }
 
 } // namespace JSC

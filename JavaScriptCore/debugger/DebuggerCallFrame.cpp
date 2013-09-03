@@ -32,33 +32,34 @@
 #include "JSFunction.h"
 #include "CodeBlock.h"
 #include "Interpreter.h"
+#include "Operations.h"
 #include "Parser.h"
 
 namespace JSC {
 
-const UString* DebuggerCallFrame::functionName() const
+String DebuggerCallFrame::functionName() const
 {
     if (!m_callFrame->codeBlock())
-        return 0;
+        return String();
 
     if (!m_callFrame->callee())
-        return 0;
+        return String();
 
     JSObject* function = m_callFrame->callee();
-    if (!function || !function->inherits(&JSFunction::s_info))
-        return 0;
-    return &jsCast<JSFunction*>(function)->name(m_callFrame);
+    if (!function || !function->inherits(JSFunction::info()))
+        return String();
+    return jsCast<JSFunction*>(function)->name(m_callFrame);
 }
     
-UString DebuggerCallFrame::calculatedFunctionName() const
+String DebuggerCallFrame::calculatedFunctionName() const
 {
     if (!m_callFrame->codeBlock())
-        return UString();
+        return String();
 
     JSObject* function = m_callFrame->callee();
 
     if (!function)
-        return UString();
+        return String();
 
     return getCalculatedDisplayName(m_callFrame, function);
 }
@@ -84,22 +85,22 @@ JSObject* DebuggerCallFrame::thisObject() const
     return asObject(thisValue);
 }
 
-JSValue DebuggerCallFrame::evaluate(const UString& script, JSValue& exception) const
+JSValue DebuggerCallFrame::evaluate(const String& script, JSValue& exception) const
 {
     if (!m_callFrame->codeBlock())
         return JSValue();
     
-    JSGlobalData& globalData = m_callFrame->globalData();
+    VM& vm = m_callFrame->vm();
     EvalExecutable* eval = EvalExecutable::create(m_callFrame, makeSource(script), m_callFrame->codeBlock()->isStrictMode());
-    if (globalData.exception) {
-        exception = globalData.exception;
-        globalData.exception = JSValue();
+    if (vm.exception()) {
+        exception = vm.exception();
+        vm.clearException();
     }
 
-    JSValue result = globalData.interpreter->execute(eval, m_callFrame, thisObject(), m_callFrame->scopeChain());
-    if (globalData.exception) {
-        exception = globalData.exception;
-        globalData.exception = JSValue();
+    JSValue result = vm.interpreter->execute(eval, m_callFrame, thisObject(), m_callFrame->scope());
+    if (vm.exception()) {
+        exception = vm.exception();
+        vm.clearException();
     }
     ASSERT(result);
     return result;

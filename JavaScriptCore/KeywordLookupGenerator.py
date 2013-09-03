@@ -68,11 +68,16 @@ def allWhitespace(str):
 
 
 def parseKeywords(keywordsText):
+
+    if sys.platform == "cygwin":
+        keywordsText = keywordsText.replace("\r\n", "\n")
+
     lines = keywordsText.split("\n")
     lines = [line.split("#")[0] for line in lines]
     lines = [line for line in lines if (not allWhitespace(line))]
     name = lines[0].split()
     terminator = lines[-1]
+
     if not name[0] == "@begin":
         raise Exception("expected description beginning with @begin")
     if not terminator == "@end":
@@ -139,7 +144,7 @@ class Trie:
             print(str + "if (!isIdentPart(code[%d])) {" % (len(self.fullPrefix)))
             print(str + "    internalShift<%d>();" % len(self.fullPrefix))
             print(str + "    if (shouldCreateIdentifier)")
-            print(str + ("        data->ident = &m_globalData->propertyNames->%sKeyword;" % self.fullPrefix))
+            print(str + ("        data->ident = &m_vm->propertyNames->%sKeyword;" % self.fullPrefix))
             print(str + "    return " + self.value + ";")
             print(str + "}")
         rootIndex = len(self.fullPrefix)
@@ -253,16 +258,16 @@ print("""
 
 
 #define COMPARE_2CHARS(address, char1, char2) \\
-    (((uint16_t*)(address))[0] == CHARPAIR_TOUINT16(char1, char2))
+    ((reinterpret_cast<const uint16_t*>(address))[0] == CHARPAIR_TOUINT16(char1, char2))
 #define COMPARE_2UCHARS(address, char1, char2) \\
-    (((uint32_t*)(address))[0] == UCHARPAIR_TOUINT32(char1, char2))
+    ((reinterpret_cast<const uint32_t*>(address))[0] == UCHARPAIR_TOUINT32(char1, char2))
 
 #if CPU(X86_64)
 
 #define COMPARE_4CHARS(address, char1, char2, char3, char4) \\
-    (((uint32_t*)(address))[0] == CHARQUAD_TOUINT32(char1, char2, char3, char4))
+    ((reinterpret_cast<const uint32_t*>(address))[0] == CHARQUAD_TOUINT32(char1, char2, char3, char4))
 #define COMPARE_4UCHARS(address, char1, char2, char3, char4) \\
-    (((uint64_t*)(address))[0] == UCHARQUAD_TOUINT64(char1, char2, char3, char4))
+    ((reinterpret_cast<const uint64_t*>(address))[0] == UCHARQUAD_TOUINT64(char1, char2, char3, char4))
 
 #else // CPU(X86_64)
 

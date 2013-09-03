@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,23 +26,25 @@
 #ifndef DFGDriver_h
 #define DFGDriver_h
 
+#include "CallFrame.h"
+#include "DFGPlan.h"
 #include <wtf/Platform.h>
 
 namespace JSC {
 
 class CodeBlock;
 class JITCode;
-class JSGlobalData;
+class VM;
 class MacroAssemblerCodePtr;
 
 namespace DFG {
 
+JS_EXPORT_PRIVATE unsigned getNumCompilations();
+
 #if ENABLE(DFG_JIT)
-bool tryCompile(JSGlobalData&, CodeBlock*, JITCode&);
-bool tryCompileFunction(JSGlobalData&, CodeBlock*, JITCode&, MacroAssemblerCodePtr& jitCodeWithArityCheck);
+CompilationResult tryCompile(ExecState*, CodeBlock*, unsigned osrEntryBytecodeIndex, PassRefPtr<DeferredCompilationCallback>);
 #else
-inline bool tryCompile(JSGlobalData&, CodeBlock*, JITCode&) { return false; }
-inline bool tryCompileFunction(JSGlobalData&, CodeBlock*, JITCode&, MacroAssemblerCodePtr&) { return false; }
+inline CompilationResult tryCompile(ExecState*, CodeBlock*, unsigned, PassRefPtr<DeferredCompilationCallback>) { return CompilationFailed; }
 #endif
 
 } } // namespace JSC::DFG

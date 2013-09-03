@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,75 +26,107 @@
 #include "config.h"
 #include "DFGDriver.h"
 
+#include "JSObject.h"
+#include "JSString.h"
+
 #if ENABLE(DFG_JIT)
 
-#include "DFGByteCodeParser.h"
-#include "DFGCFAPhase.h"
-#include "DFGCSEPhase.h"
-#include "DFGFixupPhase.h"
-#include "DFGJITCompiler.h"
-#include "DFGPredictionPropagationPhase.h"
-#include "DFGRedundantPhiEliminationPhase.h"
-#include "DFGVirtualRegisterAllocationPhase.h"
+#include "CodeBlock.h"
+#include "DFGJITCode.h"
+#include "DFGPlan.h"
+#include "DFGThunks.h"
+#include "DFGWorklist.h"
+#include "JITCode.h"
+#include "Operations.h"
+#include "Options.h"
+#include "SamplingTool.h"
+#include <wtf/Atomics.h>
+
+#if ENABLE(FTL_JIT)
+#include "FTLThunks.h"
+#endif
 
 namespace JSC { namespace DFG {
 
-enum CompileMode { CompileFunction, CompileOther };
-inline bool compile(CompileMode compileMode, JSGlobalData& globalData, CodeBlock* codeBlock, JITCode& jitCode, MacroAssemblerCodePtr* jitCodeWithArityCheck)
+static unsigned numCompilations;
+
+unsigned getNumCompilations()
+{
+    return numCompilations;
+}
+
+CompilationResult tryCompile(ExecState* exec, CodeBlock* codeBlock, unsigned osrEntryBytecodeIndex, PassRefPtr<DeferredCompilationCallback> callback)
 {
     SamplingRegion samplingRegion("DFG Compilation (Driver)");
     
+    numCompilations++;
+    
     ASSERT(codeBlock);
     ASSERT(codeBlock->alternative());
-    ASSERT(codeBlock->alternative()->getJITType() == JITCode::BaselineJIT);
+    ASSERT(codeBlock->alternative()->jitType() == JITCode::BaselineJIT);
+    
+    ASSERT(osrEntryBytecodeIndex != UINT_MAX);
 
-#if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLog("DFG compiling code block %p(%p), number of instructions = %u.\n", codeBlock, codeBlock->alternative(), codeBlock->instructionCount());
+    if (!Options::useDFGJIT() || !MacroAssembler::supportsFloatingPoint())
+        return CompilationFailed;
+
+    if (!Options::bytecodeRangeToDFGCompile().isInRange(codeBlock->instructionCount()))
+        return CompilationFailed;
+    
+    if (logCompilationChanges())
+        dataLog("DFG(Driver) compiling ", *codeBlock, ", number of instructions = ", codeBlock->instructionCount(), "\n");
+    
+    VM& vm = exec->vm();
+    
+    // Make sure that any stubs that the DFG is going to use are initialized. We want to
+    // make sure that al JIT code generation does finalization on the main thread.
+    vm.getCTIStub(osrExitGenerationThunkGenerator);
+    vm.getCTIStub(throwExceptionFromCallSlowPathGenerator);
+    vm.getCTIStub(linkCallThunkGenerator);
+    vm.getCTIStub(linkConstructThunkGenerator);
+    vm.getCTIStub(linkClosureCallThunkGenerator);
+    vm.getCTIStub(virtualCallThunkGenerator);
+    vm.getCTIStub(virtualConstructThunkGenerator);
+#if ENABLE(FTL_JIT)
+    vm.getCTIStub(FTL::osrExitGenerationThunkGenerator);
 #endif
     
-    Graph dfg(globalData, codeBlock);
-    if (!parse(dfg))
-        return false;
-    
-    if (compileMode == CompileFunction)
-        dfg.predictArgumentTypes();
-
-    performRedundantPhiElimination(dfg);
-    performPredictionPropagation(dfg);
-    performFixup(dfg);
-    performCSE(dfg);
-    performVirtualRegisterAllocation(dfg);
-    performCFA(dfg);
-
-#if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLog("Graph after optimization:\n");
-    dfg.dump();
-#endif
-    
-    JITCompiler dataFlowJIT(dfg);
-    bool result;
-    if (compileMode == CompileFunction) {
-        ASSERT(jitCodeWithArityCheck);
-        
-        result = dataFlowJIT.compileFunction(jitCode, *jitCodeWithArityCheck);
-    } else {
-        ASSERT(compileMode == CompileOther);
-        ASSERT(!jitCodeWithArityCheck);
-        
-        result = dataFlowJIT.compile(jitCode);
+    // Derive our set of must-handle values. The compilation must be at least conservative
+    // enough to allow for OSR entry with these values.
+    unsigned numVarsWithValues;
+    if (osrEntryBytecodeIndex)
+        numVarsWithValues = codeBlock->m_numVars;
+    else
+        numVarsWithValues = 0;
+    RefPtr<Plan> plan = adoptRef(
+        new Plan(codeBlock, osrEntryBytecodeIndex, numVarsWithValues));
+    for (size_t i = 0; i < plan->mustHandleValues.size(); ++i) {
+        int operand = plan->mustHandleValues.operandForIndex(i);
+        if (operandIsArgument(operand)
+            && !operandToArgument(operand)
+            && codeBlock->codeType() == FunctionCode
+            && codeBlock->specializationKind() == CodeForConstruct) {
+            // Ugh. If we're in a constructor, the 'this' argument may hold garbage. It will
+            // also never be used. It doesn't matter what we put into the value for this,
+            // but it has to be an actual value that can be grokked by subsequent DFG passes,
+            // so we sanitize it here by turning it into Undefined.
+            plan->mustHandleValues[i] = jsUndefined();
+        } else
+            plan->mustHandleValues[i] = exec->uncheckedR(operand).jsValue();
     }
     
-    return result;
-}
-
-bool tryCompile(JSGlobalData& globalData, CodeBlock* codeBlock, JITCode& jitCode)
-{
-    return compile(CompileOther, globalData, codeBlock, jitCode, 0);
-}
-
-bool tryCompileFunction(JSGlobalData& globalData, CodeBlock* codeBlock, JITCode& jitCode, MacroAssemblerCodePtr& jitCodeWithArityCheck)
-{
-    return compile(CompileFunction, globalData, codeBlock, jitCode, &jitCodeWithArityCheck);
+    if (enableConcurrentJIT() && callback) {
+        plan->callback = callback;
+        if (!vm.worklist)
+            vm.worklist = globalWorklist();
+        if (logCompilationChanges())
+            dataLog("Deferring DFG compilation of ", *codeBlock, " with queue length ", vm.worklist->queueLength(), ".\n");
+        vm.worklist->enqueue(plan);
+        return CompilationDeferred;
+    }
+    
+    plan->compileInThread(*vm.dfgState);
+    return plan->finalizeWithoutNotifyingCallback();
 }
 
 } } // namespace JSC::DFG

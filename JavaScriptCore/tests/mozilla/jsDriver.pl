@@ -65,9 +65,10 @@ my $opt_console_failures = 0;
 my $opt_lxr_url = "./"; # "http://lxr.mozilla.org/mozilla/source/js/tests/";
 my $opt_exit_munge = ($os_type ne "MAC") ? 1 : 0;
 my $opt_arch= "";
+my $opt_sim_sdk = "";
 
 # command line option definition
-my $options = "a=s arch>a b=s bugurl>b c=s classpath>c e=s engine>e f=s file>f " .
+my $options = "a=s arch>a b=s bugurl>b c=s classpath>c d=s sdk>d e=s engine>e f=s file>f " .
 "h help>h i j=s javapath>j k confail>k l=s list>l L=s neglist>L " .
 "o=s opt>o p=s testpath>p s=s shellpath>s t trace>t u=s lxrurl>u " .
 "x noexitmunge>x";
@@ -148,7 +149,8 @@ sub main {
 
 sub execute_tests {
     my (@test_list) = @_;
-    my ($test, $shell_command, $line, @output, $path);
+    my ($test, $line, @output, $path);
+    my $shell_command = "";
     my $file_param = " -f ";
     my ($last_suite, $last_test_dir);
     
@@ -164,6 +166,7 @@ sub execute_tests {
         my $failure_lines;
         my $bug_number;
         my $status_lines;
+        my @jsc_exit_code;
         
 # user selected [Q]uit from ^C handler.
         if ($user_exit) {
@@ -174,10 +177,28 @@ sub execute_tests {
 # (only check for their existance if the suite or test_dir has changed
 # since the last time we looked.)
         if ($last_suite ne $suite || $last_test_dir ne $test_dir) {
-            $shell_command = $opt_arch . " ";
-            
+            if ($opt_sim_sdk) {
+                chomp($shell_command = `xcrun -sdk $opt_sim_sdk -find sim`);
+                $shell_command .= " --adopt-pid $opt_arch ";
+            } else {
+                $shell_command = "$opt_arch ";
+            }
+
             $shell_command .= &xp_path($engine_command)  . " -s ";
-            
+
+# FIXME: <https://bugs.webkit.org/show_bug.cgi?id=90119>
+# Sporadically on Windows, the exit code returned after close() in $?
+# is 126 (after the appropraite shifting, even though jsc exits with
+# 0 or 3). To work around this, a -x option was added to jsc that will
+# output the exit value right before exiting.  We parse that value and
+# remove it from the output stream before comparing the actual and expected
+# outputs. When that bug is found and fixed, the code for processing of
+# "jsc exiting [\d]" and use of @jsc_exit_code can be removed along with
+# the -x option in jsc.cpp
+            if ($os_type eq "WIN") {
+                $shell_command .= " -x ";
+            }
+
             $path = &xp_path($opt_suite_path . $suite . "/shell.js");
             if (-f $path) {
                 $shell_command .= $file_param . $path;
@@ -202,10 +223,19 @@ sub execute_tests {
               $redirect_command . " |");
         @output = <OUTPUT>;
         close (OUTPUT);
-        
-        @output = grep (!/js\>/, @output);
-        
-        if ($opt_exit_munge == 1) {
+
+        @jsc_exit_code = grep (/jsc exiting [\d]/, @output);
+        @output = grep (!/js\>|jsc exiting [\d]/, @output);
+
+        if (($#jsc_exit_code == 0) && ($jsc_exit_code[0] =~ /jsc exiting ([\d])\W*/)) {
+# return value from jsc output to work around windows bug
+            $got_exit = $1;
+            if ($opt_exit_munge == 1) {
+                $exit_signal = ($? & 255);
+            } else {
+                $exit_signal = 0;
+            }
+        } elsif ($opt_exit_munge == 1) {
 # signal information in the lower 8 bits, exit code above that
             $got_exit = ($? >> 8);
             $exit_signal = ($? & 255);
@@ -426,6 +456,11 @@ sub parse_args {
             &dd ("opt: adding negative list '$value'.");
             push (@opt_neg_list_files, $value);
             
+        } elsif ($option eq "d") {
+            $option = 'd';
+            &dd ("opt: using $value simulator SDK to run jsc.");
+            $opt_sim_sdk = $value;
+
         } elsif ($option eq "o") {
             $opt_engine_params = $value;
             &dd ("opt: setting engine params to '$opt_engine_params'.");
@@ -488,6 +523,7 @@ sub usage {
      "(-b|--bugurl)             Bugzilla URL.\n" .
      "                          (default is $opt_bug_url)\n" .
      "(-c|--classpath)          Classpath (Rhino only.)\n" .
+     "(-d|--sdk)                Use a simulator SDK to run jsc\n" .
      "(-e|--engine) <type> ...  Specify the type of engine(s) to test.\n" .
      "                          <type> is one or more of\n" .
      "                          (squirrelfish|smopt|smdebug|lcopt|lcdebug|xpcshell|" .

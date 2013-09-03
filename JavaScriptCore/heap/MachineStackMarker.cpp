@@ -25,7 +25,7 @@
 #include "ConservativeRoots.h"
 #include "Heap.h"
 #include "JSArray.h"
-#include "JSGlobalData.h"
+#include "VM.h"
 #include <setjmp.h>
 #include <stdlib.h>
 #include <wtf/StdLibExtras.h>
@@ -45,7 +45,6 @@
 
 #elif OS(UNIX)
 
-#include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -97,7 +96,7 @@ typedef pthread_t PlatformThread;
 static const int SigThreadSuspendResume = SIGUSR2;
 
 #if defined(SA_RESTART)
-static void pthreadSignalHandlerSuspendResume(int signo)
+static void pthreadSignalHandlerSuspendResume(int)
 {
     sigset_t signalSet;
     sigemptyset(&signalSet);
@@ -108,6 +107,7 @@ static void pthreadSignalHandlerSuspendResume(int signo)
 #endif
 
 class MachineThreads::Thread {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     Thread(const PlatformThread& platThread, void* base)
         : platformThread(platThread)
@@ -134,18 +134,19 @@ public:
 };
 
 MachineThreads::MachineThreads(Heap* heap)
-    : m_heap(heap)
-    , m_registeredThreads(0)
+    : m_registeredThreads(0)
     , m_threadSpecific(0)
+#if !ASSERT_DISABLED
+    , m_heap(heap)
+#endif
 {
+    UNUSED_PARAM(heap);
 }
 
 MachineThreads::~MachineThreads()
 {
-    if (m_threadSpecific) {
-        int error = pthread_key_delete(m_threadSpecific);
-        ASSERT_UNUSED(error, !error);
-    }
+    if (m_threadSpecific)
+        threadSpecificKeyDelete(m_threadSpecific);
 
     MutexLocker registeredThreadsLock(m_registeredThreadsMutex);
     for (Thread* t = m_registeredThreads; t;) {
@@ -182,19 +183,17 @@ void MachineThreads::makeUsableFromMultipleThreads()
     if (m_threadSpecific)
         return;
 
-    int error = pthread_key_create(&m_threadSpecific, removeThread);
-    if (error)
-        CRASH();
+    threadSpecificKeyCreate(&m_threadSpecific, removeThread);
 }
 
 void MachineThreads::addCurrentThread()
 {
-    ASSERT(!m_heap->globalData()->exclusiveThread || m_heap->globalData()->exclusiveThread == currentThread());
+    ASSERT(!m_heap->vm()->exclusiveThread || m_heap->vm()->exclusiveThread == currentThread());
 
-    if (!m_threadSpecific || pthread_getspecific(m_threadSpecific))
+    if (!m_threadSpecific || threadSpecificGet(m_threadSpecific))
         return;
 
-    pthread_setspecific(m_threadSpecific, this);
+    threadSpecificSet(m_threadSpecific, this);
     Thread* thread = new Thread(getCurrentPlatformThread(), wtfThreadData().stack().origin());
 
     MutexLocker lock(m_registeredThreadsMutex);
@@ -356,14 +355,20 @@ static size_t getPlatformThreadRegisters(const PlatformThread& platformThread, P
     return sizeof(CONTEXT);
 #elif OS(QNX)
     memset(&regs, 0, sizeof(regs));
-    regs.tid = pthread_self();
-    int fd = open("/proc/self", O_RDONLY);
+    regs.tid = platformThread;
+    // FIXME: If we find this hurts performance, we can consider caching the fd and keeping it open.
+    int fd = open("/proc/self/as", O_RDONLY);
     if (fd == -1) {
-        LOG_ERROR("Unable to open /proc/self (errno: %d)", errno);
+        LOG_ERROR("Unable to open /proc/self/as (errno: %d)", errno);
         CRASH();
     }
-    devctl(fd, DCMD_PROC_TIDSTATUS, &regs, sizeof(regs), 0);
+    int rc = devctl(fd, DCMD_PROC_TIDSTATUS, &regs, sizeof(regs), 0);
+    if (rc != EOK) {
+        LOG_ERROR("devctl(DCMD_PROC_TIDSTATUS) failed (error: %d)", rc);
+        CRASH();
+    }
     close(fd);
+    return sizeof(struct _debug_thread_info);
 #elif USE(PTHREADS)
     pthread_attr_init(&regs);
 #if HAVE(PTHREAD_NP_H) || OS(NETBSD)
@@ -452,8 +457,6 @@ static void freePlatformThreadRegisters(PlatformThreadRegisters& regs)
 
 void MachineThreads::gatherFromOtherThread(ConservativeRoots& conservativeRoots, Thread* thread)
 {
-    suspendThread(thread->platformThread);
-
     PlatformThreadRegisters regs;
     size_t regSize = getPlatformThreadRegisters(thread->platformThread, regs);
 
@@ -463,8 +466,6 @@ void MachineThreads::gatherFromOtherThread(ConservativeRoots& conservativeRoots,
     void* stackBase = thread->stackBase;
     swapIfBackwards(stackPointer, stackBase);
     conservativeRoots.add(stackPointer, stackBase);
-
-    resumeThread(thread->platformThread);
 
     freePlatformThreadRegisters(regs);
 }
@@ -484,12 +485,23 @@ void MachineThreads::gatherConservativeRoots(ConservativeRoots& conservativeRoot
         // thread that had been suspended while holding the malloc lock.
         fastMallocForbid();
 #endif
+        for (Thread* thread = m_registeredThreads; thread; thread = thread->next) {
+            if (!equalThread(thread->platformThread, currentPlatformThread))
+                suspendThread(thread->platformThread);
+        }
+
         // It is safe to access the registeredThreads list, because we earlier asserted that locks are being held,
         // and since this is a shared heap, they are real locks.
         for (Thread* thread = m_registeredThreads; thread; thread = thread->next) {
             if (!equalThread(thread->platformThread, currentPlatformThread))
                 gatherFromOtherThread(conservativeRoots, thread);
         }
+
+        for (Thread* thread = m_registeredThreads; thread; thread = thread->next) {
+            if (!equalThread(thread->platformThread, currentPlatformThread))
+                resumeThread(thread->platformThread);
+        }
+
 #ifndef NDEBUG
         fastMallocAllow();
 #endif

@@ -33,7 +33,7 @@
 #include "Operations.h"
 
 namespace JSC {
-unsigned PropertyDescriptor::defaultAttributes = (DontDelete << 1) - 1;
+unsigned PropertyDescriptor::defaultAttributes = DontDelete | DontEnum | ReadOnly;
 
 bool PropertyDescriptor::writable() const
 {
@@ -176,8 +176,8 @@ bool sameValue(ExecState* exec, JSValue a, JSValue b)
         return false;
     double x = a.asNumber();
     double y = b.asNumber();
-    if (isnan(x))
-        return isnan(y);
+    if (std::isnan(x))
+        return std::isnan(y);
     return bitwise_cast<uint64_t>(x) == bitwise_cast<uint64_t>(y);
 }
 

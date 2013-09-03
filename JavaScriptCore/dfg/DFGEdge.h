@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGCommon.h"
+#include "DFGUseKind.h"
 
 namespace JSC { namespace DFG {
 
@@ -38,88 +39,186 @@ class AdjacencyList;
 
 class Edge {
 public:
-    Edge()
-        : m_encodedWord(makeWord(NoNode, UntypedUse))
+    explicit Edge(Node* node = 0, UseKind useKind = UntypedUse, ProofStatus proofStatus = NeedsCheck, KillStatus killStatus = DoesNotKill)
+#if USE(JSVALUE64)
+        : m_encodedWord(makeWord(node, useKind, proofStatus, killStatus))
+#else
+        : m_node(node)
+        , m_encodedWord(makeWord(useKind, proofStatus, killStatus))
+#endif
     {
     }
     
-    explicit Edge(NodeIndex nodeIndex)
-        : m_encodedWord(makeWord(nodeIndex, UntypedUse))
+#if USE(JSVALUE64)
+    Node* node() const { return bitwise_cast<Node*>(m_encodedWord >> shift()); }
+#else
+    Node* node() const { return m_node; }
+#endif
+
+    Node& operator*() const { return *node(); }
+    Node* operator->() const { return node(); }
+    
+    void setNode(Node* node)
     {
+#if USE(JSVALUE64)
+        m_encodedWord = makeWord(node, useKind(), proofStatus(), killStatus());
+#else
+        m_node = node;
+#endif
     }
     
-    Edge(NodeIndex nodeIndex, UseKind useKind)
-        : m_encodedWord(makeWord(nodeIndex, useKind))
+    UseKind useKindUnchecked() const
     {
+#if USE(JSVALUE64)
+        unsigned masked = m_encodedWord & (((1 << shift()) - 1));
+        unsigned shifted = masked >> 2;
+#else
+        unsigned shifted = static_cast<UseKind>(m_encodedWord) >> 2;
+#endif
+        ASSERT(shifted < static_cast<unsigned>(LastUseKind));
+        UseKind result = static_cast<UseKind>(shifted);
+        ASSERT(node() || result == UntypedUse);
+        return result;
     }
-    
-    NodeIndex indexUnchecked() const { return m_encodedWord >> shift(); }
-    NodeIndex index() const
-    {
-        ASSERT(isSet());
-        return m_encodedWord >> shift();
-    }
-    void setIndex(NodeIndex nodeIndex)
-    {
-        m_encodedWord = makeWord(nodeIndex, useKind());
-    }
-    
     UseKind useKind() const
     {
-        ASSERT(isSet());
-        unsigned masked = m_encodedWord & (((1 << shift()) - 1));
-        ASSERT(masked < LastUseKind);
-        return static_cast<UseKind>(masked);
+        ASSERT(node());
+        return useKindUnchecked();
     }
     void setUseKind(UseKind useKind)
     {
-        ASSERT(isSet());
-        m_encodedWord = makeWord(index(), useKind);
+        ASSERT(node());
+#if USE(JSVALUE64)
+        m_encodedWord = makeWord(node(), useKind, proofStatus(), killStatus());
+#else
+        m_encodedWord = makeWord(useKind, proofStatus(), killStatus());
+#endif
     }
     
-    bool isSet() const { return indexUnchecked() != NoNode; }
+    ProofStatus proofStatusUnchecked() const
+    {
+        return proofStatusForIsProved(m_encodedWord & 1);
+    }
+    ProofStatus proofStatus() const
+    {
+        ASSERT(node());
+        return proofStatusUnchecked();
+    }
+    void setProofStatus(ProofStatus proofStatus)
+    {
+        ASSERT(node());
+#if USE(JSVALUE64)
+        m_encodedWord = makeWord(node(), useKind(), proofStatus, killStatus());
+#else
+        m_encodedWord = makeWord(useKind(), proofStatus, killStatus());
+#endif
+    }
+    bool isProved() const
+    {
+        return proofStatus() == IsProved;
+    }
+    bool needsCheck() const
+    {
+        return proofStatus() == NeedsCheck;
+    }
+    
+    bool willNotHaveCheck() const
+    {
+        return isProved() || useKind() == UntypedUse;
+    }
+    bool willHaveCheck() const
+    {
+        return !willNotHaveCheck();
+    }
+    
+    KillStatus killStatusUnchecked() const
+    {
+        return killStatusForDoesKill(m_encodedWord & 2);
+    }
+    KillStatus killStatus() const
+    {
+        ASSERT(node());
+        return killStatusUnchecked();
+    }
+    void setKillStatus(KillStatus killStatus)
+    {
+        ASSERT(node());
+#if USE(JSVALUE64)
+        m_encodedWord = makeWord(node(), useKind(), proofStatus(), killStatus);
+#else
+        m_encodedWord = makeWord(useKind(), proofStatus(), killStatus);
+#endif
+    }
+    bool doesKill() const { return DFG::doesKill(killStatus()); }
+    bool doesNotKill() const { return !doesKill(); }
+    
+    bool isSet() const { return !!node(); }
+    
+    typedef void* Edge::*UnspecifiedBoolType;
+    operator UnspecifiedBoolType*() const { return reinterpret_cast<UnspecifiedBoolType*>(isSet()); }
+    
     bool operator!() const { return !isSet(); }
     
     bool operator==(Edge other) const
     {
+#if USE(JSVALUE64)
         return m_encodedWord == other.m_encodedWord;
+#else
+        return m_node == other.m_node && m_encodedWord == other.m_encodedWord;
+#endif
     }
     bool operator!=(Edge other) const
     {
-        return m_encodedWord != other.m_encodedWord;
+        return !(*this == other);
     }
+    
+    void dump(PrintStream&) const;
 
 private:
     friend class AdjacencyList;
     
-    static uint32_t shift() { return 4; }
+#if USE(JSVALUE64)
+    static uint32_t shift() { return 7; }
     
-    static int32_t makeWord(NodeIndex nodeIndex, UseKind useKind)
+    static uintptr_t makeWord(Node* node, UseKind useKind, ProofStatus proofStatus, KillStatus killStatus)
     {
-        ASSERT(static_cast<uint32_t>(((static_cast<int32_t>(nodeIndex) << shift()) >> shift())) == nodeIndex);
+        ASSERT(sizeof(node) == 8);
+        uintptr_t shiftedValue = bitwise_cast<uintptr_t>(node) << shift();
+        ASSERT((shiftedValue >> shift()) == bitwise_cast<uintptr_t>(node));
         ASSERT(useKind >= 0 && useKind < LastUseKind);
-        ASSERT(LastUseKind <= (1 << shift()));
-        return (nodeIndex << shift()) | useKind;
+        ASSERT((static_cast<uintptr_t>(LastUseKind) << 2) <= (static_cast<uintptr_t>(2) << shift()));
+        return shiftedValue | (static_cast<uintptr_t>(useKind) << 2) | (DFG::doesKill(killStatus) << 1) | DFG::isProved(proofStatus);
     }
     
-    int32_t m_encodedWord;
+#else
+    static uintptr_t makeWord(UseKind useKind, ProofStatus proofStatus, KillStatus killStatus)
+    {
+        return (static_cast<uintptr_t>(useKind) << 2) | (DFG::doesKill(killStatus) << 1) | DFG::isProved(proofStatus);
+    }
+    
+    Node* m_node;
+#endif
+    // On 64-bit this holds both the pointer and the use kind, while on 32-bit
+    // this just holds the use kind. In both cases this may be hijacked by
+    // AdjacencyList for storing firstChild and numChildren.
+    uintptr_t m_encodedWord;
 };
 
-inline bool operator==(Edge nodeUse, NodeIndex nodeIndex)
+inline bool operator==(Edge edge, Node* node)
 {
-    return nodeUse.indexUnchecked() == nodeIndex;
+    return edge.node() == node;
 }
-inline bool operator==(NodeIndex nodeIndex, Edge nodeUse)
+inline bool operator==(Node* node, Edge edge)
 {
-    return nodeUse.indexUnchecked() == nodeIndex;
+    return edge.node() == node;
 }
-inline bool operator!=(Edge nodeUse, NodeIndex nodeIndex)
+inline bool operator!=(Edge edge, Node* node)
 {
-    return nodeUse.indexUnchecked() != nodeIndex;
+    return edge.node() != node;
 }
-inline bool operator!=(NodeIndex nodeIndex, Edge nodeUse)
+inline bool operator!=(Node* node, Edge edge)
 {
-    return nodeUse.indexUnchecked() != nodeIndex;
+    return edge.node() != node;
 }
 
 } } // namespace JSC::DFG

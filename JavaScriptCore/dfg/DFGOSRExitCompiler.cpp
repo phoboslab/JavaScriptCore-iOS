@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,8 +29,13 @@
 #if ENABLE(DFG_JIT)
 
 #include "CallFrame.h"
+#include "DFGCommon.h"
+#include "DFGJITCode.h"
+#include "DFGOSRExitPreparation.h"
 #include "LinkBuffer.h"
+#include "Operations.h"
 #include "RepatchBuffer.h"
+#include <wtf/StringPrintStream.h>
 
 namespace JSC { namespace DFG {
 
@@ -38,121 +43,78 @@ extern "C" {
 
 void compileOSRExit(ExecState* exec)
 {
+    SamplingRegion samplingRegion("DFG OSR Exit Compilation");
+    
     CodeBlock* codeBlock = exec->codeBlock();
     
     ASSERT(codeBlock);
-    ASSERT(codeBlock->getJITType() == JITCode::DFGJIT);
+    ASSERT(codeBlock->jitType() == JITCode::DFGJIT);
     
-    JSGlobalData* globalData = &exec->globalData();
+    VM* vm = &exec->vm();
     
-    uint32_t exitIndex = globalData->osrExitIndex;
-    OSRExit& exit = codeBlock->osrExit(exitIndex);
+    uint32_t exitIndex = vm->osrExitIndex;
+    OSRExit& exit = codeBlock->jitCode()->dfg()->osrExit[exitIndex];
     
-    // Make sure all code on our inline stack is JIT compiled. This is necessary since
-    // we may opt to inline a code block even before it had ever been compiled by the
-    // JIT, but our OSR exit infrastructure currently only works if the target of the
-    // OSR exit is JIT code. This could be changed since there is nothing particularly
-    // hard about doing an OSR exit into the interpreter, but for now this seems to make
-    // sense in that if we're OSR exiting from inlined code of a DFG code block, then
-    // probably it's a good sign that the thing we're exiting into is hot. Even more
-    // interestingly, since the code was inlined, it may never otherwise get JIT
-    // compiled since the act of inlining it may ensure that it otherwise never runs.
-    for (CodeOrigin codeOrigin = exit.m_codeOrigin; codeOrigin.inlineCallFrame; codeOrigin = codeOrigin.inlineCallFrame->caller) {
-        static_cast<FunctionExecutable*>(codeOrigin.inlineCallFrame->executable.get())
-            ->baselineCodeBlockFor(codeOrigin.inlineCallFrame->isCall ? CodeForCall : CodeForConstruct)
-            ->jitCompile(*globalData);
+    prepareCodeOriginForOSRExit(exec, exit.m_codeOrigin);
+    
+    // Compute the value recoveries.
+    Operands<ValueRecovery> operands;
+    codeBlock->jitCode()->dfg()->variableEventStream.reconstruct(codeBlock, exit.m_codeOrigin, codeBlock->jitCode()->dfg()->minifiedDFG, exit.m_streamIndex, operands);
+    
+    // There may be an override, for forward speculations.
+    if (!!exit.m_valueRecoveryOverride) {
+        operands.setOperand(
+            exit.m_valueRecoveryOverride->operand, exit.m_valueRecoveryOverride->recovery);
     }
     
     SpeculationRecovery* recovery = 0;
-    if (exit.m_recoveryIndex)
-        recovery = &codeBlock->speculationRecovery(exit.m_recoveryIndex - 1);
+    if (exit.m_recoveryIndex != UINT_MAX)
+        recovery = &codeBlock->jitCode()->dfg()->speculationRecovery[exit.m_recoveryIndex];
 
 #if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLog("Generating OSR exit #%u (bc#%u, @%u, %s) for code block %p.\n", exitIndex, exit.m_codeOrigin.bytecodeIndex, exit.m_nodeIndex, exitKindToString(exit.m_kind), codeBlock);
+    dataLog(
+        "Generating OSR exit #", exitIndex, " (seq#", exit.m_streamIndex,
+        ", bc#", exit.m_codeOrigin.bytecodeIndex, ", ",
+        exit.m_kind, ") for ", *codeBlock, ".\n");
 #endif
 
     {
-        AssemblyHelpers jit(globalData, codeBlock);
+        CCallHelpers jit(vm, codeBlock);
         OSRExitCompiler exitCompiler(jit);
 
         jit.jitAssertHasValidCallFrame();
-        exitCompiler.compileExit(exit, recovery);
         
-        LinkBuffer patchBuffer(*globalData, &jit, codeBlock);
-        exit.m_code = patchBuffer.finalizeCode();
-
-#if DFG_ENABLE(DEBUG_VERBOSE)
-        dataLog("OSR exit code at [%p, %p).\n", patchBuffer.debugAddress(), static_cast<char*>(patchBuffer.debugAddress()) + patchBuffer.debugSize());
-#endif
+        if (vm->m_perBytecodeProfiler && codeBlock->jitCode()->dfgCommon()->compilation) {
+            Profiler::Database& database = *vm->m_perBytecodeProfiler;
+            Profiler::Compilation* compilation = codeBlock->jitCode()->dfgCommon()->compilation.get();
+            
+            Profiler::OSRExit* profilerExit = compilation->addOSRExit(
+                exitIndex, Profiler::OriginStack(database, codeBlock, exit.m_codeOrigin),
+                exit.m_kind,
+                exit.m_watchpointIndex != std::numeric_limits<unsigned>::max());
+            jit.add64(CCallHelpers::TrustedImm32(1), CCallHelpers::AbsoluteAddress(profilerExit->counterAddress()));
+        }
+        
+        exitCompiler.compileExit(exit, operands, recovery);
+        
+        LinkBuffer patchBuffer(*vm, &jit, codeBlock);
+        exit.m_code = FINALIZE_CODE_IF(
+            shouldShowDisassembly(),
+            patchBuffer,
+            ("DFG OSR exit #%u (%s, %s) from %s",
+                exitIndex, toCString(exit.m_codeOrigin).data(),
+                exitKindToString(exit.m_kind), toCString(*codeBlock).data()));
     }
     
     {
         RepatchBuffer repatchBuffer(codeBlock);
-        repatchBuffer.relink(exit.m_check.codeLocationForRepatch(codeBlock), CodeLocationLabel(exit.m_code.code()));
+        repatchBuffer.relink(exit.codeLocationForRepatch(codeBlock), CodeLocationLabel(exit.m_code.code()));
     }
     
-    globalData->osrExitJumpDestination = exit.m_code.code().executableAddress();
+    vm->osrExitJumpDestination = exit.m_code.code().executableAddress();
 }
 
 } // extern "C"
-
-void OSRExitCompiler::handleExitCounts(const OSRExit& exit)
-{
-    m_jit.add32(AssemblyHelpers::TrustedImm32(1), AssemblyHelpers::AbsoluteAddress(&exit.m_count));
-    
-    m_jit.move(AssemblyHelpers::TrustedImmPtr(m_jit.codeBlock()), GPRInfo::regT0);
-    
-    AssemblyHelpers::JumpList tooFewFails;
-    
-    if (exit.m_kind == InadequateCoverage) {
-        // Proceed based on the assumption that we can profitably optimize this code once
-        // it has executed enough times.
-        
-        m_jit.load32(AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfForcedOSRExitCounter()), GPRInfo::regT2);
-        m_jit.load32(AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfSpeculativeSuccessCounter()), GPRInfo::regT1);
-        m_jit.add32(AssemblyHelpers::TrustedImm32(1), GPRInfo::regT2);
-        m_jit.add32(AssemblyHelpers::TrustedImm32(-1), GPRInfo::regT1);
-        m_jit.store32(GPRInfo::regT2, AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfForcedOSRExitCounter()));
-        m_jit.store32(GPRInfo::regT1, AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfSpeculativeSuccessCounter()));
-        
-        tooFewFails.append(m_jit.branch32(AssemblyHelpers::BelowOrEqual, GPRInfo::regT2, AssemblyHelpers::TrustedImm32(Options::forcedOSRExitCountForReoptimization)));
-    } else {
-        // Proceed based on the assumption that we can handle these exits so long as they
-        // don't get too frequent.
-        
-        m_jit.load32(AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfSpeculativeFailCounter()), GPRInfo::regT2);
-        m_jit.load32(AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfSpeculativeSuccessCounter()), GPRInfo::regT1);
-        m_jit.add32(AssemblyHelpers::TrustedImm32(1), GPRInfo::regT2);
-        m_jit.add32(AssemblyHelpers::TrustedImm32(-1), GPRInfo::regT1);
-        m_jit.store32(GPRInfo::regT2, AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfSpeculativeFailCounter()));
-        m_jit.store32(GPRInfo::regT1, AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfSpeculativeSuccessCounter()));
-    
-        m_jit.move(AssemblyHelpers::TrustedImmPtr(m_jit.baselineCodeBlock()), GPRInfo::regT0);
-    
-        tooFewFails.append(m_jit.branch32(AssemblyHelpers::BelowOrEqual, GPRInfo::regT2, AssemblyHelpers::TrustedImm32(m_jit.codeBlock()->largeFailCountThreshold())));
-        m_jit.mul32(AssemblyHelpers::TrustedImm32(Options::desiredSpeculativeSuccessFailRatio), GPRInfo::regT2, GPRInfo::regT2);
-    
-        tooFewFails.append(m_jit.branch32(AssemblyHelpers::BelowOrEqual, GPRInfo::regT2, GPRInfo::regT1));
-    }
-
-    // Reoptimize as soon as possible.
-    m_jit.store32(AssemblyHelpers::TrustedImm32(0), AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfJITExecuteCounter()));
-    m_jit.store32(AssemblyHelpers::TrustedImm32(0), AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfJITExecutionActiveThreshold()));
-    AssemblyHelpers::Jump doneAdjusting = m_jit.jump();
-    
-    tooFewFails.link(&m_jit);
-    
-    // Adjust the execution counter such that the target is to only optimize after a while.
-    int32_t targetValue =
-        ExecutionCounter::applyMemoryUsageHeuristicsAndConvertToInt(
-            m_jit.baselineCodeBlock()->counterValueForOptimizeAfterLongWarmUp(),
-            m_jit.baselineCodeBlock());
-    m_jit.store32(AssemblyHelpers::TrustedImm32(-targetValue), AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfJITExecuteCounter()));
-    m_jit.store32(AssemblyHelpers::TrustedImm32(targetValue), AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfJITExecutionActiveThreshold()));
-    m_jit.store32(AssemblyHelpers::TrustedImm32(ExecutionCounter::formattedTotalCount(targetValue)), AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfJITExecutionTotalCount()));
-    
-    doneAdjusting.link(&m_jit);
-}
 
 } } // namespace JSC::DFG
 

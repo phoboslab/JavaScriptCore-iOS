@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,64 +26,251 @@
 #ifndef Options_h
 #define Options_h
 
+#include "JSExportMacros.h"
 #include <stdint.h>
+#include <stdio.h>
 
-namespace JSC { namespace Options {
+namespace JSC {
 
-extern bool useJIT;
+// How do JSC VM options work?
+// ===========================
+// The JSC_OPTIONS() macro below defines a list of all JSC options in use,
+// along with their types and default values. The options values are actually
+// realized as an array of Options::Entry elements.
+//
+//     Options::initialize() will initialize the array of options values with
+// the defaults specified in JSC_OPTIONS() below. After that, the values can
+// be programmatically read and written to using an accessor method with the
+// same name as the option. For example, the option "useJIT" can be read and
+// set like so:
+//
+//     bool jitIsOn = Options::useJIT();  // Get the option value.
+//     Options::useJIT() = false;         // Sets the option value.
+//
+//     If you want to tweak any of these values programmatically for testing
+// purposes, you can do so in Options::initialize() after the default values
+// are set.
+//
+//     Alternatively, you can override the default values by specifying
+// environment variables of the form: JSC_<name of JSC option>.
+//
+// Note: Options::initialize() tries to ensure some sanity on the option values
+// which are set by doing some range checks, and value corrections. These
+// checks are done after the option values are set. If you alter the option
+// values after the sanity checks (for your own testing), then you're liable to
+// ensure that the new values set are sane and reasonable for your own run.
 
-extern unsigned maximumOptimizationCandidateInstructionCount;
+class OptionRange {
+private:
+    enum RangeState { Uninitialized, InitError, Normal, Inverted };
+public:
+    OptionRange& operator= (const int& rhs)
+    { // Only needed for initialization
+        if (!rhs) {
+            m_state = Uninitialized;
+            m_rangeString = 0;
+            m_lowLimit = 0;
+            m_highLimit = 0;
+        }
+        return *this;
+    }
 
-extern unsigned maximumFunctionForCallInlineCandidateInstructionCount;
-extern unsigned maximumFunctionForConstructInlineCandidateInstructionCount;
+    bool init(const char*);
+    bool isInRange(unsigned);
+    const char* rangeString() { return (m_state > InitError) ? m_rangeString : "<null>"; }
 
-extern unsigned maximumInliningDepth; // Depth of inline stack, so 1 = no inlining, 2 = one level, etc.
+private:
+    RangeState m_state;
+    const char* m_rangeString;
+    unsigned m_lowLimit;
+    unsigned m_highLimit;
+};
 
-extern int32_t thresholdForJITAfterWarmUp;
-extern int32_t thresholdForJITSoon;
+typedef OptionRange optionRange;
 
-extern int32_t thresholdForOptimizeAfterWarmUp;
-extern int32_t thresholdForOptimizeAfterLongWarmUp;
-extern int32_t thresholdForOptimizeSoon;
-extern int32_t thresholdForOptimizeNextInvocation;
+#define JSC_OPTIONS(v) \
+    v(bool, useJIT,    true) \
+    v(bool, useDFGJIT, true) \
+    v(bool, useRegExpJIT, true) \
+    \
+    v(bool, forceDFGCodeBlockLiveness, false) \
+    \
+    v(bool, dumpGeneratedBytecodes, false) \
+    \
+    /* showDisassembly implies showDFGDisassembly. */ \
+    v(bool, showDisassembly, false) \
+    v(bool, showDFGDisassembly, false) \
+    v(bool, showAllDFGNodes, false) \
+    v(optionRange, bytecodeRangeToDFGCompile, 0) \
+    v(bool, dumpBytecodeAtDFGTime, false) \
+    v(bool, dumpGraphAtEachPhase, false) \
+    v(bool, verboseCompilation, false) \
+    v(bool, logCompilationChanges, false) \
+    v(bool, printEachOSRExit, false) \
+    v(bool, validateGraph, false) \
+    v(bool, validateGraphAtEachPhase, false) \
+    v(bool, verboseOSR, false) \
+    v(bool, verboseCallLink, false) \
+    v(bool, verboseCompilationQueue, false) \
+    v(bool, reportCompileTimes, false) \
+    v(bool, verboseCFA, false) \
+    \
+    v(bool, enableOSREntryInLoops, true) \
+    \
+    v(bool, useExperimentalFTL, false) \
+    v(bool, useFTLTBAA, true) \
+    v(bool, enableLLVMFastISel, false) \
+    v(bool, useLLVMSmallCodeModel, false) \
+    v(bool, ftlTrapsOnOSRExit, false) \
+    v(bool, ftlOSRExitOmitsMarshalling, false) \
+    v(bool, useLLVMOSRExitIntrinsic, false) \
+    v(bool, dumpLLVMIR, false) \
+    v(bool, llvmAlwaysFails, false) \
+    v(unsigned, llvmBackendOptimizationLevel, 2) \
+    v(unsigned, llvmOptimizationLevel, 2) \
+    v(unsigned, llvmSizeLevel, 0) \
+    \
+    v(bool, enableConcurrentJIT, true) \
+    v(unsigned, numberOfCompilerThreads, computeNumberOfWorkerThreads(2) - 1) \
+    \
+    v(bool, enableProfiler, false) \
+    \
+    v(bool, forceUDis86Disassembler, false) \
+    v(bool, forceLLVMDisassembler, false) \
+    \
+    v(unsigned, maximumOptimizationCandidateInstructionCount, 10000) \
+    \
+    v(unsigned, maximumFunctionForCallInlineCandidateInstructionCount, 180) \
+    v(unsigned, maximumFunctionForClosureCallInlineCandidateInstructionCount, 100) \
+    v(unsigned, maximumFunctionForConstructInlineCandidateInstructionCount, 100) \
+    \
+    /* Depth of inline stack, so 1 = no inlining, 2 = one level, etc. */ \
+    v(unsigned, maximumInliningDepth, 5) \
+    \
+    v(unsigned, maximumBinaryStringSwitchCaseLength, 50) \
+    v(unsigned, maximumBinaryStringSwitchTotalLength, 2000) \
+    \
+    v(int32, thresholdForJITAfterWarmUp, 100) \
+    v(int32, thresholdForJITSoon, 100) \
+    \
+    v(int32, thresholdForOptimizeAfterWarmUp, 1000) \
+    v(int32, thresholdForOptimizeAfterLongWarmUp, 1000) \
+    v(int32, thresholdForOptimizeSoon, 1000) \
+    \
+    v(int32, executionCounterIncrementForLoop, 1) \
+    v(int32, executionCounterIncrementForReturn, 15) \
+    \
+    v(int32, evalThresholdMultiplier, 10) \
+    \
+    v(bool, randomizeExecutionCountsBetweenCheckpoints, false) \
+    v(int32, maximumExecutionCountsBetweenCheckpoints, 1000) \
+    \
+    v(unsigned, likelyToTakeSlowCaseMinimumCount, 100) \
+    v(unsigned, couldTakeSlowCaseMinimumCount, 10) \
+    \
+    v(unsigned, osrExitCountForReoptimization, 100) \
+    v(unsigned, osrExitCountForReoptimizationFromLoop, 5) \
+    \
+    v(unsigned, reoptimizationRetryCounterMax, 0)  \
+    v(unsigned, reoptimizationRetryCounterStep, 1) \
+    \
+    v(unsigned, minimumOptimizationDelay, 1) \
+    v(unsigned, maximumOptimizationDelay, 5) \
+    v(double, desiredProfileLivenessRate, 0.75) \
+    v(double, desiredProfileFullnessRate, 0.35) \
+    \
+    v(double, doubleVoteRatioForDoubleFormat, 2) \
+    v(double, structureCheckVoteRatioForHoisting, 1) \
+    v(double, checkArrayVoteRatioForHoisting, 1) \
+    \
+    v(unsigned, minimumNumberOfScansBetweenRebalance, 100) \
+    v(unsigned, numberOfGCMarkers, computeNumberOfGCMarkers(7)) \
+    v(unsigned, opaqueRootMergeThreshold, 1000) \
+    v(double, minHeapUtilization, 0.8) \
+    v(double, minCopiedBlockUtilization, 0.9) \
+    \
+    v(bool, forceWeakRandomSeed, false) \
+    v(unsigned, forcedWeakRandomSeed, 0) \
+    \
+    v(bool, useZombieMode, false) \
+    v(bool, objectsAreImmortal, false) \
+    v(bool, showObjectStatistics, false) \
+    \
+    v(bool, logGC, false) \
+    v(unsigned, gcMaxHeapSize, 0) \
+    v(bool, recordGCPauseTimes, false) \
+    v(bool, logHeapStatisticsAtExit, false) 
 
-extern int32_t executionCounterIncrementForLoop;
-extern int32_t executionCounterIncrementForReturn;
+class Options {
+public:
+    // This typedef is to allow us to eliminate the '_' in the field name in
+    // union inside Entry. This is needed to keep the style checker happy.
+    typedef int32_t int32;
 
-extern unsigned desiredSpeculativeSuccessFailRatio;
+    // Declare the option IDs:
+    enum OptionID {
+#define FOR_EACH_OPTION(type_, name_, defaultValue_) \
+        OPT_##name_,
+        JSC_OPTIONS(FOR_EACH_OPTION)
+#undef FOR_EACH_OPTION
+        numberOfOptions
+    };
 
-extern double likelyToTakeSlowCaseThreshold;
-extern double couldTakeSlowCaseThreshold;
-extern unsigned likelyToTakeSlowCaseMinimumCount;
-extern unsigned couldTakeSlowCaseMinimumCount;
 
-extern double osrExitProminenceForFrequentExitSite;
+    static void initialize();
 
-extern unsigned largeFailCountThresholdBase;
-extern unsigned largeFailCountThresholdBaseForLoop;
-extern unsigned forcedOSRExitCountForReoptimization;
+    // Parses a single command line option in the format "<optionName>=<value>"
+    // (no spaces allowed) and set the specified option if appropriate.
+    JS_EXPORT_PRIVATE static bool setOption(const char* arg);
+    JS_EXPORT_PRIVATE static void dumpAllOptions(FILE* stream = stdout);
+    static void dumpOption(OptionID id, FILE* stream = stdout, const char* header = "", const char* footer = "");
 
-extern unsigned reoptimizationRetryCounterMax;
-extern unsigned reoptimizationRetryCounterStep;
+    // Declare accessors for each option:
+#define FOR_EACH_OPTION(type_, name_, defaultValue_) \
+    ALWAYS_INLINE static type_& name_() { return s_options[OPT_##name_].u.type_##Val; }
 
-extern unsigned minimumOptimizationDelay;
-extern unsigned maximumOptimizationDelay;
-extern double desiredProfileLivenessRate;
-extern double desiredProfileFullnessRate;
+    JSC_OPTIONS(FOR_EACH_OPTION)
+#undef FOR_EACH_OPTION
 
-extern double doubleVoteRatioForDoubleFormat;
+private:
+    enum EntryType {
+        boolType,
+        unsignedType,
+        doubleType,
+        int32Type,
+        optionRangeType,
+    };
 
-extern unsigned minimumNumberOfScansBetweenRebalance;
-extern unsigned gcMarkStackSegmentSize;
-extern unsigned minimumNumberOfCellsToKeep;
-extern unsigned maximumNumberOfSharedSegments;
-extern unsigned sharedStackWakeupThreshold;
-JS_EXPORTDATA extern unsigned numberOfGCMarkers;
-JS_EXPORTDATA extern unsigned opaqueRootMergeThreshold;
+    // For storing for an option value:
+    struct Entry {
+        union {
+            bool boolVal;
+            unsigned unsignedVal;
+            double doubleVal;
+            int32 int32Val;
+            OptionRange optionRangeVal;
+        } u;
+    };
 
-void initializeOptions();
+    // For storing constant meta data about each option:
+    struct EntryInfo {
+        const char* name;
+        EntryType type;
+    };
 
-} } // namespace JSC::Options
+    Options();
+
+    // Declare the options:
+#define FOR_EACH_OPTION(type_, name_, defaultValue_) \
+    type_ m_##name_;
+    JSC_OPTIONS(FOR_EACH_OPTION)
+#undef FOR_EACH_OPTION
+
+    // Declare the singleton instance of the options store:
+    JS_EXPORTDATA static Entry s_options[numberOfOptions];
+    static const EntryInfo s_optionsInfo[numberOfOptions];
+};
+
+} // namespace JSC
 
 #endif // Options_h
-

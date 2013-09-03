@@ -1,3 +1,7 @@
+# About this fork
+
+The objective of this fork is to bring the JavaScriptCore to the latest version which implements all the goodies in iOS 7 and make it usable in iOS 5 and 6. A pull request has been submitted to merge this into the main repo.
+
 # JavaScriptCore iOS
 
 The JavaScriptCore library is part of the [WebKit project](http://www.webkit.org/) and thus Open Source. However, in the sources you get from the [WebKit SVN](https://svn.webkit.org/repository/webkit/trunk), the XCode project files are curiously missing an iOS compile target. You can't compile it for iOS. The sources you get from [opensource.apple.com](http://opensource.apple.com/release/ios-601/) are missing the project files altogether. You can't compile it all. That's quite the Open Source spirit, Apple!

@@ -29,17 +29,12 @@
 #include "HeapRootVisitor.h"
 #include "JSGlobalObject.h"
 #include "JSString.h"
+#include "Operations.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
+#include <wtf/text/StringImpl.h>
 
 namespace JSC {
-
-static inline void finalize(JSString*& string)
-{
-    if (!string || Heap::isMarked(string))
-        return;
-    string = 0;
-}
 
 class SmallStringsStorage {
     WTF_MAKE_NONCOPYABLE(SmallStringsStorage); WTF_MAKE_FAST_ALLOCATED;
@@ -79,32 +74,42 @@ SmallStrings::SmallStrings()
         m_singleCharacterStrings[i] = 0;
 }
 
+void SmallStrings::initializeCommonStrings(VM& vm)
+{
+    createEmptyString(&vm);
+    for (unsigned i = 0; i <= maxSingleCharacterString; ++i)
+        createSingleCharacterString(&vm, i);
+#define JSC_COMMON_STRINGS_ATTRIBUTE_INITIALIZE(name) initialize(&vm, m_##name, #name);
+    JSC_COMMON_STRINGS_EACH_NAME(JSC_COMMON_STRINGS_ATTRIBUTE_INITIALIZE)
+#undef JSC_COMMON_STRINGS_ATTRIBUTE_INITIALIZE
+}
+
+void SmallStrings::visitStrongReferences(SlotVisitor& visitor)
+{
+    visitor.appendUnbarrieredPointer(&m_emptyString);
+    for (unsigned i = 0; i <= maxSingleCharacterString; ++i)
+        visitor.appendUnbarrieredPointer(m_singleCharacterStrings + i);
+#define JSC_COMMON_STRINGS_ATTRIBUTE_VISIT(name) visitor.appendUnbarrieredPointer(&m_##name);
+    JSC_COMMON_STRINGS_EACH_NAME(JSC_COMMON_STRINGS_ATTRIBUTE_VISIT)
+#undef JSC_COMMON_STRINGS_ATTRIBUTE_VISIT
+}
+
 SmallStrings::~SmallStrings()
 {
 }
 
-void SmallStrings::finalizeSmallStrings()
-{
-    finalize(m_emptyString);
-    for (unsigned i = 0; i < singleCharacterStringCount; ++i)
-        finalize(m_singleCharacterStrings[i]);
-#define JSC_COMMON_STRINGS_ATTRIBUTE_FINALIZE(name) finalize(m_##name);
-    JSC_COMMON_STRINGS_EACH_NAME(JSC_COMMON_STRINGS_ATTRIBUTE_FINALIZE)
-#undef JSC_COMMON_STRINGS_ATTRIBUTE_FINALIZE
-}
-
-void SmallStrings::createEmptyString(JSGlobalData* globalData)
+void SmallStrings::createEmptyString(VM* vm)
 {
     ASSERT(!m_emptyString);
-    m_emptyString = JSString::createHasOtherOwner(*globalData, StringImpl::empty());
+    m_emptyString = JSString::createHasOtherOwner(*vm, StringImpl::empty());
 }
 
-void SmallStrings::createSingleCharacterString(JSGlobalData* globalData, unsigned char character)
+void SmallStrings::createSingleCharacterString(VM* vm, unsigned char character)
 {
     if (!m_storage)
         m_storage = adoptPtr(new SmallStringsStorage);
     ASSERT(!m_singleCharacterStrings[character]);
-    m_singleCharacterStrings[character] = JSString::createHasOtherOwner(*globalData, PassRefPtr<StringImpl>(m_storage->rep(character)));
+    m_singleCharacterStrings[character] = JSString::createHasOtherOwner(*vm, PassRefPtr<StringImpl>(m_storage->rep(character)));
 }
 
 StringImpl* SmallStrings::singleCharacterStringRep(unsigned char character)
@@ -114,9 +119,9 @@ StringImpl* SmallStrings::singleCharacterStringRep(unsigned char character)
     return m_storage->rep(character);
 }
 
-void SmallStrings::initialize(JSGlobalData* globalData, JSString*& string, const char* value) const
+void SmallStrings::initialize(VM* vm, JSString*& string, const char* value) const
 {
-    string = JSString::create(*globalData, StringImpl::create(value));
+    string = JSString::create(*vm, StringImpl::create(value));
 }
 
 } // namespace JSC

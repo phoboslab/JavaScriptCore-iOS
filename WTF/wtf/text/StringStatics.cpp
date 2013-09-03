@@ -35,6 +35,10 @@
 #include "StaticConstructors.h"
 #include "StringImpl.h"
 
+#if USE(WEB_THREAD)
+#include <pthread.h>
+#endif
+
 namespace WTF {
 
 StringImpl* StringImpl::empty()
@@ -53,12 +57,13 @@ StringImpl* StringImpl::empty()
 }
 
 WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, nullAtom)
-WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, emptyAtom, "")
-WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, textAtom, "#text")
-WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, commentAtom, "#comment")
-WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, starAtom, "*")
-WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, xmlAtom, "xml")
-WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, xmlnsAtom, "xmlns")
+WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, emptyAtom)
+WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, textAtom)
+WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, commentAtom)
+WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, starAtom)
+WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, xmlAtom)
+WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, xmlnsAtom)
+WTF_EXPORTDATA DEFINE_GLOBAL(AtomicString, xlinkAtom)
 
 NEVER_INLINE unsigned StringImpl::hashSlowCase() const
 {
@@ -74,16 +79,17 @@ void AtomicString::init()
     static bool initialized;
     if (!initialized) {
         // Initialization is not thread safe, so this function must be called from the main thread first.
-        ASSERT(isMainThread());
+        ASSERT(isUIThread());
 
         // Use placement new to initialize the globals.
         new (NotNull, (void*)&nullAtom) AtomicString;
         new (NotNull, (void*)&emptyAtom) AtomicString("");
-        new (NotNull, (void*)&textAtom) AtomicString("#text");
-        new (NotNull, (void*)&commentAtom) AtomicString("#comment");
-        new (NotNull, (void*)&starAtom) AtomicString("*");
-        new (NotNull, (void*)&xmlAtom) AtomicString("xml");
-        new (NotNull, (void*)&xmlnsAtom) AtomicString("xmlns");
+        new (NotNull, (void*)&textAtom) AtomicString("#text", AtomicString::ConstructFromLiteral);
+        new (NotNull, (void*)&commentAtom) AtomicString("#comment", AtomicString::ConstructFromLiteral);
+        new (NotNull, (void*)&starAtom) AtomicString("*", AtomicString::ConstructFromLiteral);
+        new (NotNull, (void*)&xmlAtom) AtomicString("xml", AtomicString::ConstructFromLiteral);
+        new (NotNull, (void*)&xmlnsAtom) AtomicString("xmlns", AtomicString::ConstructFromLiteral);
+        new (NotNull, (void*)&xlinkAtom) AtomicString("xlink", AtomicString::ConstructFromLiteral);
 
         initialized = true;
     }

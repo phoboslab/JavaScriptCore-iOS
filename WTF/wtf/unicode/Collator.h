@@ -32,7 +32,7 @@
 #include <wtf/FastAllocBase.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
-#include <wtf/unicode/Unicode.h>
+#include "Unicode.h"
 
 #if USE(ICU_UNICODE) && !UCONFIG_NO_COLLATION
 struct UCollator;
@@ -49,7 +49,7 @@ namespace WTF {
         WTF_EXPORT_PRIVATE ~Collator();
         WTF_EXPORT_PRIVATE void setOrderLowerFirst(bool);
 
-        static PassOwnPtr<Collator> userDefault();
+        WTF_EXPORT_PRIVATE static PassOwnPtr<Collator> userDefault();
 
         WTF_EXPORT_PRIVATE Result collate(const ::UChar*, size_t, const ::UChar*, size_t) const;
 

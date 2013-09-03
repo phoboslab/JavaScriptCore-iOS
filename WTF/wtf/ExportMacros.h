@@ -32,31 +32,56 @@
 
 #include <wtf/Platform.h>
 
+// Different platforms have different defaults for symbol visibility. Usually
+// the compiler and the linker just take care of it. However for references to
+// runtime routines from JIT stubs, it matters to be able to declare a symbol as
+// being local to the target being generated, and thus not subject to (e.g.) ELF
+// symbol interposition rules.
+
+#if OS(WINDOWS)
+#define HAVE_INTERNAL_VISIBILITY 1
+#define WTF_INTERNAL
+#elif defined(__GNUC__) && !defined(__CC_ARM) && !defined(__ARMCC__)
+#define HAVE_INTERNAL_VISIBILITY 1
+#define WTF_INTERNAL __attribute__((visibility("hidden")))
+#else
+#define WTF_INTERNAL
+#endif
+
+#if OS(WINDOWS)
+
+#define WTF_EXPORT_DECLARATION __declspec(dllexport)
+#define WTF_IMPORT_DECLARATION __declspec(dllimport)
+#define WTF_HIDDEN_DECLARATION
+
+#elif defined(__GNUC__) && !defined(__CC_ARM) && !defined(__ARMCC__)
+
+#define WTF_EXPORT_DECLARATION __attribute__((visibility("default")))
+#define WTF_IMPORT_DECLARATION WTF_EXPORT_DECLARATION
+#define WTF_HIDDEN_DECLARATION __attribute__((visibility("hidden")))
+
+#else
+
+#define WTF_EXPORT_DECLARATION
+#define WTF_IMPORT_DECLARATION
+#define WTF_HIDDEN_DECLARATION
+
+#endif
+
+#if defined(BUILDING_WTF) || defined(STATICALLY_LINKED_WITH_WTF)
+#define WTF_IS_LINKED_IN_SAME_BINARY 1
+#endif
+
 // See note in wtf/Platform.h for more info on EXPORT_MACROS.
 #if USE(EXPORT_MACROS)
 
-#if !PLATFORM(CHROMIUM) && OS(WINDOWS) && !COMPILER(GCC)
-#define WTF_EXPORT __declspec(dllexport)
-#define WTF_IMPORT __declspec(dllimport)
-#define WTF_HIDDEN
-#elif defined(__GNUC__) && !defined(__CC_ARM) && !defined(__ARMCC__)
-#define WTF_EXPORT __attribute__((visibility("default")))
-#define WTF_IMPORT WTF_EXPORT
-#define WTF_HIDDEN __attribute__((visibility("hidden")))
-#else
-#define WTF_EXPORT
-#define WTF_IMPORT
-#define WTF_HIDDEN
-#endif
-
-// Currently WTF is embedded statically in JSCore, which exports 
-// WTF symbols in the JSCore shared library.
-// Because of this, we need to make sure that we use WTF_EXPORT
-// when building JavaScriptCore as well as WTF.
+#define WTF_EXPORT WTF_EXPORT_DECLARATION
+#define WTF_IMPORT WTF_IMPORT_DECLARATION
+#define WTF_HIDDEN WTF_IMPORT_DECLARATION
 
 // FIXME: When all ports are using the export macros, we should replace
 // WTF_EXPORTDATA with WTF_EXPORT_PRIVATE macros.
-#if defined(BUILDING_WTF)  || defined(BUILDING_JavaScriptCore)
+#if defined(WTF_IS_LINKED_IN_SAME_BINARY)
 #define WTF_EXPORTDATA WTF_EXPORT
 #else
 #define WTF_EXPORTDATA WTF_IMPORT
@@ -64,15 +89,15 @@
 
 #else // !USE(EXPORT_MACROS)
 
-#if !PLATFORM(CHROMIUM) && OS(WINDOWS) && !COMPILER(GCC)
-#if defined(BUILDING_WTF) || defined(BUILDING_JavaScriptCore)
+#if OS(WINDOWS) && !COMPILER(GCC)
+#if defined(BUILDING_WTF) || defined(STATICALLY_LINKED_WITH_WTF)
 #define WTF_EXPORTDATA __declspec(dllexport)
 #else
 #define WTF_EXPORTDATA __declspec(dllimport)
 #endif
-#else // PLATFORM(CHROMIUM) || !OS(WINDOWS) || COMPILER(GCC)
+#else // !OS(WINDOWS) || COMPILER(GCC)
 #define WTF_EXPORTDATA
-#endif // !PLATFORM(CHROMIUM)...
+#endif
 
 #define WTF_EXPORTCLASS WTF_EXPORTDATA
 
@@ -82,21 +107,31 @@
 
 #endif // USE(EXPORT_MACROS)
 
-#if defined(BUILDING_WTF)  || defined(BUILDING_JavaScriptCore)
+// WTF_TESTING (and WEBCORE_TESTING in PlatformExportMacros.h) is used for
+// exporting symbols which are referred from WebCoreTestSupport library.
+// Since the set of APIs is common between ports,
+// it is rather worth annotating inside the code than maintaining port specific export lists.
+#if USE(EXPORT_MACROS_FOR_TESTING)
+
+#if defined(WTF_IS_LINKED_IN_SAME_BINARY)
+#define WTF_TESTING WTF_EXPORT_DECLARATION
+#else
+#define WTF_TESTING WTF_IMPORT_DECLARATION
+#endif
+
+#else // USE(EXPORT_MACROS_FOR_TESTING)
+
+#define WTF_TESTING
+
+#endif // USE(EXPORT_MACROS_FOR_TESTING)
+
+#if defined(WTF_IS_LINKED_IN_SAME_BINARY)
 #define WTF_EXPORT_PRIVATE WTF_EXPORT
 #else
 #define WTF_EXPORT_PRIVATE WTF_IMPORT
 #endif
 
-// wxWebKit uses RTTI because wx itself does, so use a special macro for
-// extra exports it needs.
-#if PLATFORM(WX)
-#define WTF_EXPORT_PRIVATE_RTTI WTF_EXPORT_PRIVATE
-#define WTF_EXPORT_PRIVATE_NO_RTTI
-#else
-#define WTF_EXPORT_PRIVATE_RTTI
-#define WTF_EXPORT_PRIVATE_NO_RTTI WTF_EXPORT_PRIVATE
-#endif
+#define WTF_EXPORT_STRING_API WTF_EXPORT_PRIVATE
 
 #define WTF_EXPORT_HIDDEN WTF_HIDDEN
 

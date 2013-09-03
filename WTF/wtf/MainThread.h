@@ -30,8 +30,6 @@
 #ifndef MainThread_h
 #define MainThread_h
 
-#include <wtf/Platform.h>
-
 #include <stdint.h>
 
 namespace WTF {
@@ -53,12 +51,23 @@ WTF_EXPORT_PRIVATE void setMainThreadCallbacksPaused(bool paused);
 
 WTF_EXPORT_PRIVATE bool isMainThread();
 
+#if USE(WEB_THREAD)
+WTF_EXPORT_PRIVATE bool isWebThread();
+WTF_EXPORT_PRIVATE bool isUIThread();
+WTF_EXPORT_PRIVATE void initializeApplicationUIThreadIdentifier();
+WTF_EXPORT_PRIVATE void initializeWebThreadIdentifier();
+WTF_EXPORT_PRIVATE bool canAccessThreadLocalDataForThread(ThreadIdentifier);
+#else
+inline bool isWebThread() { return isMainThread(); }
+inline bool isUIThread() { return isMainThread(); }
+#endif // USE(WEB_THREAD)
+
 void initializeGCThreads();
 
 #if ENABLE(PARALLEL_GC)
 void registerGCThread();
 WTF_EXPORT_PRIVATE bool isMainThreadOrGCThread();
-#elif PLATFORM(MAC)
+#elif PLATFORM(MAC) || PLATFORM(IOS)
 WTF_EXPORT_PRIVATE bool isMainThreadOrGCThread();
 #else
 inline bool isMainThreadOrGCThread() { return isMainThread(); }
@@ -70,10 +79,12 @@ void scheduleDispatchFunctionsOnMainThread();
 void dispatchFunctionsFromMainThread();
 
 #if PLATFORM(MAC)
+#if !USE(WEB_THREAD)
 // This version of initializeMainThread sets up the main thread as corresponding
 // to the process's main thread, and not necessarily the thread that calls this
 // function. It should only be used as a legacy aid for Mac WebKit.
 WTF_EXPORT_PRIVATE void initializeMainThreadToProcessMainThread();
+#endif // !USE(WEB_THREAD)
 void initializeMainThreadToProcessMainThreadPlatform();
 #endif
 
@@ -85,4 +96,10 @@ using WTF::cancelCallOnMainThread;
 using WTF::setMainThreadCallbacksPaused;
 using WTF::isMainThread;
 using WTF::isMainThreadOrGCThread;
+#if USE(WEB_THREAD)
+using WTF::initializeApplicationUIThreadIdentifier;
+using WTF::initializeWebThreadIdentifier;
+using WTF::canAccessThreadLocalDataForThread;
+#endif
+
 #endif // MainThread_h

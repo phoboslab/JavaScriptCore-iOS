@@ -36,10 +36,6 @@
 #include "Threading.h"
 #include <wtf/ThreadSpecific.h>
 
-#if PLATFORM(CHROMIUM)
-#error Chromium uses a different main thread implementation
-#endif
-
 namespace WTF {
 
 struct FunctionWithContext {
@@ -120,6 +116,7 @@ void initializeMainThread()
     pthread_once(&initializeMainThreadKeyOnce, initializeMainThreadOnce);
 }
 
+#if !USE(WEB_THREAD)
 static void initializeMainThreadToProcessMainThreadOnce()
 {
     mainThreadFunctionQueueMutex();
@@ -130,6 +127,8 @@ void initializeMainThreadToProcessMainThread()
 {
     pthread_once(&initializeMainThreadKeyOnce, initializeMainThreadToProcessMainThreadOnce);
 }
+#endif // !USE(WEB_THREAD)
+
 #endif
 
 // 0.1 sec delays in UI is approximate threshold when they become noticeable. Have a limit that's half of that.
@@ -142,7 +141,7 @@ void dispatchFunctionsFromMainThread()
     if (callbacksPaused)
         return;
 
-    double startTime = currentTime();
+    double startTime = monotonicallyIncreasingTime();
 
     FunctionWithContext invocation;
     while (true) {
@@ -163,7 +162,7 @@ void dispatchFunctionsFromMainThread()
         // yield so the user input can be processed. Otherwise user may not be able to even close the window.
         // This code has effect only in case the scheduleDispatchFunctionsOnMainThread() is implemented in a way that
         // allows input events to be processed before we are back here.
-        if (currentTime() - startTime > maxRunLoopSuspensionTime) {
+        if (monotonicallyIncreasingTime() - startTime > maxRunLoopSuspensionTime) {
             scheduleDispatchFunctionsOnMainThread();
             break;
         }

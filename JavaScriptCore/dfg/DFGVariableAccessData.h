@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,9 +27,10 @@
 #define DFGVariableAccessData_h
 
 #include "DFGDoubleFormatState.h"
+#include "DFGFlushFormat.h"
 #include "DFGNodeFlags.h"
 #include "Operands.h"
-#include "PredictedType.h"
+#include "SpeculatedType.h"
 #include "VirtualRegister.h"
 #include <wtf/Platform.h>
 #include <wtf/UnionFind.h>
@@ -37,25 +38,38 @@
 
 namespace JSC { namespace DFG {
 
+enum DoubleBallot { VoteValue, VoteDouble };
+
 class VariableAccessData : public UnionFind<VariableAccessData> {
 public:
-    enum Ballot { VoteValue, VoteDouble };
-
     VariableAccessData()
         : m_local(static_cast<VirtualRegister>(std::numeric_limits<int>::min()))
-        , m_prediction(PredictNone)
-        , m_argumentAwarePrediction(PredictNone)
+        , m_prediction(SpecNone)
+        , m_argumentAwarePrediction(SpecNone)
         , m_flags(0)
+        , m_isCaptured(false)
+        , m_shouldNeverUnbox(false)
+        , m_isArgumentsAlias(false)
+        , m_structureCheckHoistingFailed(false)
+        , m_checkArrayHoistingFailed(false)
+        , m_isProfitableToUnbox(false)
+        , m_isLoadedFrom(false)
         , m_doubleFormatState(EmptyDoubleFormatState)
     {
         clearVotes();
     }
     
-    VariableAccessData(VirtualRegister local)
+    VariableAccessData(VirtualRegister local, bool isCaptured)
         : m_local(local)
-        , m_prediction(PredictNone)
-        , m_argumentAwarePrediction(PredictNone)
+        , m_prediction(SpecNone)
+        , m_argumentAwarePrediction(SpecNone)
         , m_flags(0)
+        , m_isCaptured(isCaptured)
+        , m_shouldNeverUnbox(isCaptured)
+        , m_isArgumentsAlias(false)
+        , m_structureCheckHoistingFailed(false)
+        , m_checkArrayHoistingFailed(false)
+        , m_isProfitableToUnbox(false)
         , m_doubleFormatState(EmptyDoubleFormatState)
     {
         clearVotes();
@@ -72,52 +86,144 @@ public:
         return static_cast<int>(local());
     }
     
-    bool predict(PredictedType prediction)
+    bool mergeIsCaptured(bool isCaptured)
+    {
+        return checkAndSet(m_shouldNeverUnbox, m_shouldNeverUnbox | isCaptured)
+            | checkAndSet(m_isCaptured, m_isCaptured | isCaptured);
+    }
+    
+    bool isCaptured()
+    {
+        return m_isCaptured;
+    }
+    
+    bool mergeIsProfitableToUnbox(bool isProfitableToUnbox)
+    {
+        return checkAndSet(m_isProfitableToUnbox, m_isProfitableToUnbox | isProfitableToUnbox);
+    }
+    
+    bool isProfitableToUnbox()
+    {
+        return m_isProfitableToUnbox;
+    }
+    
+    bool mergeShouldNeverUnbox(bool shouldNeverUnbox)
+    {
+        bool newShouldNeverUnbox = m_shouldNeverUnbox | shouldNeverUnbox;
+        if (newShouldNeverUnbox == m_shouldNeverUnbox)
+            return false;
+        m_shouldNeverUnbox = newShouldNeverUnbox;
+        return true;
+    }
+    
+    // Returns true if it would be unsound to store the value in an unboxed fashion.
+    // If this returns false, it simply means that it is sound to unbox; it doesn't
+    // mean that we have actually done so.
+    bool shouldNeverUnbox()
+    {
+        ASSERT(!(m_isCaptured && !m_shouldNeverUnbox));
+        return m_shouldNeverUnbox;
+    }
+    
+    // Returns true if we should be unboxing the value provided that the predictions
+    // and double format vote say so. This may return false even if shouldNeverUnbox()
+    // returns false, since this incorporates heuristics of profitability.
+    bool shouldUnboxIfPossible()
+    {
+        return !shouldNeverUnbox() && isProfitableToUnbox();
+    }
+
+    bool mergeStructureCheckHoistingFailed(bool failed)
+    {
+        return checkAndSet(m_structureCheckHoistingFailed, m_structureCheckHoistingFailed | failed);
+    }
+    
+    bool mergeCheckArrayHoistingFailed(bool failed)
+    {
+        return checkAndSet(m_checkArrayHoistingFailed, m_checkArrayHoistingFailed | failed);
+    }
+    
+    bool structureCheckHoistingFailed()
+    {
+        return m_structureCheckHoistingFailed;
+    }
+    
+    bool checkArrayHoistingFailed()
+    {
+        return m_checkArrayHoistingFailed;
+    }
+    
+    bool mergeIsArgumentsAlias(bool isArgumentsAlias)
+    {
+        return checkAndSet(m_isArgumentsAlias, m_isArgumentsAlias | isArgumentsAlias);
+    }
+    
+    bool isArgumentsAlias()
+    {
+        return m_isArgumentsAlias;
+    }
+    
+    bool mergeIsLoadedFrom(bool isLoadedFrom)
+    {
+        return checkAndSet(m_isLoadedFrom, m_isLoadedFrom | isLoadedFrom);
+    }
+    
+    void setIsLoadedFrom(bool isLoadedFrom)
+    {
+        m_isLoadedFrom = isLoadedFrom;
+    }
+    
+    bool isLoadedFrom()
+    {
+        return m_isLoadedFrom;
+    }
+    
+    bool predict(SpeculatedType prediction)
     {
         VariableAccessData* self = find();
-        bool result = mergePrediction(self->m_prediction, prediction);
+        bool result = mergeSpeculation(self->m_prediction, prediction);
         if (result)
-            mergePrediction(m_argumentAwarePrediction, m_prediction);
+            mergeSpeculation(m_argumentAwarePrediction, m_prediction);
         return result;
     }
     
-    PredictedType nonUnifiedPrediction()
+    SpeculatedType nonUnifiedPrediction()
     {
         return m_prediction;
     }
     
-    PredictedType prediction()
+    SpeculatedType prediction()
     {
         return find()->m_prediction;
     }
     
-    PredictedType argumentAwarePrediction()
+    SpeculatedType argumentAwarePrediction()
     {
         return find()->m_argumentAwarePrediction;
     }
     
-    bool mergeArgumentAwarePrediction(PredictedType prediction)
+    bool mergeArgumentAwarePrediction(SpeculatedType prediction)
     {
-        return mergePrediction(find()->m_argumentAwarePrediction, prediction);
+        return mergeSpeculation(find()->m_argumentAwarePrediction, prediction);
     }
     
     void clearVotes()
     {
         ASSERT(find() == this);
-        m_votes[VoteValue] = 0;
-        m_votes[VoteDouble] = 0;
+        m_votes[0] = 0;
+        m_votes[1] = 0;
     }
     
-    void vote(Ballot ballot)
+    void vote(unsigned ballot)
     {
-        ASSERT(static_cast<unsigned>(ballot) < 2);
+        ASSERT(ballot < 2);
         m_votes[ballot]++;
     }
     
-    double doubleVoteRatio()
+    double voteRatio()
     {
         ASSERT(find() == this);
-        return static_cast<double>(m_votes[VoteDouble]) / m_votes[VoteValue];
+        return static_cast<double>(m_votes[1]) / m_votes[0];
     }
     
     bool shouldUseDoubleFormatAccordingToVote()
@@ -129,12 +235,16 @@ public:
         
         // If the variable is not a number prediction, then this doesn't
         // make any sense.
-        if (!isNumberPrediction(prediction()))
+        if (!isNumberSpeculation(prediction())) {
+            // FIXME: we may end up forcing a local in inlined argument position to be a double even
+            // if it is sometimes not even numeric, since this never signals the fact that it doesn't
+            // want doubles. https://bugs.webkit.org/show_bug.cgi?id=109511
             return false;
+        }
         
         // If the variable is predicted to hold only doubles, then it's a
         // no-brainer: it should be formatted as a double.
-        if (isDoublePrediction(prediction()))
+        if (isDoubleSpeculation(prediction()))
             return true;
         
         // If the variable is known to be used as an integer, then be safe -
@@ -144,7 +254,7 @@ public:
         
         // If the variable has been voted to become a double, then make it a
         // double.
-        if (doubleVoteRatio() >= Options::doubleVoteRatioForDoubleFormat)
+        if (voteRatio() >= Options::doubleVoteRatioForDoubleFormat())
             return true;
         
         return false;
@@ -158,12 +268,18 @@ public:
     bool shouldUseDoubleFormat()
     {
         ASSERT(isRoot());
-        return m_doubleFormatState == UsingDoubleFormat;
+        bool doubleState = m_doubleFormatState == UsingDoubleFormat;
+        ASSERT(!(doubleState && shouldNeverUnbox()));
+        ASSERT(!(doubleState && isCaptured()));
+        return doubleState && isProfitableToUnbox();
     }
     
     bool tallyVotesForShouldUseDoubleFormat()
     {
         ASSERT(isRoot());
+        
+        if (operandIsArgument(local()) || shouldNeverUnbox())
+            return DFG::mergeDoubleFormatState(m_doubleFormatState, NotUsingDoubleFormat);
         
         if (m_doubleFormatState == CantUseDoubleFormat)
             return false;
@@ -193,18 +309,37 @@ public:
         if (m_doubleFormatState != UsingDoubleFormat)
             return false;
         
-        return mergePrediction(m_prediction, PredictDouble);
+        return mergeSpeculation(m_prediction, SpecDouble);
     }
     
     NodeFlags flags() const { return m_flags; }
     
     bool mergeFlags(NodeFlags newFlags)
     {
-        newFlags |= m_flags;
-        if (newFlags == m_flags)
-            return false;
-        m_flags = newFlags;
-        return true;
+        return checkAndSet(m_flags, m_flags | newFlags);
+    }
+    
+    FlushFormat flushFormat()
+    {
+        ASSERT(find() == this);
+        
+        if (!shouldUnboxIfPossible())
+            return FlushedJSValue;
+        
+        if (shouldUseDoubleFormat())
+            return FlushedDouble;
+        
+        SpeculatedType prediction = argumentAwarePrediction();
+        if (isInt32Speculation(prediction))
+            return FlushedInt32;
+        
+        if (isCellSpeculation(prediction))
+            return FlushedCell;
+        
+        if (isBooleanSpeculation(prediction))
+            return FlushedBoolean;
+        
+        return FlushedJSValue;
     }
     
 private:
@@ -214,11 +349,19 @@ private:
     // usage for variable access nodes do be significant.
 
     VirtualRegister m_local;
-    PredictedType m_prediction;
-    PredictedType m_argumentAwarePrediction;
+    SpeculatedType m_prediction;
+    SpeculatedType m_argumentAwarePrediction;
     NodeFlags m_flags;
-    
-    float m_votes[2];
+
+    bool m_isCaptured;
+    bool m_shouldNeverUnbox;
+    bool m_isArgumentsAlias;
+    bool m_structureCheckHoistingFailed;
+    bool m_checkArrayHoistingFailed;
+    bool m_isProfitableToUnbox;
+    bool m_isLoadedFrom;
+
+    float m_votes[2]; // Used primarily for double voting but may be reused for other purposes.
     DoubleFormatState m_doubleFormatState;
 };
 

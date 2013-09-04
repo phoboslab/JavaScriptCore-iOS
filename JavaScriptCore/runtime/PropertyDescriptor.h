@@ -26,7 +26,7 @@
 #ifndef PropertyDescriptor_h
 #define PropertyDescriptor_h
 
-#include "JSValue.h"
+#include "JSCJSValue.h"
 
 namespace JSC {
     class GetterSetter;
@@ -40,6 +40,14 @@ namespace JSC {
             : m_attributes(defaultAttributes)
             , m_seenAttributes(0)
         {
+        }
+        PropertyDescriptor(JSValue value, unsigned attributes)
+            : m_value(value)
+            , m_attributes(attributes)
+            , m_seenAttributes(EnumerablePresent | ConfigurablePresent | WritablePresent)
+        {
+            ASSERT(m_value);
+            ASSERT(!m_value.isGetterSetter());
         }
         JS_EXPORT_PRIVATE bool writable() const;
         JS_EXPORT_PRIVATE bool enumerable() const;
@@ -55,7 +63,7 @@ namespace JSC {
         JSObject* setterObject() const;
         JS_EXPORT_PRIVATE void setUndefined();
         JS_EXPORT_PRIVATE void setDescriptor(JSValue value, unsigned attributes);
-        void setAccessorDescriptor(GetterSetter* accessor, unsigned attributes);
+        JS_EXPORT_PRIVATE void setAccessorDescriptor(GetterSetter* accessor, unsigned attributes);
         JS_EXPORT_PRIVATE void setWritable(bool);
         JS_EXPORT_PRIVATE void setEnumerable(bool);
         JS_EXPORT_PRIVATE void setConfigurable(bool);

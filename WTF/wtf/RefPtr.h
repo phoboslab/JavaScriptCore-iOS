@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ *  Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2013 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -24,6 +24,7 @@
 #define WTF_RefPtr_h
 
 #include <algorithm>
+#include <utility>
 #include <wtf/FastAllocBase.h>
 #include <wtf/PassRefPtr.h>
 
@@ -42,6 +43,11 @@ namespace WTF {
         ALWAYS_INLINE RefPtr(T* ptr) : m_ptr(ptr) { refIfNotNull(ptr); }
         ALWAYS_INLINE RefPtr(const RefPtr& o) : m_ptr(o.m_ptr) { refIfNotNull(m_ptr); }
         template<typename U> RefPtr(const RefPtr<U>& o) : m_ptr(o.get()) { refIfNotNull(m_ptr); }
+
+#if COMPILER_SUPPORTS(CXX_RVALUE_REFERENCES)
+        ALWAYS_INLINE RefPtr(RefPtr&& o) : m_ptr(o.release().leakRef()) { }
+        template<typename U> RefPtr(RefPtr<U>&& o) : m_ptr(o.release().leakRef()) { }
+#endif
 
         // See comments in PassRefPtr.h for an explanation of why this takes a const reference.
         template<typename U> RefPtr(const PassRefPtr<U>&);
@@ -77,7 +83,10 @@ namespace WTF {
 #endif
         template<typename U> RefPtr& operator=(const RefPtr<U>&);
         template<typename U> RefPtr& operator=(const PassRefPtr<U>&);
-
+#if COMPILER_SUPPORTS(CXX_RVALUE_REFERENCES)
+        RefPtr& operator=(RefPtr&&);
+        template<typename U> RefPtr& operator=(RefPtr<U>&&);
+#endif
         void swap(RefPtr&);
 
         static T* hashTableDeletedValue() { return reinterpret_cast<T*>(-1); }
@@ -98,52 +107,60 @@ namespace WTF {
         derefIfNotNull(ptr);
     }
 
-    template<typename T> inline RefPtr<T>& RefPtr<T>::operator=(const RefPtr<T>& o)
+    template<typename T> inline RefPtr<T>& RefPtr<T>::operator=(const RefPtr& o)
     {
-        T* optr = o.get();
-        refIfNotNull(optr);
-        T* ptr = m_ptr;
-        m_ptr = optr;
-        derefIfNotNull(ptr);
+        RefPtr ptr = o;
+        swap(ptr);
         return *this;
     }
     
     template<typename T> template<typename U> inline RefPtr<T>& RefPtr<T>::operator=(const RefPtr<U>& o)
     {
-        T* optr = o.get();
-        refIfNotNull(optr);
-        T* ptr = m_ptr;
-        m_ptr = optr;
-        derefIfNotNull(ptr);
+        RefPtr ptr = o;
+        swap(ptr);
         return *this;
     }
     
     template<typename T> inline RefPtr<T>& RefPtr<T>::operator=(T* optr)
     {
-        refIfNotNull(optr);
-        T* ptr = m_ptr;
-        m_ptr = optr;
-        derefIfNotNull(ptr);
+        RefPtr ptr = optr;
+        swap(ptr);
         return *this;
     }
 
     template<typename T> inline RefPtr<T>& RefPtr<T>::operator=(const PassRefPtr<T>& o)
     {
-        T* ptr = m_ptr;
-        m_ptr = o.leakRef();
-        derefIfNotNull(ptr);
+        RefPtr ptr = o;
+        swap(ptr);
         return *this;
     }
 
     template<typename T> template<typename U> inline RefPtr<T>& RefPtr<T>::operator=(const PassRefPtr<U>& o)
     {
-        T* ptr = m_ptr;
-        m_ptr = o.leakRef();
-        derefIfNotNull(ptr);
+        RefPtr ptr = o;
+        swap(ptr);
         return *this;
     }
 
-    template<class T> inline void RefPtr<T>::swap(RefPtr<T>& o)
+#if COMPILER_SUPPORTS(CXX_RVALUE_REFERENCES)
+
+    template<typename T> inline RefPtr<T>& RefPtr<T>::operator=(RefPtr&& o)
+    {
+        RefPtr ptr = std::move(o);
+        swap(ptr);
+        return *this;
+    }
+
+    template<typename T> template<typename U> inline RefPtr<T>& RefPtr<T>::operator=(RefPtr<U>&& o)
+    {
+        RefPtr ptr = std::move(o);
+        swap(ptr);
+        return *this;
+    }
+
+#endif
+
+    template<class T> inline void RefPtr<T>::swap(RefPtr& o)
     {
         std::swap(m_ptr, o.m_ptr);
     }

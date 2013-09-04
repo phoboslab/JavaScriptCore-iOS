@@ -32,9 +32,7 @@
 
 #include "Assertions.h"
 #include "Threading.h"
-#if !OS(WINCE)
-#include <windows.h>
-#endif
+#include "WindowsExtras.h"
 
 namespace WTF {
 
@@ -56,27 +54,15 @@ void initializeMainThreadPlatform()
     if (threadingWindowHandle)
         return;
 
-    HWND hWndParent = 0;
-#if OS(WINCE)
-    WNDCLASS wcex;
-    memset(&wcex, 0, sizeof(WNDCLASS));
-#else
-    WNDCLASSEX wcex;
-    memset(&wcex, 0, sizeof(WNDCLASSEX));
-    wcex.cbSize = sizeof(WNDCLASSEX);
-#endif
+    WNDCLASSW wcex;
+    memset(&wcex, 0, sizeof(WNDCLASSW));
     wcex.lpfnWndProc    = ThreadingWindowWndProc;
     wcex.lpszClassName  = kThreadingWindowClassName;
-#if OS(WINCE)
-    RegisterClass(&wcex);
-#else
-    RegisterClassEx(&wcex);
-    hWndParent = HWND_MESSAGE;
-#endif
+    RegisterClassW(&wcex);
 
-    threadingWindowHandle = CreateWindow(kThreadingWindowClassName, 0, 0,
-       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWndParent, 0, 0, 0);
-    threadingFiredMessage = RegisterWindowMessage(L"com.apple.WebKit.MainThreadFired");
+    threadingWindowHandle = CreateWindowW(kThreadingWindowClassName, 0, 0,
+        CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, HWND_MESSAGE, 0, 0, 0);
+    threadingFiredMessage = RegisterWindowMessageW(L"com.apple.WebKit.MainThreadFired");
 
     initializeCurrentThreadInternal("Main Thread");
 }

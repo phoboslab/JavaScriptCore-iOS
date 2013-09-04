@@ -21,6 +21,7 @@
 #ifndef WTF_VectorTraits_h
 #define WTF_VectorTraits_h
 
+#include <wtf/OwnArrayPtr.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TypeTraits.h>
@@ -30,6 +31,8 @@
 using std::pair;
 
 namespace WTF {
+
+    class AtomicString;
 
     template<bool isPod, typename T>
     struct VectorTraitsBase;
@@ -75,6 +78,12 @@ namespace WTF {
 
     template<typename P>
     struct VectorTraits<OwnPtr<P> > : SimpleClassVectorTraits { };
+
+    template<typename P>
+    struct VectorTraits<OwnArrayPtr<P> > : SimpleClassVectorTraits { };
+
+    template<>
+    struct VectorTraits<AtomicString> : SimpleClassVectorTraits { };
 
     template<typename First, typename Second>
     struct VectorTraits<pair<First, Second> >

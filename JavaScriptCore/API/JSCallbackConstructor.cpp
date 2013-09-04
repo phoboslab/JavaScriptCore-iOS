@@ -28,18 +28,19 @@
 
 #include "APIShims.h"
 #include "APICast.h"
-#include <runtime/Error.h>
-#include <runtime/JSGlobalObject.h>
-#include <runtime/JSLock.h>
-#include <runtime/ObjectPrototype.h>
+#include "Error.h"
+#include "JSGlobalObject.h"
+#include "JSLock.h"
+#include "ObjectPrototype.h"
+#include "Operations.h"
 #include <wtf/Vector.h>
 
 namespace JSC {
 
-const ClassInfo JSCallbackConstructor::s_info = { "CallbackConstructor", &JSNonFinalObject::s_info, 0, 0, CREATE_METHOD_TABLE(JSCallbackConstructor) };
+const ClassInfo JSCallbackConstructor::s_info = { "CallbackConstructor", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSCallbackConstructor) };
 
 JSCallbackConstructor::JSCallbackConstructor(JSGlobalObject* globalObject, Structure* structure, JSClassRef jsClass, JSObjectCallAsConstructorCallback callback)
-    : JSNonFinalObject(globalObject->globalData(), structure)
+    : JSDestructibleObject(globalObject->vm(), structure)
     , m_class(jsClass)
     , m_callback(callback)
 {
@@ -47,8 +48,8 @@ JSCallbackConstructor::JSCallbackConstructor(JSGlobalObject* globalObject, Struc
 
 void JSCallbackConstructor::finishCreation(JSGlobalObject* globalObject, JSClassRef jsClass)
 {
-    Base::finishCreation(globalObject->globalData());
-    ASSERT(inherits(&s_info));
+    Base::finishCreation(globalObject->vm());
+    ASSERT(inherits(info()));
     if (m_class)
         JSClassRetain(jsClass);
 }
@@ -61,7 +62,7 @@ JSCallbackConstructor::~JSCallbackConstructor()
 
 void JSCallbackConstructor::destroy(JSCell* cell)
 {
-    jsCast<JSCallbackConstructor*>(cell)->JSCallbackConstructor::~JSCallbackConstructor();
+    static_cast<JSCallbackConstructor*>(cell)->JSCallbackConstructor::~JSCallbackConstructor();
 }
 
 static EncodedJSValue JSC_HOST_CALL constructJSCallback(ExecState* exec)
@@ -72,10 +73,11 @@ static EncodedJSValue JSC_HOST_CALL constructJSCallback(ExecState* exec)
 
     JSObjectCallAsConstructorCallback callback = jsCast<JSCallbackConstructor*>(constructor)->callback();
     if (callback) {
-        int argumentCount = static_cast<int>(exec->argumentCount());
-        Vector<JSValueRef, 16> arguments(argumentCount);
-        for (int i = 0; i < argumentCount; i++)
-            arguments[i] = toRef(exec, exec->argument(i));
+        size_t argumentCount = exec->argumentCount();
+        Vector<JSValueRef, 16> arguments;
+        arguments.reserveInitialCapacity(argumentCount);
+        for (size_t i = 0; i < argumentCount; ++i)
+            arguments.uncheckedAppend(toRef(exec, exec->argument(i)));
 
         JSValueRef exception = 0;
         JSObjectRef result;
@@ -84,7 +86,7 @@ static EncodedJSValue JSC_HOST_CALL constructJSCallback(ExecState* exec)
             result = callback(ctx, constructorRef, argumentCount, arguments.data(), &exception);
         }
         if (exception)
-            throwError(exec, toJS(exec, exception));
+            exec->vm().throwException(exec, toJS(exec, exception));
         // result must be a valid JSValue.
         if (!result)
             return throwVMTypeError(exec);

@@ -21,14 +21,16 @@
 #include "config.h"
 #include "RegExp.h"
 
+#include "APIShims.h"
 #include <wtf/CurrentTime.h>
 #include "InitializeThreading.h"
 #include "JSGlobalObject.h"
-#include "UStringBuilder.h"
+#include "Operations.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wtf/text/StringBuilder.h>
 
 #if !OS(WINDOWS)
 #include <unistd.h>
@@ -63,8 +65,8 @@ struct CommandLine {
 
     bool interactive;
     bool verbose;
-    Vector<UString> arguments;
-    Vector<UString> files;
+    Vector<String> arguments;
+    Vector<String> files;
 };
 
 class StopWatch {
@@ -80,12 +82,12 @@ private:
 
 void StopWatch::start()
 {
-    m_startTime = currentTime();
+    m_startTime = monotonicallyIncreasingTime();
 }
 
 void StopWatch::stop()
 {
-    m_stopTime = currentTime();
+    m_stopTime = monotonicallyIncreasingTime();
 }
 
 long StopWatch::getElapsedMS()
@@ -100,7 +102,7 @@ struct RegExpTest {
     {
     }
 
-    UString subject;
+    String subject;
     int offset;
     int result;
     Vector<int, 32> expectVector;
@@ -108,40 +110,43 @@ struct RegExpTest {
 
 class GlobalObject : public JSGlobalObject {
 private:
-    GlobalObject(JSGlobalData&, Structure*, const Vector<UString>& arguments);
+    GlobalObject(VM&, Structure*, const Vector<String>& arguments);
 
 public:
     typedef JSGlobalObject Base;
 
-    static GlobalObject* create(JSGlobalData& globalData, Structure* structure, const Vector<UString>& arguments)
+    static GlobalObject* create(VM& vm, Structure* structure, const Vector<String>& arguments)
     {
-        return new (NotNull, allocateCell<GlobalObject>(globalData.heap)) GlobalObject(globalData, structure, arguments);
+        GlobalObject* globalObject = new (NotNull, allocateCell<GlobalObject>(vm.heap)) GlobalObject(vm, structure, arguments);
+        vm.heap.addFinalizer(globalObject, destroy);
+        return globalObject;
     }
 
-    static const ClassInfo s_info;
+    DECLARE_INFO;
 
-    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+    static const bool needsDestructor = false;
+
+    static Structure* createStructure(VM& vm, JSValue prototype)
     {
-        return Structure::create(globalData, 0, prototype, TypeInfo(GlobalObjectType, StructureFlags), &s_info);
+        return Structure::create(vm, 0, prototype, TypeInfo(GlobalObjectType, StructureFlags), info());
     }
 
 protected:
-    void finishCreation(JSGlobalData& globalData, const Vector<UString>& arguments)
+    void finishCreation(VM& vm, const Vector<String>& arguments)
     {
-        Base::finishCreation(globalData);
+        Base::finishCreation(vm);
         UNUSED_PARAM(arguments);
     }
 };
 
 COMPILE_ASSERT(!IsInteger<GlobalObject>::value, WTF_IsInteger_GlobalObject_false);
-ASSERT_CLASS_FITS_IN_CELL(GlobalObject);
 
 const ClassInfo GlobalObject::s_info = { "global", &JSGlobalObject::s_info, 0, ExecState::globalObjectTable, CREATE_METHOD_TABLE(GlobalObject) };
 
-GlobalObject::GlobalObject(JSGlobalData& globalData, Structure* structure, const Vector<UString>& arguments)
-    : JSGlobalObject(globalData, structure)
+GlobalObject::GlobalObject(VM& vm, Structure* structure, const Vector<String>& arguments)
+    : JSGlobalObject(vm, structure)
 {
-    finishCreation(globalData, arguments);
+    finishCreation(vm, arguments);
 }
 
 // Use SEH for Release builds only to get rid of the crash report dialog
@@ -185,7 +190,7 @@ int main(int argc, char** argv)
     QCoreApplication app(argc, argv);
 #endif
 
-    // Initialize JSC before getting JSGlobalData.
+    // Initialize JSC before getting VM.
     JSC::initializeThreading();
 
     // We can't use destructors in the following code because it uses Windows
@@ -197,12 +202,12 @@ int main(int argc, char** argv)
     return res;
 }
 
-static bool testOneRegExp(JSGlobalData& globalData, RegExp* regexp, RegExpTest* regExpTest, bool verbose, unsigned int lineNumber)
+static bool testOneRegExp(VM& vm, RegExp* regexp, RegExpTest* regExpTest, bool verbose, unsigned int lineNumber)
 {
     bool result = true;
     Vector<int, 32> outVector;
     outVector.resize(regExpTest->expectVector.size());
-    int matchResult = regexp->match(globalData, regExpTest->subject, regExpTest->offset, outVector);
+    int matchResult = regexp->match(vm, regExpTest->subject, regExpTest->offset, outVector);
 
     if (matchResult != regExpTest->result) {
         result = false;
@@ -239,7 +244,7 @@ static bool testOneRegExp(JSGlobalData& globalData, RegExp* regexp, RegExpTest* 
     return result;
 }
 
-static int scanString(char* buffer, int bufferLength, UStringBuilder& builder, char termChar)
+static int scanString(char* buffer, int bufferLength, StringBuilder& builder, char termChar)
 {
     bool escape = false;
     
@@ -305,9 +310,9 @@ static int scanString(char* buffer, int bufferLength, UStringBuilder& builder, c
     return -1;
 }
 
-static RegExp* parseRegExpLine(JSGlobalData& globalData, char* line, int lineLength)
+static RegExp* parseRegExpLine(VM& vm, char* line, int lineLength)
 {
-    UStringBuilder pattern;
+    StringBuilder pattern;
     
     if (line[0] != '/')
         return 0;
@@ -319,12 +324,12 @@ static RegExp* parseRegExpLine(JSGlobalData& globalData, char* line, int lineLen
 
     ++i;
 
-    return RegExp::create(globalData, pattern.toUString(), regExpFlags(line + i));
+    return RegExp::create(vm, pattern.toString(), regExpFlags(line + i));
 }
 
 static RegExpTest* parseTestLine(char* line, int lineLength)
 {
-    UStringBuilder subjectString;
+    StringBuilder subjectString;
     
     if ((line[0] != ' ') || (line[1] != '"'))
         return 0;
@@ -363,7 +368,7 @@ static RegExpTest* parseTestLine(char* line, int lineLength)
     
     RegExpTest* result = new RegExpTest();
     
-    result->subject = subjectString.toUString();
+    result->subject = subjectString.toString();
     result->offset = offset;
     result->result = matchResult;
 
@@ -394,16 +399,16 @@ static RegExpTest* parseTestLine(char* line, int lineLength)
     return result;
 }
 
-static bool runFromFiles(GlobalObject* globalObject, const Vector<UString>& files, bool verbose)
+static bool runFromFiles(GlobalObject* globalObject, const Vector<String>& files, bool verbose)
 {
-    UString script;
-    UString fileName;
+    String script;
+    String fileName;
     Vector<char> scriptBuffer;
     unsigned tests = 0;
     unsigned failures = 0;
     char* lineBuffer = new char[MaxLineLength + 1];
 
-    JSGlobalData& globalData = globalObject->globalData();
+    VM& vm = globalObject->vm();
 
     bool success = true;
     for (size_t i = 0; i < files.size(); i++) {
@@ -431,13 +436,13 @@ static bool runFromFiles(GlobalObject* globalObject, const Vector<UString>& file
                 continue;
 
             if (linePtr[0] == '/') {
-                regexp = parseRegExpLine(globalData, linePtr, lineLength);
+                regexp = parseRegExpLine(vm, linePtr, lineLength);
             } else if (linePtr[0] == ' ') {
                 RegExpTest* regExpTest = parseTestLine(linePtr, lineLength);
                 
                 if (regexp && regExpTest) {
                     ++tests;
-                    if (!testOneRegExp(globalData, regexp, regExpTest, verbose, lineNumber)) {
+                    if (!testOneRegExp(vm, regexp, regExpTest, verbose, lineNumber)) {
                         failures++;
                         printf("Failure on line %u\n", lineNumber);
                     }
@@ -458,9 +463,9 @@ static bool runFromFiles(GlobalObject* globalObject, const Vector<UString>& file
 
     delete[] lineBuffer;
 
-    globalData.dumpSampleData(globalObject->globalExec());
+    vm.dumpSampleData(globalObject->globalExec());
 #if ENABLE(REGEXP_TRACING)
-    globalData.dumpRegExpTrace();
+    vm.dumpRegExpTrace();
 #endif
     return success;
 }
@@ -495,13 +500,13 @@ static void parseArguments(int argc, char** argv, CommandLine& options)
 
 int realMain(int argc, char** argv)
 {
-    RefPtr<JSGlobalData> globalData = JSGlobalData::create(ThreadStackTypeLarge, LargeHeap);
-    JSLockHolder lock(globalData.get());
+    VM* vm = VM::create(LargeHeap).leakRef();
+    APIEntryShim shim(vm);
 
     CommandLine options;
     parseArguments(argc, argv, options);
 
-    GlobalObject* globalObject = GlobalObject::create(*globalData, GlobalObject::createStructure(*globalData, jsNull()), options.arguments);
+    GlobalObject* globalObject = GlobalObject::create(*vm, GlobalObject::createStructure(*vm, jsNull()), options.arguments);
     bool success = runFromFiles(globalObject, options.files, options.verbose);
 
     return success ? 0 : 3;

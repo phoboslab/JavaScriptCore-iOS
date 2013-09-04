@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,48 +26,47 @@
 #ifndef CodeOrigin_h
 #define CodeOrigin_h
 
+#include "CodeBlockHash.h"
+#include "CodeSpecializationKind.h"
 #include "ValueRecovery.h"
 #include "WriteBarrier.h"
+#include <wtf/BitVector.h>
+#include <wtf/PrintStream.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
 
 struct InlineCallFrame;
-class ExecutableBase;
+class ExecState;
+class ScriptExecutable;
 class JSFunction;
 
 struct CodeOrigin {
-    // Bytecode offset that you'd use to re-execute this instruction.
-    unsigned bytecodeIndex : 29;
-    // Bytecode offset corresponding to the opcode that gives the result (needed to handle
-    // op_call/op_call_put_result and op_method_check/op_get_by_id).
-    unsigned valueProfileOffset : 3;
+    static const unsigned invalidBytecodeIndex = UINT_MAX;
+    
+    // Bytecode offset that you'd use to re-execute this instruction, and the
+    // bytecode index of the bytecode instruction that produces some result that
+    // you're interested in (used for mapping Nodes whose values you're using
+    // to bytecode instructions that have the appropriate value profile).
+    unsigned bytecodeIndex;
     
     InlineCallFrame* inlineCallFrame;
     
     CodeOrigin()
-        : bytecodeIndex(std::numeric_limits<uint32_t>::max())
-        , valueProfileOffset(0)
+        : bytecodeIndex(invalidBytecodeIndex)
         , inlineCallFrame(0)
     {
     }
     
-    explicit CodeOrigin(unsigned bytecodeIndex, InlineCallFrame* inlineCallFrame = 0, unsigned valueProfileOffset = 0)
+    explicit CodeOrigin(unsigned bytecodeIndex, InlineCallFrame* inlineCallFrame = 0)
         : bytecodeIndex(bytecodeIndex)
-        , valueProfileOffset(valueProfileOffset)
         , inlineCallFrame(inlineCallFrame)
     {
-        ASSERT(bytecodeIndex < (1u << 29));
-        ASSERT(valueProfileOffset < (1u << 3));
+        ASSERT(bytecodeIndex < invalidBytecodeIndex);
     }
     
-    bool isSet() const { return bytecodeIndex != std::numeric_limits<uint32_t>::max(); }
-    
-    unsigned bytecodeIndexForValueProfile() const
-    {
-        return bytecodeIndex + valueProfileOffset;
-    }
+    bool isSet() const { return bytecodeIndex != invalidBytecodeIndex; }
     
     // The inline depth is the depth of the inline stack, so 1 = not inlined,
     // 2 = inlined one deep, etc.
@@ -75,7 +74,9 @@ struct CodeOrigin {
     
     // If the code origin corresponds to inlined code, gives you the heap object that
     // would have owned the code if it had not been inlined. Otherwise returns 0.
-    ExecutableBase* codeOriginOwner() const;
+    ScriptExecutable* codeOriginOwner() const;
+    
+    unsigned stackOffset() const;
     
     static unsigned inlineDepthForCallFrame(InlineCallFrame*);
     
@@ -85,58 +86,54 @@ struct CodeOrigin {
     
     // Get the inline stack. This is slow, and is intended for debugging only.
     Vector<CodeOrigin> inlineStack() const;
+    
+    void dump(PrintStream&) const;
+    void dumpInContext(PrintStream&, DumpContext*) const;
 };
 
 struct InlineCallFrame {
     Vector<ValueRecovery> arguments;
-    WriteBarrier<ExecutableBase> executable;
-    WriteBarrier<JSFunction> callee;
+    WriteBarrier<ScriptExecutable> executable;
+    WriteBarrier<JSFunction> callee; // This may be null, indicating that this is a closure call and that the JSFunction and JSScope are already on the stack.
     CodeOrigin caller;
+    BitVector capturedVars; // Indexed by the machine call frame's variable numbering.
     unsigned stackOffset : 31;
     bool isCall : 1;
-};
-
-struct CodeOriginAtCallReturnOffset {
-    CodeOrigin codeOrigin;
-    unsigned callReturnOffset;
-};
-
-inline unsigned CodeOrigin::inlineDepthForCallFrame(InlineCallFrame* inlineCallFrame)
-{
-    unsigned result = 1;
-    for (InlineCallFrame* current = inlineCallFrame; current; current = current->caller.inlineCallFrame)
-        result++;
-    return result;
-}
-
-inline unsigned CodeOrigin::inlineDepth() const
-{
-    return inlineDepthForCallFrame(inlineCallFrame);
-}
     
+    CodeSpecializationKind specializationKind() const { return specializationFromIsCall(isCall); }
+    
+    bool isClosureCall() const { return !callee; }
+    
+    // Get the callee given a machine call frame to which this InlineCallFrame belongs.
+    JSFunction* calleeForCallFrame(ExecState*) const;
+    
+    CString inferredName() const;
+    CodeBlockHash hash() const;
+    
+    CodeBlock* baselineCodeBlock() const;
+    
+    void dumpBriefFunctionInformation(PrintStream&) const;
+    void dump(PrintStream&) const;
+    void dumpInContext(PrintStream&, DumpContext*) const;
+
+    MAKE_PRINT_METHOD(InlineCallFrame, dumpBriefFunctionInformation, briefFunctionInformation);
+};
+
+inline unsigned CodeOrigin::stackOffset() const
+{
+    if (!inlineCallFrame)
+        return 0;
+    
+    return inlineCallFrame->stackOffset;
+}
+
 inline bool CodeOrigin::operator==(const CodeOrigin& other) const
 {
     return bytecodeIndex == other.bytecodeIndex
         && inlineCallFrame == other.inlineCallFrame;
 }
     
-// Get the inline stack. This is slow, and is intended for debugging only.
-inline Vector<CodeOrigin> CodeOrigin::inlineStack() const
-{
-    Vector<CodeOrigin> result(inlineDepth());
-    result.last() = *this;
-    unsigned index = result.size() - 2;
-    for (InlineCallFrame* current = inlineCallFrame; current; current = current->caller.inlineCallFrame)
-        result[index--] = current->caller;
-    return result;
-}
-
-inline unsigned getCallReturnOffsetForCodeOrigin(CodeOriginAtCallReturnOffset* data)
-{
-    return data->callReturnOffset;
-}
-
-inline ExecutableBase* CodeOrigin::codeOriginOwner() const
+inline ScriptExecutable* CodeOrigin::codeOriginOwner() const
 {
     if (!inlineCallFrame)
         return 0;

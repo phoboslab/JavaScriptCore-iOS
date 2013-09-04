@@ -21,7 +21,7 @@
 #ifndef AtomicStringImpl_h
 #define AtomicStringImpl_h
 
-#include <wtf/text/StringImpl.h>
+#include "StringImpl.h"
 
 namespace WTF {
 
@@ -30,6 +30,23 @@ class AtomicStringImpl : public StringImpl
 public:
     AtomicStringImpl() : StringImpl(0) {}
 };
+
+#if !ASSERT_DISABLED
+// AtomicStringImpls created from StaticASCIILiteral will ASSERT
+// in the generic ValueCheck<T>::checkConsistency
+// as they are not allocated by fastMalloc.
+// We don't currently have any way to detect that case
+// so we ignore the consistency check for all AtomicStringImpls*.
+template<> struct
+ValueCheck<AtomicStringImpl*> {
+    static void checkConsistency(const AtomicStringImpl*) { }
+};
+
+template<> struct
+ValueCheck<const AtomicStringImpl*> {
+    static void checkConsistency(const AtomicStringImpl*) { }
+};
+#endif
 
 }
 

@@ -26,13 +26,24 @@
 #ifndef BlockAllocator_h
 #define BlockAllocator_h
 
+#include "HeapBlock.h"
+#include "Region.h"
 #include <wtf/DoublyLinkedList.h>
 #include <wtf/Forward.h>
+#include <wtf/PageAllocationAligned.h>
+#include <wtf/TCSpinLock.h>
 #include <wtf/Threading.h>
 
 namespace JSC {
 
-class HeapBlock;
+class BlockAllocator;
+class CopiedBlock;
+class CopyWorkListSegment;
+class HandleBlock;
+class VM;
+class MarkStackSegment;
+class MarkedBlock;
+class WeakBlock;
 
 // Simple allocator to reduce VM cost by holding onto blocks of memory for
 // short periods of time and then freeing them on a secondary thread.
@@ -42,8 +53,10 @@ public:
     BlockAllocator();
     ~BlockAllocator();
 
-    HeapBlock* allocate();
-    void deallocate(HeapBlock*);
+    template <typename T> DeadBlock* allocate();
+    DeadBlock* allocateCustomSize(size_t blockSize, size_t blockAlignment);
+    template <typename T> void deallocate(T*);
+    template <typename T> void deallocateCustomSize(T*);
 
 private:
     void waitForRelativeTimeWhileHoldingLock(double relative);
@@ -52,36 +65,229 @@ private:
     void blockFreeingThreadMain();
     static void blockFreeingThreadStartFunc(void* heap);
 
-    void releaseFreeBlocks();
+    struct RegionSet {
+        RegionSet(size_t blockSize)
+            : m_numberOfPartialRegions(0)
+            , m_blockSize(blockSize)
+        {
+        }
 
-    DoublyLinkedList<HeapBlock> m_freeBlocks;
-    size_t m_numberOfFreeBlocks;
+        bool isEmpty() const
+        {
+            return m_fullRegions.isEmpty() && m_partialRegions.isEmpty();
+        }
+
+        DoublyLinkedList<Region> m_fullRegions;
+        DoublyLinkedList<Region> m_partialRegions;
+        size_t m_numberOfPartialRegions;
+        size_t m_blockSize;
+    };
+
+    DeadBlock* tryAllocateFromRegion(RegionSet&, DoublyLinkedList<Region>&, size_t&);
+
+    bool allRegionSetsAreEmpty() const;
+    void releaseFreeRegions();
+
+    template <typename T> RegionSet& regionSetFor();
+
+    SuperRegion m_superRegion;
+    RegionSet m_copiedRegionSet;
+    RegionSet m_markedRegionSet;
+    // WeakBlocks and MarkStackSegments use the same RegionSet since they're the same size.
+    RegionSet m_fourKBBlockRegionSet;
+    RegionSet m_workListRegionSet;
+
+    DoublyLinkedList<Region> m_emptyRegions;
+    size_t m_numberOfEmptyRegions;
+
     bool m_isCurrentlyAllocating;
     bool m_blockFreeingThreadShouldQuit;
-    Mutex m_freeBlockLock;
-    ThreadCondition m_freeBlockCondition;
+    SpinLock m_regionLock;
+    Mutex m_emptyRegionConditionLock;
+    ThreadCondition m_emptyRegionCondition;
     ThreadIdentifier m_blockFreeingThread;
 };
 
-inline HeapBlock* BlockAllocator::allocate()
+inline DeadBlock* BlockAllocator::tryAllocateFromRegion(RegionSet& set, DoublyLinkedList<Region>& regions, size_t& numberOfRegions)
 {
-    MutexLocker locker(m_freeBlockLock);
-    m_isCurrentlyAllocating = true;
-    if (!m_numberOfFreeBlocks) {
-        ASSERT(m_freeBlocks.isEmpty());
-        return 0;
-    }
+    if (numberOfRegions) {
+        ASSERT(!regions.isEmpty());
+        Region* region = regions.head();
+        ASSERT(!region->isFull());
 
-    ASSERT(!m_freeBlocks.isEmpty());
-    m_numberOfFreeBlocks--;
-    return m_freeBlocks.removeHead();
+        if (region->isEmpty()) {
+            ASSERT(region == m_emptyRegions.head());
+            m_numberOfEmptyRegions--;
+            set.m_numberOfPartialRegions++;
+            region = m_emptyRegions.removeHead()->reset(set.m_blockSize);
+            set.m_partialRegions.push(region);
+        }
+
+        DeadBlock* block = region->allocate();
+
+        if (region->isFull()) {
+            set.m_numberOfPartialRegions--;
+            set.m_fullRegions.push(set.m_partialRegions.removeHead());
+        }
+
+        return block;
+    }
+    return 0;
 }
 
-inline void BlockAllocator::deallocate(HeapBlock* block)
+template<typename T>
+inline DeadBlock* BlockAllocator::allocate()
 {
-    MutexLocker locker(m_freeBlockLock);
-    m_freeBlocks.push(block);
-    m_numberOfFreeBlocks++;
+    RegionSet& set = regionSetFor<T>();
+    DeadBlock* block;
+    m_isCurrentlyAllocating = true;
+    {
+        SpinLockHolder locker(&m_regionLock);
+        if ((block = tryAllocateFromRegion(set, set.m_partialRegions, set.m_numberOfPartialRegions)))
+            return block;
+        if ((block = tryAllocateFromRegion(set, m_emptyRegions, m_numberOfEmptyRegions)))
+            return block;
+    }
+
+    Region* newRegion = Region::create(&m_superRegion, T::blockSize);
+
+    SpinLockHolder locker(&m_regionLock);
+    m_emptyRegions.push(newRegion);
+    m_numberOfEmptyRegions++;
+    block = tryAllocateFromRegion(set, m_emptyRegions, m_numberOfEmptyRegions);
+    ASSERT(block);
+    return block;
+}
+
+inline DeadBlock* BlockAllocator::allocateCustomSize(size_t blockSize, size_t blockAlignment)
+{
+    size_t realSize = WTF::roundUpToMultipleOf(blockAlignment, blockSize);
+    Region* newRegion = Region::createCustomSize(&m_superRegion, realSize, blockAlignment);
+    DeadBlock* block = newRegion->allocate();
+    ASSERT(block);
+    return block;
+}
+
+template<typename T>
+inline void BlockAllocator::deallocate(T* block)
+{
+    RegionSet& set = regionSetFor<T>();
+    bool shouldWakeBlockFreeingThread = false;
+    {
+        SpinLockHolder locker(&m_regionLock);
+        Region* region = block->region();
+        ASSERT(!region->isEmpty());
+        if (region->isFull())
+            set.m_fullRegions.remove(region);
+        else {
+            set.m_partialRegions.remove(region);
+            set.m_numberOfPartialRegions--;
+        }
+
+        region->deallocate(block);
+
+        if (region->isEmpty()) {
+            m_emptyRegions.push(region);
+            shouldWakeBlockFreeingThread = !m_numberOfEmptyRegions;
+            m_numberOfEmptyRegions++;
+        } else {
+            set.m_partialRegions.push(region);
+            set.m_numberOfPartialRegions++;
+        }
+    }
+
+    if (shouldWakeBlockFreeingThread) {
+        MutexLocker mutexLocker(m_emptyRegionConditionLock);
+        m_emptyRegionCondition.signal();
+    }
+}
+
+template<typename T>
+inline void BlockAllocator::deallocateCustomSize(T* block)
+{
+    Region* region = block->region();
+    ASSERT(region->isCustomSize());
+    region->deallocate(block);
+    region->destroy();
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<CopiedBlock>()
+{
+    return m_copiedRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<MarkedBlock>()
+{
+    return m_markedRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<WeakBlock>()
+{
+    return m_fourKBBlockRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<MarkStackSegment>()
+{
+    return m_fourKBBlockRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<CopyWorkListSegment>()
+{
+    return m_workListRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<HandleBlock>()
+{
+    return m_fourKBBlockRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<HeapBlock<CopiedBlock> >()
+{
+    return m_copiedRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<HeapBlock<MarkedBlock> >()
+{
+    return m_markedRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<HeapBlock<WeakBlock> >()
+{
+    return m_fourKBBlockRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<HeapBlock<MarkStackSegment> >()
+{
+    return m_fourKBBlockRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<HeapBlock<CopyWorkListSegment> >()
+{
+    return m_workListRegionSet;
+}
+
+template <>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor<HeapBlock<HandleBlock> >()
+{
+    return m_fourKBBlockRegionSet;
+}
+
+template <typename T>
+inline BlockAllocator::RegionSet& BlockAllocator::regionSetFor()
+{
+    RELEASE_ASSERT_NOT_REACHED();
+    return *(RegionSet*)0;
 }
 
 } // namespace JSC

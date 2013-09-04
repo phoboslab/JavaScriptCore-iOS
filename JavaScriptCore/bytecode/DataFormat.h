@@ -47,7 +47,14 @@ enum DataFormat {
     DataFormatJSInteger = DataFormatJS | DataFormatInteger,
     DataFormatJSDouble = DataFormatJS | DataFormatDouble,
     DataFormatJSCell = DataFormatJS | DataFormatCell,
-    DataFormatJSBoolean = DataFormatJS | DataFormatBoolean
+    DataFormatJSBoolean = DataFormatJS | DataFormatBoolean,
+    
+    // Marker deliminating ordinary data formats and OSR-only data formats.
+    DataFormatOSRMarker = 32, 
+    
+    // Special data formats used only for OSR.
+    DataFormatDead = 33, // Implies jsUndefined().
+    DataFormatArguments = 34 // Implies that the arguments object must be reified.
 };
 
 inline const char* dataFormatToString(DataFormat dataFormat)
@@ -75,7 +82,12 @@ inline const char* dataFormatToString(DataFormat dataFormat)
         return "JSCell";
     case DataFormatJSBoolean:
         return "JSBoolean";
+    case DataFormatDead:
+        return "Dead";
+    case DataFormatArguments:
+        return "Arguments";
     default:
+        RELEASE_ASSERT_NOT_REACHED();
         return "Unknown";
     }
 }
@@ -108,14 +120,14 @@ inline bool needDataFormatConversion(DataFormat from, DataFormat to)
             return false;
         default:
             // This captures DataFormatBoolean, which is currently unused.
-            ASSERT_NOT_REACHED();
+            RELEASE_ASSERT_NOT_REACHED();
         }
     case DataFormatStorage:
         ASSERT(to == DataFormatStorage);
         return false;
     default:
         // This captures DataFormatBoolean, which is currently unused.
-        ASSERT_NOT_REACHED();
+        RELEASE_ASSERT_NOT_REACHED();
     }
     return true;
 }
@@ -142,7 +154,7 @@ inline bool needDataFormatConversion(DataFormat from, DataFormat to)
         ASSERT(to == DataFormatStorage);
         return false;
     default:
-        ASSERT_NOT_REACHED();
+        RELEASE_ASSERT_NOT_REACHED();
     }
     return true;
 }

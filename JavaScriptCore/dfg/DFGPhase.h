@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,13 +49,15 @@ public:
         endPhase();
     }
     
+    const char* name() const { return m_name; }
+    
     // Each phase must have a run() method.
     
 protected:
     // Things you need to have a DFG compiler phase.
     Graph& m_graph;
     
-    JSGlobalData& globalData() { return m_graph.m_globalData; }
+    VM& vm() { return m_graph.m_vm; }
     CodeBlock* codeBlock() { return m_graph.m_codeBlock; }
     CodeBlock* profiledBlock() { return m_graph.m_profiledBlock; }
     
@@ -63,20 +65,24 @@ protected:
     
 private:
     // Call these hooks when starting and finishing.
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
     void beginPhase();
     void endPhase();
-#else // DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-    void beginPhase() { }
-    void endPhase() { }
-#endif // DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
 };
 
 template<typename PhaseType>
-void runPhase(Graph& graph)
+bool runAndLog(PhaseType& phase)
+{
+    bool result = phase.run();
+    if (result && logCompilationChanges())
+        dataLogF("Phase %s changed the IR.\n", phase.name());
+    return result;
+}
+
+template<typename PhaseType>
+bool runPhase(Graph& graph)
 {
     PhaseType phase(graph);
-    phase.run();
+    return runAndLog(phase);
 }
 
 } } // namespace JSC::DFG

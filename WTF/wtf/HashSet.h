@@ -31,8 +31,6 @@ namespace WTF {
     template<typename Value, typename HashFunctions, typename Traits> class HashSet;
     template<typename Value, typename HashFunctions, typename Traits>
     void deleteAllValues(const HashSet<Value, HashFunctions, Traits>&);
-    template<typename Value, typename HashFunctions, typename Traits>
-    void fastDeleteAllValues(const HashSet<Value, HashFunctions, Traits>&);
 
     template<typename ValueArg, typename HashArg = typename DefaultHash<ValueArg>::Hash,
         typename TraitsArg = HashTraits<ValueArg> > class HashSet {
@@ -70,10 +68,8 @@ namespace WTF {
         // must have the following function members:
         //   static unsigned hash(const T&);
         //   static bool equal(const ValueType&, const T&);
-        // FIXME: We should reverse the order of the template arguments so that callers
-        // can just pass the translator and let the compiler deduce T.
-        template<typename T, typename HashTranslator> iterator find(const T&) const;
-        template<typename T, typename HashTranslator> bool contains(const T&) const;
+        template<typename HashTranslator, typename T> iterator find(const T&) const;
+        template<typename HashTranslator, typename T> bool contains(const T&) const;
 
         // The return value is a pair of an interator to the new value's location, 
         // and a bool that is true if an new entry was added.
@@ -85,17 +81,23 @@ namespace WTF {
         //   static unsigned hash(const T&);
         //   static bool equal(const ValueType&, const T&);
         //   static translate(ValueType&, const T&, unsigned hashCode);
-        // FIXME: We should reverse the order of the template arguments so that callers
-        // can just pass the translator and let the compiler deduce T.
-        template<typename T, typename HashTranslator> AddResult add(const T&);
+        template<typename HashTranslator, typename T> AddResult add(const T&);
+        
+        // Attempts to add a list of things to the set. Returns true if any of
+        // them are new to the set. Returns false if the set is unchanged.
+        template<typename IteratorType>
+        bool add(IteratorType begin, IteratorType end);
 
         void remove(const ValueType&);
         void remove(iterator);
         void clear();
 
+        static bool isValidValue(const ValueType&);
+        
+        bool operator==(const HashSet&) const;
+
     private:
         friend void deleteAllValues<>(const HashSet&);
-        friend void fastDeleteAllValues<>(const HashSet&);
 
         HashTableType m_impl;
     };
@@ -163,7 +165,7 @@ namespace WTF {
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename HashTranslator>
+    template<typename HashTranslator, typename T>
     typename HashSet<Value, HashFunctions, Traits>::iterator
     inline HashSet<Value, HashFunctions, Traits>::find(const T& value) const
     {
@@ -171,7 +173,7 @@ namespace WTF {
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename HashTranslator>
+    template<typename HashTranslator, typename T>
     inline bool HashSet<Value, HashFunctions, Traits>::contains(const T& value) const
     {
         return m_impl.template contains<HashSetTranslatorAdapter<HashTranslator> >(value);
@@ -184,11 +186,21 @@ namespace WTF {
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename HashTranslator>
+    template<typename HashTranslator, typename T>
     inline typename HashSet<Value, HashFunctions, Traits>::AddResult
     HashSet<Value, HashFunctions, Traits>::add(const T& value)
     {
         return m_impl.template addPassingHashCode<HashSetTranslatorAdapter<HashTranslator> >(value, value);
+    }
+
+    template<typename T, typename U, typename V>
+    template<typename IteratorType>
+    inline bool HashSet<T, U, V>::add(IteratorType begin, IteratorType end)
+    {
+        bool changed = false;
+        for (IteratorType iter = begin; iter != end; ++iter)
+            changed |= add(*iter).isNewEntry;
+        return changed;
     }
 
     template<typename T, typename U, typename V>
@@ -212,6 +224,23 @@ namespace WTF {
         m_impl.clear(); 
     }
 
+    template<typename T, typename U, typename V>
+    inline bool HashSet<T, U, V>::isValidValue(const ValueType& value)
+    {
+        if (ValueTraits::isDeletedValue(value))
+            return false;
+
+        if (HashFunctions::safeToCompareToEmptyOrDeleted) {
+            if (value == ValueTraits::emptyValue())
+                return false;
+        } else {
+            if (isHashTraitsEmptyValue<ValueTraits>(value))
+                return false;
+        }
+
+        return true;
+    }
+
     template<typename ValueType, typename HashTableType>
     void deleteAllValues(HashTableType& collection)
     {
@@ -227,25 +256,10 @@ namespace WTF {
         deleteAllValues<typename HashSet<T, U, V>::ValueType>(collection.m_impl);
     }
 
-    template<typename ValueType, typename HashTableType>
-    void fastDeleteAllValues(HashTableType& collection)
+    template<typename C, typename W>
+    inline void copyToVector(const C& collection, W& vector)
     {
-        typedef typename HashTableType::const_iterator iterator;
-        iterator end = collection.end();
-        for (iterator it = collection.begin(); it != end; ++it)
-            fastDelete(*it);
-    }
-
-    template<typename T, typename U, typename V>
-    inline void fastDeleteAllValues(const HashSet<T, U, V>& collection)
-    {
-        fastDeleteAllValues<typename HashSet<T, U, V>::ValueType>(collection.m_impl);
-    }
-    
-    template<typename T, typename U, typename V, typename W>
-    inline void copyToVector(const HashSet<T, U, V>& collection, W& vector)
-    {
-        typedef typename HashSet<T, U, V>::const_iterator iterator;
+        typedef typename C::const_iterator iterator;
         
         vector.resize(collection.size());
         
@@ -254,6 +268,18 @@ namespace WTF {
         for (unsigned i = 0; it != end; ++it, ++i)
             vector[i] = *it;
     }  
+
+    template<typename T, typename U, typename V>
+    inline bool HashSet<T, U, V>::operator==(const HashSet& other) const
+    {
+        if (size() != other.size())
+            return false;
+        for (const_iterator iter = begin(); iter != end(); ++iter) {
+            if (!other.contains(*iter))
+                return false;
+        }
+        return true;
+    }
 
 } // namespace WTF
 

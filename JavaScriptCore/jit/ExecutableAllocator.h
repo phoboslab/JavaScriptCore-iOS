@@ -30,10 +30,10 @@
 #include <limits>
 #include <wtf/Assertions.h>
 #include <wtf/MetaAllocatorHandle.h>
+#include <wtf/MetaAllocator.h>
 #include <wtf/PageAllocation.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
-#include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
 
 #if OS(IOS)
@@ -73,13 +73,14 @@ extern "C" __declspec(dllimport) void CacheRangeFlush(LPVOID pAddr, DWORD dwLeng
 
 namespace JSC {
 
-class JSGlobalData;
-void releaseExecutableMemory(JSGlobalData&);
+class VM;
+void releaseExecutableMemory(VM&);
+
+static const unsigned jitAllocationGranule = 32;
 
 inline size_t roundUpAllocationSize(size_t request, size_t granularity)
 {
-    if ((std::numeric_limits<size_t>::max() - granularity) <= request)
-        CRASH(); // Allocation is too large
+    RELEASE_ASSERT((std::numeric_limits<size_t>::max() - granularity) > request);
     
     // Round up to next page boundary
     size_t size = request + (granularity - 1);
@@ -100,11 +101,23 @@ typedef WTF::MetaAllocatorHandle ExecutableMemoryHandle;
 class DemandExecutableAllocator;
 #endif
 
+#if ENABLE(EXECUTABLE_ALLOCATOR_FIXED)
+#if CPU(ARM)
+static const size_t fixedExecutableMemoryPoolSize = 16 * 1024 * 1024;
+#elif CPU(X86_64)
+static const size_t fixedExecutableMemoryPoolSize = 1024 * 1024 * 1024;
+#else
+static const size_t fixedExecutableMemoryPoolSize = 32 * 1024 * 1024;
+#endif
+
+extern uintptr_t startOfFixedExecutableMemoryPool;
+#endif
+
 class ExecutableAllocator {
     enum ProtectionSetting { Writable, Executable };
 
 public:
-    ExecutableAllocator(JSGlobalData&);
+    ExecutableAllocator(VM&);
     ~ExecutableAllocator();
     
     static void initializeAllocator();
@@ -121,7 +134,7 @@ public:
     static void dumpProfile() { }
 #endif
 
-    PassRefPtr<ExecutableMemoryHandle> allocate(JSGlobalData&, size_t sizeInBytes, void* ownerUID, JITCompilationEffort);
+    PassRefPtr<ExecutableMemoryHandle> allocate(VM&, size_t sizeInBytes, void* ownerUID, JITCompilationEffort);
 
 #if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
     static void makeWritable(void* start, size_t size)
@@ -138,108 +151,6 @@ public:
     static void makeExecutable(void*, size_t) {}
 #endif
 
-#if CPU(X86) || CPU(X86_64)
-    static void cacheFlush(void*, size_t)
-    {
-    }
-#elif CPU(MIPS)
-    static void cacheFlush(void* code, size_t size)
-    {
-#if GCC_VERSION_AT_LEAST(4, 3, 0)
-#if WTF_MIPS_ISA_REV(2) && !GCC_VERSION_AT_LEAST(4, 4, 3)
-        int lineSize;
-        asm("rdhwr %0, $1" : "=r" (lineSize));
-        //
-        // Modify "start" and "end" to avoid GCC 4.3.0-4.4.2 bug in
-        // mips_expand_synci_loop that may execute synci one more time.
-        // "start" points to the fisrt byte of the cache line.
-        // "end" points to the last byte of the line before the last cache line.
-        // Because size is always a multiple of 4, this is safe to set
-        // "end" to the last byte.
-        //
-        intptr_t start = reinterpret_cast<intptr_t>(code) & (-lineSize);
-        intptr_t end = ((reinterpret_cast<intptr_t>(code) + size - 1) & (-lineSize)) - 1;
-        __builtin___clear_cache(reinterpret_cast<char*>(start), reinterpret_cast<char*>(end));
-#else
-        intptr_t end = reinterpret_cast<intptr_t>(code) + size;
-        __builtin___clear_cache(reinterpret_cast<char*>(code), reinterpret_cast<char*>(end));
-#endif
-#else
-        _flush_cache(reinterpret_cast<char*>(code), size, BCACHE);
-#endif
-    }
-#elif CPU(ARM_THUMB2) && OS(IOS)
-    static void cacheFlush(void* code, size_t size)
-    {
-        sys_cache_control(kCacheFunctionPrepareForExecution, code, size);
-    }
-#elif CPU(ARM_THUMB2) && OS(LINUX)
-    static void cacheFlush(void* code, size_t size)
-    {
-        asm volatile (
-            "push    {r7}\n"
-            "mov     r0, %0\n"
-            "mov     r1, %1\n"
-            "movw    r7, #0x2\n"
-            "movt    r7, #0xf\n"
-            "movs    r2, #0x0\n"
-            "svc     0x0\n"
-            "pop     {r7}\n"
-            :
-            : "r" (code), "r" (reinterpret_cast<char*>(code) + size)
-            : "r0", "r1", "r2");
-    }
-#elif CPU(ARM_TRADITIONAL) && OS(LINUX) && COMPILER(RVCT)
-    static __asm void cacheFlush(void* code, size_t size);
-#elif CPU(ARM_TRADITIONAL) && OS(LINUX) && COMPILER(GCC)
-    static void cacheFlush(void* code, size_t size)
-    {
-        uintptr_t currentPage = reinterpret_cast<uintptr_t>(code) & ~(pageSize() - 1);
-        uintptr_t lastPage = (reinterpret_cast<uintptr_t>(code) + size) & ~(pageSize() - 1);
-
-        do {
-            asm volatile (
-                "push    {r7}\n"
-                "mov     r0, %0\n"
-                "mov     r1, %1\n"
-                "mov     r7, #0xf0000\n"
-                "add     r7, r7, #0x2\n"
-                "mov     r2, #0x0\n"
-                "svc     0x0\n"
-                "pop     {r7}\n"
-                :
-                : "r" (currentPage), "r" (currentPage + pageSize())
-                : "r0", "r1", "r2");
-            currentPage += pageSize();
-        } while (lastPage >= currentPage);
-    }
-#elif OS(WINCE)
-    static void cacheFlush(void* code, size_t size)
-    {
-        CacheRangeFlush(code, size, CACHE_SYNC_ALL);
-    }
-#elif CPU(SH4) && OS(LINUX)
-    static void cacheFlush(void* code, size_t size)
-    {
-#ifdef CACHEFLUSH_D_L2
-        syscall(__NR_cacheflush, reinterpret_cast<unsigned>(code), size, CACHEFLUSH_D_WB | CACHEFLUSH_I | CACHEFLUSH_D_L2);
-#else
-        syscall(__NR_cacheflush, reinterpret_cast<unsigned>(code), size, CACHEFLUSH_D_WB | CACHEFLUSH_I);
-#endif
-    }
-#elif OS(QNX)
-    static void cacheFlush(void* code, size_t size)
-    {
-#if !ENABLE(ASSEMBLER_WX_EXCLUSIVE)
-        msync(code, size, MS_INVALIDATE_ICACHE);
-#else
-        UNUSED_PARAM(code);
-        UNUSED_PARAM(size);
-#endif
-    }
-#else
-    #error "The cacheFlush support is missing on this platform."
-#endif
     static size_t committedByteCount();
 
 private:

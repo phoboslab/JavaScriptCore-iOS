@@ -31,22 +31,20 @@
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/StackBounds.h>
+#include <wtf/StackStats.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/ThreadSpecific.h>
 #include <wtf/Threading.h>
 
-#if USE(JSC)
 // FIXME: This is a temporary layering violation while we move more string code to WTF.
 namespace JSC {
-
-typedef HashMap<const char*, RefPtr<StringImpl>, PtrHash<const char*> > LiteralIdentifierTable;
 
 class IdentifierTable {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ~IdentifierTable();
+    WTF_EXPORT_PRIVATE ~IdentifierTable();
 
-    HashSet<StringImpl*>::AddResult add(StringImpl* value);
+    WTF_EXPORT_PRIVATE HashSet<StringImpl*>::AddResult add(StringImpl* value);
     template<typename U, typename V>
     HashSet<StringImpl*>::AddResult add(U value);
 
@@ -59,15 +57,11 @@ public:
         return true;
     }
 
-    LiteralIdentifierTable& literalTable() { return m_literalTable; }
-
 private:
     HashSet<StringImpl*> m_table;
-    LiteralIdentifierTable m_literalTable;
 };
 
 }
-#endif
 
 namespace WTF {
 
@@ -86,7 +80,6 @@ public:
         return m_atomicStringTable;
     }
 
-#if USE(JSC)
     JSC::IdentifierTable* currentIdentifierTable()
     {
         return m_currentIdentifierTable;
@@ -104,20 +97,34 @@ public:
         m_currentIdentifierTable = m_defaultIdentifierTable;
     }
 
-    const StackBounds& stack() const
+    const StackBounds& stack()
     {
+        // We need to always get a fresh StackBounds from the OS due to how fibers work.
+        // See https://bugs.webkit.org/show_bug.cgi?id=102411
+#if OS(WINDOWS)
+        m_stackBounds = StackBounds::currentThreadStackBounds();
+#endif
         return m_stackBounds;
     }
+
+#if ENABLE(STACK_STATS)
+    StackStats::PerThreadStats& stackStats()
+    {
+        return m_stackStats;
+    }
 #endif
+
+    void* m_apiData;
 
 private:
     AtomicStringTable* m_atomicStringTable;
     AtomicStringTableDestructor m_atomicStringTableDestructor;
 
-#if USE(JSC)
     JSC::IdentifierTable* m_defaultIdentifierTable;
     JSC::IdentifierTable* m_currentIdentifierTable;
     StackBounds m_stackBounds;
+#if ENABLE(STACK_STATS)
+    StackStats::PerThreadStats m_stackStats;
 #endif
 
     static WTF_EXPORTDATA ThreadSpecific<WTFThreadData>* staticData;

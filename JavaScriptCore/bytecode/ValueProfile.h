@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,10 +33,14 @@
 
 #if ENABLE(VALUE_PROFILER)
 
+#include "ConcurrentJITLock.h"
+#include "Heap.h"
 #include "JSArray.h"
-#include "PredictedType.h"
+#include "SpeculatedType.h"
 #include "Structure.h"
 #include "WriteBarrier.h"
+#include <wtf/PrintStream.h>
+#include <wtf/StringPrintStream.h>
 
 namespace JSC {
 
@@ -49,8 +53,9 @@ struct ValueProfileBase {
     
     ValueProfileBase()
         : m_bytecodeOffset(-1)
-        , m_prediction(PredictNone)
+        , m_prediction(SpecNone)
         , m_numberOfSamplesInPrediction(0)
+        , m_singletonValueIsTop(false)
     {
         for (unsigned i = 0; i < totalNumberOfBuckets; ++i)
             m_buckets[i] = JSValue::encode(JSValue());
@@ -58,8 +63,9 @@ struct ValueProfileBase {
     
     ValueProfileBase(int bytecodeOffset)
         : m_bytecodeOffset(bytecodeOffset)
-        , m_prediction(PredictNone)
+        , m_prediction(SpecNone)
         , m_numberOfSamplesInPrediction(0)
+        , m_singletonValueIsTop(false)
     {
         for (unsigned i = 0; i < totalNumberOfBuckets; ++i)
             m_buckets[i] = JSValue::encode(JSValue());
@@ -106,28 +112,45 @@ struct ValueProfileBase {
         return false;
     }
     
-    void dump(FILE* out)
+    CString briefDescription(const ConcurrentJITLocker& locker)
     {
-        fprintf(out,
-                "samples = %u, prediction = %s",
-                totalNumberOfSamples(),
-                predictionToString(m_prediction));
+        computeUpdatedPrediction(locker);
+        
+        StringPrintStream out;
+        
+        if (m_singletonValueIsTop)
+            out.print("predicting ", SpeculationDump(m_prediction));
+        else if (m_singletonValue)
+            out.print("predicting ", m_singletonValue);
+        
+        return out.toCString();
+    }
+    
+    void dump(PrintStream& out)
+    {
+        out.print("samples = ", totalNumberOfSamples(), " prediction = ", SpeculationDump(m_prediction));
+        out.printf(", value = ");
+        if (m_singletonValueIsTop)
+            out.printf("TOP");
+        else
+            out.print(m_singletonValue);
         bool first = true;
         for (unsigned i = 0; i < totalNumberOfBuckets; ++i) {
             JSValue value = JSValue::decode(m_buckets[i]);
             if (!!value) {
                 if (first) {
-                    fprintf(out, ": ");
+                    out.printf(": ");
                     first = false;
                 } else
-                    fprintf(out, ", ");
-                fprintf(out, "%s", value.description());
+                    out.printf(", ");
+                out.print(value);
             }
         }
     }
     
-    // Updates the prediction and returns the new one.
-    PredictedType computeUpdatedPrediction()
+    // Updates the prediction and returns the new one. Never call this from any thread
+    // that isn't executing the code.
+    SpeculatedType computeUpdatedPrediction(const ConcurrentJITLocker&, OperationInProgress operation = NoOperation)
     {
         for (unsigned i = 0; i < totalNumberOfBuckets; ++i) {
             JSValue value = JSValue::decode(m_buckets[i]);
@@ -135,19 +158,36 @@ struct ValueProfileBase {
                 continue;
             
             m_numberOfSamplesInPrediction++;
-            mergePrediction(m_prediction, predictionFromValue(value));
+            mergeSpeculation(m_prediction, speculationFromValue(value));
+            
+            if (!m_singletonValueIsTop && !!value) {
+                if (!m_singletonValue)
+                    m_singletonValue = value;
+                else if (m_singletonValue != value)
+                    m_singletonValueIsTop = true;
+            }
             
             m_buckets[i] = JSValue::encode(JSValue());
         }
         
+        if (operation == Collection
+            && !m_singletonValueIsTop
+            && !!m_singletonValue
+            && m_singletonValue.isCell()
+            && !Heap::isMarked(m_singletonValue.asCell()))
+            m_singletonValueIsTop = true;
+            
         return m_prediction;
     }
     
     int m_bytecodeOffset; // -1 for prologue
     
-    PredictedType m_prediction;
+    SpeculatedType m_prediction;
     unsigned m_numberOfSamplesInPrediction;
     
+    bool m_singletonValueIsTop;
+    JSValue m_singletonValue;
+
     EncodedJSValue m_buckets[totalNumberOfBuckets];
 };
 

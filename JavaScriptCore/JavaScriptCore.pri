@@ -19,6 +19,8 @@ INCLUDEPATH += \
     $$SOURCE_DIR/heap \
     $$SOURCE_DIR/dfg \
     $$SOURCE_DIR/debugger \
+    $$SOURCE_DIR/disassembler \
+    $$SOURCE_DIR/ftl \
     $$SOURCE_DIR/interpreter \
     $$SOURCE_DIR/jit \
     $$SOURCE_DIR/llint \
@@ -31,17 +33,15 @@ INCLUDEPATH += \
     $$SOURCE_DIR/ForwardingHeaders \
     $$JAVASCRIPTCORE_GENERATED_SOURCES_DIR
 
-win32-* {
-    LIBS += -lwinmm
+# Pick up the right version of LLIntAssembly.h
+macx: INCLUDEPATH += $$JAVASCRIPTCORE_GENERATED_SOURCES_DIR/$$targetSubDir()
 
-    win32-g++* {
-        LIBS += -lpthreadGC2
-    } else:win32-msvc* {
-        LIBS += -lpthreadVC2
-    }
-}
+win32-*: LIBS += -lwinmm
 
 wince* {
-    INCLUDEPATH += $$QT_SOURCE_TREE/src/3rdparty/ce-compat
     INCLUDEPATH += $$SOURCE_DIR/os-win32
+}
+
+linux-*:if(isEqual(QT_ARCH, "i386")|isEqual(QT_ARCH, "x86_64")) {
+    INCLUDEPATH += $$SOURCE_DIR/disassembler/udis86
 }

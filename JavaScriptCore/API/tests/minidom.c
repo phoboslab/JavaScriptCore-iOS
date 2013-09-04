@@ -31,7 +31,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <wtf/Assertions.h>
-#include <wtf/UnusedParam.h>
 
 static char* createStringWithContentsOfFile(const char* fileName);
 static JSValueRef print(JSContextRef context, JSObjectRef object, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception);
@@ -106,6 +105,7 @@ static char* createStringWithContentsOfFile(const char* fileName)
     FILE* f = fopen(fileName, "r");
     if (!f) {
         fprintf(stderr, "Could not open file: %s\n", fileName);
+        free(buffer);
         return 0;
     }
     

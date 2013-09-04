@@ -29,35 +29,35 @@
 #ifndef CallData_h
 #define CallData_h
 
-#include "JSValue.h"
+#include "JSCJSValue.h"
 
 namespace JSC {
 
-    class ArgList;
-    class ExecState;
-    class FunctionExecutable;
-    class JSObject;
-    class ScopeChainNode;
+class ArgList;
+class ExecState;
+class FunctionExecutable;
+class JSObject;
+class JSScope;
 
-    enum CallType {
-        CallTypeNone,
-        CallTypeHost,
-        CallTypeJS
-    };
+enum CallType {
+    CallTypeNone,
+    CallTypeHost,
+    CallTypeJS
+};
 
-    typedef EncodedJSValue (JSC_HOST_CALL *NativeFunction)(ExecState*);
+typedef EncodedJSValue (JSC_HOST_CALL *NativeFunction)(ExecState*);
 
-    union CallData {
-        struct {
-            NativeFunction function;
-        } native;
-        struct {
-            FunctionExecutable* functionExecutable;
-            ScopeChainNode* scopeChain;
-        } js;
-    };
+union CallData {
+    struct {
+        NativeFunction function;
+    } native;
+    struct {
+        FunctionExecutable* functionExecutable;
+        JSScope* scope;
+    } js;
+};
 
-    JS_EXPORT_PRIVATE JSValue call(ExecState*, JSValue functionObject, CallType, const CallData&, JSValue thisValue, const ArgList&);
+JS_EXPORT_PRIVATE JSValue call(ExecState*, JSValue functionObject, CallType, const CallData&, JSValue thisValue, const ArgList&);
 
 } // namespace JSC
 

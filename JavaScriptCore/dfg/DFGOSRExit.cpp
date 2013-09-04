@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,56 +29,66 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGAssemblyHelpers.h"
+#include "DFGGraph.h"
 #include "DFGSpeculativeJIT.h"
+#include "JSCellInlines.h"
 
 namespace JSC { namespace DFG {
 
-static unsigned computeNumVariablesForCodeOrigin(
-    CodeBlock* codeBlock, const CodeOrigin& codeOrigin)
-{
-    if (!codeOrigin.inlineCallFrame)
-        return codeBlock->m_numCalleeRegisters;
-    return
-        codeOrigin.inlineCallFrame->stackOffset +
-        baselineCodeBlockForInlineCallFrame(codeOrigin.inlineCallFrame)->m_numCalleeRegisters;
-}
-
-OSRExit::OSRExit(ExitKind kind, JSValueSource jsValueSource, MethodOfGettingAValueProfile valueProfile, MacroAssembler::Jump check, SpeculativeJIT* jit, unsigned recoveryIndex)
-    : m_jsValueSource(jsValueSource)
+OSRExit::OSRExit(ExitKind kind, JSValueSource jsValueSource, MethodOfGettingAValueProfile valueProfile, SpeculativeJIT* jit, unsigned streamIndex, unsigned recoveryIndex)
+    : OSRExitBase(kind, jit->m_codeOriginForExitTarget, jit->m_codeOriginForExitProfile)
+    , m_jsValueSource(jsValueSource)
     , m_valueProfile(valueProfile)
-    , m_check(check)
-    , m_nodeIndex(jit->m_compileIndex)
-    , m_codeOrigin(jit->m_codeOriginForOSR)
-    , m_codeOriginForExitProfile(m_codeOrigin)
+    , m_patchableCodeOffset(0)
     , m_recoveryIndex(recoveryIndex)
-    , m_kind(kind)
-    , m_count(0)
-    , m_arguments(jit->m_arguments.size())
-    , m_variables(computeNumVariablesForCodeOrigin(jit->m_jit.graph().m_profiledBlock, jit->m_codeOriginForOSR))
+    , m_watchpointIndex(std::numeric_limits<unsigned>::max())
+    , m_streamIndex(streamIndex)
     , m_lastSetOperand(jit->m_lastSetOperand)
 {
     ASSERT(m_codeOrigin.isSet());
-    for (unsigned argument = 0; argument < m_arguments.size(); ++argument)
-        m_arguments[argument] = jit->computeValueRecoveryFor(jit->m_arguments[argument]);
-    for (unsigned variable = 0; variable < m_variables.size(); ++variable)
-        m_variables[variable] = jit->computeValueRecoveryFor(jit->m_variables[variable]);
 }
 
-void OSRExit::dump(FILE* out) const
+void OSRExit::setPatchableCodeOffset(MacroAssembler::PatchableJump check)
 {
-    for (unsigned argument = 0; argument < m_arguments.size(); ++argument)
-        m_arguments[argument].dump(out);
-    fprintf(out, " : ");
-    for (unsigned variable = 0; variable < m_variables.size(); ++variable)
-        m_variables[variable].dump(out);
+    m_patchableCodeOffset = check.m_jump.m_label.m_offset;
 }
 
-bool OSRExit::considerAddingAsFrequentExitSiteSlow(CodeBlock* dfgCodeBlock, CodeBlock* profiledCodeBlock)
+MacroAssembler::Jump OSRExit::getPatchableCodeOffsetAsJump() const
 {
-    if (static_cast<double>(m_count) / dfgCodeBlock->speculativeFailCounter() <= Options::osrExitProminenceForFrequentExitSite)
-        return false;
+    return MacroAssembler::Jump(AssemblerLabel(m_patchableCodeOffset));
+}
+
+CodeLocationJump OSRExit::codeLocationForRepatch(CodeBlock* dfgCodeBlock) const
+{
+    return CodeLocationJump(dfgCodeBlock->jitCode()->dataAddressAtOffset(m_patchableCodeOffset));
+}
+
+void OSRExit::correctJump(LinkBuffer& linkBuffer)
+{
+    MacroAssembler::Label label;
+    label.m_label.m_offset = m_patchableCodeOffset;
+    m_patchableCodeOffset = linkBuffer.offsetOf(label);
+}
+
+void OSRExit::convertToForward(BasicBlock* block, Node* currentNode, unsigned nodeIndex, const ValueRecovery& valueRecovery)
+{
+    Node* node;
+    Node* lastMovHint;
+    if (!doSearchForForwardConversion(block, currentNode, nodeIndex, !!valueRecovery, node, lastMovHint))
+        return;
+
+    ASSERT(node->codeOrigin != currentNode->codeOrigin);
     
-    return baselineCodeBlockForOriginAndBaselineCodeBlock(m_codeOriginForExitProfile, profiledCodeBlock)->addFrequentExitSite(FrequentExitSite(m_codeOriginForExitProfile.bytecodeIndex, m_kind));
+    m_codeOrigin = node->codeOrigin;
+    
+    if (!valueRecovery)
+        return;
+    
+    ASSERT(lastMovHint);
+    ASSERT(lastMovHint->child1() == currentNode);
+    m_lastSetOperand = lastMovHint->local();
+    m_valueRecoveryOverride = adoptRef(
+        new ValueRecoveryOverride(lastMovHint->local(), valueRecovery));
 }
 
 } } // namespace JSC::DFG

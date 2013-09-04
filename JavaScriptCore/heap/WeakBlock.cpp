@@ -29,26 +29,19 @@
 #include "Heap.h"
 #include "HeapRootVisitor.h"
 #include "JSObject.h"
-#include "ScopeChain.h"
+#include "Operations.h"
 #include "Structure.h"
 
 namespace JSC {
 
-WeakBlock* WeakBlock::create()
+WeakBlock* WeakBlock::create(DeadBlock* block)
 {
-    PageAllocation allocation = PageAllocation::allocate(blockSize, OSAllocator::JSGCHeapPages);
-    if (!static_cast<bool>(allocation))
-        CRASH();
-    return new (NotNull, allocation.base()) WeakBlock(allocation);
+    Region* region = block->region();
+    return new (NotNull, block) WeakBlock(region);
 }
 
-void WeakBlock::destroy(WeakBlock* block)
-{
-    block->m_allocation.deallocate();
-}
-
-WeakBlock::WeakBlock(PageAllocation& allocation)
-    : m_allocation(allocation)
+WeakBlock::WeakBlock(Region* region)
+    : HeapBlock<WeakBlock>(region)
 {
     for (size_t i = 0; i < weakImplCount(); ++i) {
         WeakImpl* weakImpl = &weakImpls()[i];
@@ -56,10 +49,10 @@ WeakBlock::WeakBlock(PageAllocation& allocation)
         addToFreeList(&m_sweepResult.freeList, weakImpl);
     }
 
-    ASSERT(!m_sweepResult.isNull() && m_sweepResult.blockIsFree);
+    ASSERT(isEmpty());
 }
 
-void WeakBlock::finalizeAll()
+void WeakBlock::lastChanceToFinalize()
 {
     for (size_t i = 0; i < weakImplCount(); ++i) {
         WeakImpl* weakImpl = &weakImpls()[i];
@@ -72,7 +65,8 @@ void WeakBlock::finalizeAll()
 
 void WeakBlock::sweep()
 {
-    if (!m_sweepResult.isNull())
+    // If a block is completely empty, a sweep won't have any effect.
+    if (isEmpty())
         return;
 
     SweepResult sweepResult;
@@ -90,10 +84,10 @@ void WeakBlock::sweep()
     ASSERT(!m_sweepResult.isNull());
 }
 
-void WeakBlock::visitLiveWeakImpls(HeapRootVisitor& heapRootVisitor)
+void WeakBlock::visit(HeapRootVisitor& heapRootVisitor)
 {
     // If a block is completely empty, a visit won't have any effect.
-    if (!m_sweepResult.isNull() && m_sweepResult.blockIsFree)
+    if (isEmpty())
         return;
 
     SlotVisitor& visitor = heapRootVisitor.visitor();
@@ -104,7 +98,7 @@ void WeakBlock::visitLiveWeakImpls(HeapRootVisitor& heapRootVisitor)
             continue;
 
         const JSValue& jsValue = weakImpl->jsValue();
-        if (Heap::isMarked(jsValue.asCell()))
+        if (Heap::isLive(jsValue.asCell()))
             continue;
 
         WeakHandleOwner* weakHandleOwner = weakImpl->weakHandleOwner();
@@ -118,10 +112,10 @@ void WeakBlock::visitLiveWeakImpls(HeapRootVisitor& heapRootVisitor)
     }
 }
 
-void WeakBlock::visitDeadWeakImpls(HeapRootVisitor&)
+void WeakBlock::reap()
 {
-    // If a block is completely empty, a visit won't have any effect.
-    if (!m_sweepResult.isNull() && m_sweepResult.blockIsFree)
+    // If a block is completely empty, a reaping won't have any effect.
+    if (isEmpty())
         return;
 
     for (size_t i = 0; i < weakImplCount(); ++i) {
@@ -129,7 +123,7 @@ void WeakBlock::visitDeadWeakImpls(HeapRootVisitor&)
         if (weakImpl->state() > WeakImpl::Dead)
             continue;
 
-        if (Heap::isMarked(weakImpl->jsValue().asCell())) {
+        if (Heap::isLive(weakImpl->jsValue().asCell())) {
             ASSERT(weakImpl->state() == WeakImpl::Live);
             continue;
         }

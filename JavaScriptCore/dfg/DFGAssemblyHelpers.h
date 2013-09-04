@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,29 +33,31 @@
 #include "CodeBlock.h"
 #include "DFGFPRInfo.h"
 #include "DFGGPRInfo.h"
+#include "DFGJITCode.h"
 #include "DFGNode.h"
-#include "JSGlobalData.h"
+#include "VM.h"
 #include "MacroAssembler.h"
 
 namespace JSC { namespace DFG {
 
-typedef void (*V_DFGDebugOperation_EP)(ExecState*, void*);
+typedef void (*V_DFGDebugOperation_EPP)(ExecState*, void*, void*);
 
 class AssemblyHelpers : public MacroAssembler {
 public:
-    AssemblyHelpers(JSGlobalData* globalData, CodeBlock* codeBlock)
-        : m_globalData(globalData)
+    AssemblyHelpers(VM* vm, CodeBlock* codeBlock)
+        : m_vm(vm)
         , m_codeBlock(codeBlock)
-        , m_baselineCodeBlock(codeBlock->baselineVersion())
+        , m_baselineCodeBlock(codeBlock ? codeBlock->baselineVersion() : 0)
     {
-        ASSERT(m_codeBlock);
-        ASSERT(m_baselineCodeBlock);
-        ASSERT(!m_baselineCodeBlock->alternative());
-        ASSERT(m_baselineCodeBlock->getJITType() == JITCode::BaselineJIT);
+        if (m_codeBlock) {
+            ASSERT(m_baselineCodeBlock);
+            ASSERT(!m_baselineCodeBlock->alternative());
+            ASSERT(m_baselineCodeBlock->jitType() == JITCode::BaselineJIT);
+        }
     }
     
     CodeBlock* codeBlock() { return m_codeBlock; }
-    JSGlobalData* globalData() { return m_globalData; }
+    VM* vm() { return m_vm; }
     AssemblerType_T& assembler() { return m_assembler; }
     
 #if CPU(X86_64) || CPU(X86)
@@ -92,16 +94,54 @@ public:
     }
 #endif
 
-    void emitGetFromCallFrameHeaderPtr(RegisterFile::CallFrameHeaderEntry entry, GPRReg to)
+#if CPU(MIPS)
+    ALWAYS_INLINE void preserveReturnAddressAfterCall(RegisterID reg)
+    {
+        move(returnAddressRegister, reg);
+    }
+
+    ALWAYS_INLINE void restoreReturnAddressBeforeReturn(RegisterID reg)
+    {
+        move(reg, returnAddressRegister);
+    }
+
+    ALWAYS_INLINE void restoreReturnAddressBeforeReturn(Address address)
+    {
+        loadPtr(address, returnAddressRegister);
+    }
+#endif
+
+#if CPU(SH4)
+    ALWAYS_INLINE void preserveReturnAddressAfterCall(RegisterID reg)
+    {
+        m_assembler.stspr(reg);
+    }
+
+    ALWAYS_INLINE void restoreReturnAddressBeforeReturn(RegisterID reg)
+    {
+        m_assembler.ldspr(reg);
+    }
+
+    ALWAYS_INLINE void restoreReturnAddressBeforeReturn(Address address)
+    {
+        loadPtrLinkReg(address);
+    }
+#endif
+
+    void emitGetFromCallFrameHeaderPtr(JSStack::CallFrameHeaderEntry entry, GPRReg to)
     {
         loadPtr(Address(GPRInfo::callFrameRegister, entry * sizeof(Register)), to);
     }
-    void emitPutToCallFrameHeader(GPRReg from, RegisterFile::CallFrameHeaderEntry entry)
+    void emitPutToCallFrameHeader(GPRReg from, JSStack::CallFrameHeaderEntry entry)
     {
-        storePtr(from, Address(GPRInfo::callFrameRegister, entry * sizeof(Register)));
+#if USE(JSVALUE64)
+        store64(from, Address(GPRInfo::callFrameRegister, entry * sizeof(Register)));
+#else
+        store32(from, Address(GPRInfo::callFrameRegister, entry * sizeof(Register)));
+#endif
     }
 
-    void emitPutImmediateToCallFrameHeader(void* value, RegisterFile::CallFrameHeaderEntry entry)
+    void emitPutImmediateToCallFrameHeader(void* value, JSStack::CallFrameHeaderEntry entry)
     {
         storePtr(TrustedImmPtr(value), Address(GPRInfo::callFrameRegister, entry * sizeof(Register)));
     }
@@ -109,40 +149,37 @@ public:
     Jump branchIfNotCell(GPRReg reg)
     {
 #if USE(JSVALUE64)
-        return branchTestPtr(MacroAssembler::NonZero, reg, GPRInfo::tagMaskRegister);
+        return branchTest64(MacroAssembler::NonZero, reg, GPRInfo::tagMaskRegister);
 #else
         return branch32(MacroAssembler::NotEqual, reg, TrustedImm32(JSValue::CellTag));
 #endif
     }
     
-    static Address addressForGlobalVar(GPRReg global, int32_t varNumber)
-    {
-        return Address(global, varNumber * sizeof(Register));
-    }
-
-    static Address tagForGlobalVar(GPRReg global, int32_t varNumber)
-    {
-        return Address(global, varNumber * sizeof(Register) + OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.tag));
-    }
-
-    static Address payloadForGlobalVar(GPRReg global, int32_t varNumber)
-    {
-        return Address(global, varNumber * sizeof(Register) + OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.payload));
-    }
-
     static Address addressFor(VirtualRegister virtualRegister)
     {
         return Address(GPRInfo::callFrameRegister, virtualRegister * sizeof(Register));
+    }
+    static Address addressFor(int operand)
+    {
+        return addressFor(static_cast<VirtualRegister>(operand));
     }
 
     static Address tagFor(VirtualRegister virtualRegister)
     {
         return Address(GPRInfo::callFrameRegister, virtualRegister * sizeof(Register) + OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.tag));
     }
+    static Address tagFor(int operand)
+    {
+        return tagFor(static_cast<VirtualRegister>(operand));
+    }
 
     static Address payloadFor(VirtualRegister virtualRegister)
     {
         return Address(GPRInfo::callFrameRegister, virtualRegister * sizeof(Register) + OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.payload));
+    }
+    static Address payloadFor(int operand)
+    {
+        return payloadFor(static_cast<VirtualRegister>(operand));
     }
 
     Jump branchIfNotObject(GPRReg structureReg)
@@ -168,14 +205,20 @@ public:
     }
 
     // Add a debug call. This call has no effect on JIT code execution state.
-    void debugCall(V_DFGDebugOperation_EP function, void* argument)
+    void debugCall(V_DFGDebugOperation_EPP function, void* argument)
     {
         size_t scratchSize = sizeof(EncodedJSValue) * (GPRInfo::numberOfRegisters + FPRInfo::numberOfRegisters);
-        ScratchBuffer* scratchBuffer = m_globalData->scratchBufferForSize(scratchSize);
+        ScratchBuffer* scratchBuffer = m_vm->scratchBufferForSize(scratchSize);
         EncodedJSValue* buffer = static_cast<EncodedJSValue*>(scratchBuffer->dataBuffer());
 
-        for (unsigned i = 0; i < GPRInfo::numberOfRegisters; ++i)
-            storePtr(GPRInfo::toRegister(i), buffer + i);
+        for (unsigned i = 0; i < GPRInfo::numberOfRegisters; ++i) {
+#if USE(JSVALUE64)
+            store64(GPRInfo::toRegister(i), buffer + i);
+#else
+            store32(GPRInfo::toRegister(i), buffer + i);
+#endif
+        }
+
         for (unsigned i = 0; i < FPRInfo::numberOfRegisters; ++i) {
             move(TrustedImmPtr(buffer + GPRInfo::numberOfRegisters + i), GPRInfo::regT0);
             storeDouble(FPRInfo::toRegister(i), GPRInfo::regT0);
@@ -185,13 +228,15 @@ public:
         move(TrustedImmPtr(scratchBuffer->activeLengthPtr()), GPRInfo::regT0);
         storePtr(TrustedImmPtr(scratchSize), GPRInfo::regT0);
 
-#if CPU(X86_64) || CPU(ARM_THUMB2)
+#if CPU(X86_64) || CPU(ARM) || CPU(MIPS) || CPU(SH4)
+        move(TrustedImmPtr(buffer), GPRInfo::argumentGPR2);
         move(TrustedImmPtr(argument), GPRInfo::argumentGPR1);
         move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
-        GPRReg scratch = selectScratchGPR(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1);
+        GPRReg scratch = selectScratchGPR(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1, GPRInfo::argumentGPR2);
 #elif CPU(X86)
         poke(GPRInfo::callFrameRegister, 0);
         poke(TrustedImmPtr(argument), 1);
+        poke(TrustedImmPtr(buffer), 2);
         GPRReg scratch = GPRInfo::regT0;
 #else
 #error "DFG JIT not supported on this platform."
@@ -206,8 +251,13 @@ public:
             move(TrustedImmPtr(buffer + GPRInfo::numberOfRegisters + i), GPRInfo::regT0);
             loadDouble(GPRInfo::regT0, FPRInfo::toRegister(i));
         }
-        for (unsigned i = 0; i < GPRInfo::numberOfRegisters; ++i)
-            loadPtr(buffer + i, GPRInfo::toRegister(i));
+        for (unsigned i = 0; i < GPRInfo::numberOfRegisters; ++i) {
+#if USE(JSVALUE64)
+            load64(buffer + i, GPRInfo::toRegister(i));
+#else
+            load32(buffer + i, GPRInfo::toRegister(i));
+#endif
+        }
     }
 
     // These methods JIT generate dynamic, debug-only checks - akin to ASSERTs.
@@ -231,47 +281,28 @@ public:
 #if USE(JSVALUE64)
     GPRReg boxDouble(FPRReg fpr, GPRReg gpr)
     {
-        moveDoubleToPtr(fpr, gpr);
-        subPtr(GPRInfo::tagTypeNumberRegister, gpr);
+        moveDoubleTo64(fpr, gpr);
+        sub64(GPRInfo::tagTypeNumberRegister, gpr);
         jitAssertIsJSDouble(gpr);
         return gpr;
     }
     FPRReg unboxDouble(GPRReg gpr, FPRReg fpr)
     {
         jitAssertIsJSDouble(gpr);
-        addPtr(GPRInfo::tagTypeNumberRegister, gpr);
-        movePtrToDouble(gpr, fpr);
+        add64(GPRInfo::tagTypeNumberRegister, gpr);
+        move64ToDouble(gpr, fpr);
         return fpr;
     }
 #endif
 
-#if USE(JSVALUE32_64) && CPU(X86)
+#if USE(JSVALUE32_64)
     void boxDouble(FPRReg fpr, GPRReg tagGPR, GPRReg payloadGPR)
     {
-        movePackedToInt32(fpr, payloadGPR);
-        rshiftPacked(TrustedImm32(32), fpr);
-        movePackedToInt32(fpr, tagGPR);
+        moveDoubleToInts(fpr, payloadGPR, tagGPR);
     }
     void unboxDouble(GPRReg tagGPR, GPRReg payloadGPR, FPRReg fpr, FPRReg scratchFPR)
     {
-        jitAssertIsJSDouble(tagGPR);
-        moveInt32ToPacked(payloadGPR, fpr);
-        moveInt32ToPacked(tagGPR, scratchFPR);
-        lshiftPacked(TrustedImm32(32), scratchFPR);
-        orPacked(scratchFPR, fpr);
-    }
-#endif
-
-#if USE(JSVALUE32_64) && CPU(ARM)
-    void boxDouble(FPRReg fpr, GPRReg tagGPR, GPRReg payloadGPR)
-    {
-        m_assembler.vmov(payloadGPR, tagGPR, fpr);
-    }
-    void unboxDouble(GPRReg tagGPR, GPRReg payloadGPR, FPRReg fpr, FPRReg scratchFPR)
-    {
-        jitAssertIsJSDouble(tagGPR);
-        UNUSED_PARAM(scratchFPR);
-        m_assembler.vmov(fpr, payloadGPR, tagGPR);
+        moveIntsToDouble(payloadGPR, tagGPR, fpr, scratchFPR);
     }
 #endif
     
@@ -279,9 +310,9 @@ public:
     Jump emitExceptionCheck(ExceptionCheckKind kind = NormalExceptionCheck)
     {
 #if USE(JSVALUE64)
-        return branchTestPtr(kind == NormalExceptionCheck ? NonZero : Zero, AbsoluteAddress(&globalData()->exception));
+    return branchTest64(kind == NormalExceptionCheck ? NonZero : Zero, AbsoluteAddress(vm()->addressOfException()));
 #elif USE(JSVALUE32_64)
-        return branch32(kind == NormalExceptionCheck ? NotEqual : Equal, AbsoluteAddress(reinterpret_cast<char*>(&globalData()->exception) + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), TrustedImm32(JSValue::EmptyValueTag));
+    return branch32(kind == NormalExceptionCheck ? NotEqual : Equal, AbsoluteAddress(reinterpret_cast<char*>(vm()->addressOfException()) + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), TrustedImm32(JSValue::EmptyValueTag));
 #endif
     }
 
@@ -306,22 +337,25 @@ public:
         return codeBlock()->globalObjectFor(codeOrigin);
     }
     
-    JSObject* globalThisObjectFor(CodeOrigin codeOrigin)
-    {
-        JSGlobalObject* object = globalObjectFor(codeOrigin);
-        return object->methodTable()->toThisObject(object, 0);
-    }
-    
     bool strictModeFor(CodeOrigin codeOrigin)
     {
         if (!codeOrigin.inlineCallFrame)
             return codeBlock()->isStrictMode();
-        return codeOrigin.inlineCallFrame->callee->jsExecutable()->isStrictMode();
+        return jsCast<FunctionExecutable*>(codeOrigin.inlineCallFrame->executable.get())->isStrictMode();
     }
+    
+    ExecutableBase* executableFor(const CodeOrigin& codeOrigin);
     
     CodeBlock* baselineCodeBlockFor(const CodeOrigin& codeOrigin)
     {
         return baselineCodeBlockForOriginAndBaselineCodeBlock(codeOrigin, baselineCodeBlock());
+    }
+    
+    CodeBlock* baselineCodeBlockFor(InlineCallFrame* inlineCallFrame)
+    {
+        if (!inlineCallFrame)
+            return baselineCodeBlock();
+        return baselineCodeBlockForInlineCallFrame(inlineCallFrame);
     }
     
     CodeBlock* baselineCodeBlock()
@@ -329,12 +363,43 @@ public:
         return m_baselineCodeBlock;
     }
     
+    int argumentsRegisterFor(InlineCallFrame* inlineCallFrame)
+    {
+        if (!inlineCallFrame)
+            return codeBlock()->argumentsRegister();
+        
+        return baselineCodeBlockForInlineCallFrame(
+            inlineCallFrame)->argumentsRegister() + inlineCallFrame->stackOffset;
+    }
+    
+    int argumentsRegisterFor(const CodeOrigin& codeOrigin)
+    {
+        return argumentsRegisterFor(codeOrigin.inlineCallFrame);
+    }
+    
+    SharedSymbolTable* symbolTableFor(const CodeOrigin& codeOrigin)
+    {
+        return baselineCodeBlockFor(codeOrigin)->symbolTable();
+    }
+
+    int offsetOfLocals(const CodeOrigin& codeOrigin)
+    {
+        if (!codeOrigin.inlineCallFrame)
+            return 0;
+        return codeOrigin.inlineCallFrame->stackOffset * sizeof(Register);
+    }
+
+    int offsetOfArgumentsIncludingThis(const CodeOrigin& codeOrigin)
+    {
+        if (!codeOrigin.inlineCallFrame)
+            return CallFrame::argumentOffsetIncludingThis(0) * sizeof(Register);
+        return (codeOrigin.inlineCallFrame->stackOffset + CallFrame::argumentOffsetIncludingThis(0)) * sizeof(Register);
+    }
+
     Vector<BytecodeAndMachineOffset>& decodedCodeMapFor(CodeBlock*);
     
-    static const double twoToThe32;
-
 protected:
-    JSGlobalData* m_globalData;
+    VM* m_vm;
     CodeBlock* m_codeBlock;
     CodeBlock* m_baselineCodeBlock;
 

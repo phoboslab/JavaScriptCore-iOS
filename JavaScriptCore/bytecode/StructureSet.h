@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,9 +26,12 @@
 #ifndef StructureSet_h
 #define StructureSet_h
 
-#include "PredictedType.h"
+#include "ArrayProfile.h"
+#include "SpeculatedType.h"
 #include "Structure.h"
+#include "DumpContext.h"
 #include <stdio.h>
+#include <wtf/CommaPrinter.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -90,6 +93,13 @@ public:
         return false;
     }
     
+    bool containsOnly(Structure* structure) const
+    {
+        if (size() != 1)
+            return false;
+        return singletonStructure() == structure;
+    }
+    
     bool isSubsetOf(const StructureSet& other) const
     {
         for (size_t i = 0; i < m_structures.size(); ++i) {
@@ -106,13 +116,12 @@ public:
     
     size_t size() const { return m_structures.size(); }
     
-    bool allAreUsingInlinePropertyStorage() const
+    // Call this if you know that the structure set must consist of exactly
+    // one structure.
+    Structure* singletonStructure() const
     {
-        for (size_t i = 0; i < m_structures.size(); ++i) {
-            if (!m_structures[i]->isUsingInlineStorage())
-                return false;
-        }
-        return true;
+        ASSERT(m_structures.size() == 1);
+        return m_structures[0];
     }
     
     Structure* at(size_t i) const { return m_structures.at(i); }
@@ -121,12 +130,22 @@ public:
     
     Structure* last() const { return m_structures.last(); }
 
-    PredictedType predictionFromStructures() const
+    SpeculatedType speculationFromStructures() const
     {
-        PredictedType result = PredictNone;
+        SpeculatedType result = SpecNone;
         
         for (size_t i = 0; i < m_structures.size(); ++i)
-            mergePrediction(result, predictionFromStructure(m_structures[i]));
+            mergeSpeculation(result, speculationFromStructure(m_structures[i]));
+        
+        return result;
+    }
+    
+    ArrayModes arrayModesFromStructures() const
+    {
+        ArrayModes result = 0;
+        
+        for (size_t i = 0; i < m_structures.size(); ++i)
+            mergeArrayModes(result, asArrayModes(m_structures[i]->indexingType()));
         
         return result;
     }
@@ -144,15 +163,18 @@ public:
         return true;
     }
     
-    void dump(FILE* out)
+    void dumpInContext(PrintStream& out, DumpContext* context) const
     {
-        fprintf(out, "[");
-        for (size_t i = 0; i < m_structures.size(); ++i) {
-            if (i)
-                fprintf(out, ", ");
-            fprintf(out, "%p", m_structures[i]);
-        }
-        fprintf(out, "]");
+        CommaPrinter comma;
+        out.print("[");
+        for (size_t i = 0; i < m_structures.size(); ++i)
+            out.print(comma, inContext(*m_structures[i], context));
+        out.print("]");
+    }
+    
+    void dump(PrintStream& out) const
+    {
+        dumpInContext(out, 0);
     }
     
 private:

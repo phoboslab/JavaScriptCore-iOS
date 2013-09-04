@@ -21,6 +21,8 @@
 #include "config.h"
 #include "RegExpObject.h"
 
+#include "ButterflyInlines.h"
+#include "CopiedSpaceInlines.h"
 #include "Error.h"
 #include "ExceptionHelpers.h"
 #include "JSArray.h"
@@ -28,19 +30,19 @@
 #include "JSString.h"
 #include "Lexer.h"
 #include "Lookup.h"
+#include "Operations.h"
 #include "RegExpConstructor.h"
 #include "RegExpMatchesArray.h"
 #include "RegExpPrototype.h"
-#include "UStringBuilder.h"
-#include "UStringConcatenate.h"
 #include <wtf/PassOwnPtr.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace JSC {
 
-static JSValue regExpObjectGlobal(ExecState*, JSValue, const Identifier&);
-static JSValue regExpObjectIgnoreCase(ExecState*, JSValue, const Identifier&);
-static JSValue regExpObjectMultiline(ExecState*, JSValue, const Identifier&);
-static JSValue regExpObjectSource(ExecState*, JSValue, const Identifier&);
+static JSValue regExpObjectGlobal(ExecState*, JSValue, PropertyName);
+static JSValue regExpObjectIgnoreCase(ExecState*, JSValue, PropertyName);
+static JSValue regExpObjectMultiline(ExecState*, JSValue, PropertyName);
+static JSValue regExpObjectSource(ExecState*, JSValue, PropertyName);
 
 } // namespace JSC
 
@@ -48,9 +50,9 @@ static JSValue regExpObjectSource(ExecState*, JSValue, const Identifier&);
 
 namespace JSC {
 
-ASSERT_CLASS_FITS_IN_CELL(RegExpObject);
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(RegExpObject);
 
-const ClassInfo RegExpObject::s_info = { "RegExp", &JSNonFinalObject::s_info, 0, ExecState::regExpTable, CREATE_METHOD_TABLE(RegExpObject) };
+const ClassInfo RegExpObject::s_info = { "RegExp", &Base::s_info, 0, ExecState::regExpTable, CREATE_METHOD_TABLE(RegExpObject) };
 
 /* Source for RegExpObject.lut.h
 @begin regExpTable
@@ -62,8 +64,8 @@ const ClassInfo RegExpObject::s_info = { "RegExp", &JSNonFinalObject::s_info, 0,
 */
 
 RegExpObject::RegExpObject(JSGlobalObject* globalObject, Structure* structure, RegExp* regExp)
-    : JSNonFinalObject(globalObject->globalData(), structure)
-    , m_regExp(globalObject->globalData(), this, regExp)
+    : JSNonFinalObject(globalObject->vm(), structure)
+    , m_regExp(globalObject->vm(), this, regExp)
     , m_lastIndexIsWritable(true)
 {
     m_lastIndex.setWithoutWriteBarrier(jsNumber(0));
@@ -71,55 +73,45 @@ RegExpObject::RegExpObject(JSGlobalObject* globalObject, Structure* structure, R
 
 void RegExpObject::finishCreation(JSGlobalObject* globalObject)
 {
-    Base::finishCreation(globalObject->globalData());
-    ASSERT(inherits(&s_info));
+    Base::finishCreation(globalObject->vm());
+    ASSERT(inherits(info()));
 }
 
 void RegExpObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     RegExpObject* thisObject = jsCast<RegExpObject*>(cell);
-    ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
     ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
+
     Base::visitChildren(thisObject, visitor);
-    if (thisObject->m_regExp)
-        visitor.append(&thisObject->m_regExp);
-    if (UNLIKELY(!thisObject->m_lastIndex.get().isInt32()))
-        visitor.append(&thisObject->m_lastIndex);
+    visitor.append(&thisObject->m_regExp);
+    visitor.append(&thisObject->m_lastIndex);
 }
 
-bool RegExpObject::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
-{
-    if (propertyName == exec->propertyNames().lastIndex) {
-        RegExpObject* regExp = asRegExpObject(cell);
-        slot.setValue(regExp, regExp->getLastIndex());
-        return true;
-    }
-    return getStaticValueSlot<RegExpObject, JSObject>(exec, ExecState::regExpTable(exec), jsCast<RegExpObject*>(cell), propertyName, slot);
-}
-
-bool RegExpObject::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+bool RegExpObject::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
     if (propertyName == exec->propertyNames().lastIndex) {
         RegExpObject* regExp = asRegExpObject(object);
-        descriptor.setDescriptor(regExp->getLastIndex(), regExp->m_lastIndexIsWritable ? DontDelete | DontEnum : DontDelete | DontEnum | ReadOnly);
+        unsigned attributes = regExp->m_lastIndexIsWritable ? DontDelete | DontEnum : DontDelete | DontEnum | ReadOnly;
+        slot.setValue(regExp, attributes, regExp->getLastIndex());
         return true;
     }
-    return getStaticValueDescriptor<RegExpObject, JSObject>(exec, ExecState::regExpTable(exec), jsCast<RegExpObject*>(object), propertyName, descriptor);
+    return getStaticValueSlot<RegExpObject, JSObject>(exec, ExecState::regExpTable(exec), jsCast<RegExpObject*>(object), propertyName, slot);
 }
 
-bool RegExpObject::deleteProperty(JSCell* cell, ExecState* exec, const Identifier& propertyName)
+bool RegExpObject::deleteProperty(JSCell* cell, ExecState* exec, PropertyName propertyName)
 {
     if (propertyName == exec->propertyNames().lastIndex)
         return false;
     return Base::deleteProperty(cell, exec, propertyName);
 }
 
-void RegExpObject::getOwnPropertyNames(JSObject* object, ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
+void RegExpObject::getOwnNonIndexPropertyNames(JSObject* object, ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
     if (mode == IncludeDontEnumProperties)
         propertyNames.add(exec->propertyNames().lastIndex);
-    Base::getOwnPropertyNames(object, exec, propertyNames, mode);
+    Base::getOwnNonIndexPropertyNames(object, exec, propertyNames, mode);
 }
 
 void RegExpObject::getPropertyNames(JSObject* object, ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
@@ -132,11 +124,11 @@ void RegExpObject::getPropertyNames(JSObject* object, ExecState* exec, PropertyN
 static bool reject(ExecState* exec, bool throwException, const char* message)
 {
     if (throwException)
-        throwTypeError(exec, message);
+        throwTypeError(exec, ASCIILiteral(message));
     return false;
 }
 
-bool RegExpObject::defineOwnProperty(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor, bool shouldThrow)
+bool RegExpObject::defineOwnProperty(JSObject* object, ExecState* exec, PropertyName propertyName, const PropertyDescriptor& descriptor, bool shouldThrow)
 {
     if (propertyName == exec->propertyNames().lastIndex) {
         RegExpObject* regExp = asRegExpObject(object);
@@ -163,26 +155,49 @@ bool RegExpObject::defineOwnProperty(JSObject* object, ExecState* exec, const Id
     return Base::defineOwnProperty(object, exec, propertyName, descriptor, shouldThrow);
 }
 
-JSValue regExpObjectGlobal(ExecState*, JSValue slotBase, const Identifier&)
+JSValue regExpObjectGlobal(ExecState*, JSValue slotBase, PropertyName)
 {
     return jsBoolean(asRegExpObject(slotBase)->regExp()->global());
 }
 
-JSValue regExpObjectIgnoreCase(ExecState*, JSValue slotBase, const Identifier&)
+JSValue regExpObjectIgnoreCase(ExecState*, JSValue slotBase, PropertyName)
 {
     return jsBoolean(asRegExpObject(slotBase)->regExp()->ignoreCase());
 }
  
-JSValue regExpObjectMultiline(ExecState*, JSValue slotBase, const Identifier&)
+JSValue regExpObjectMultiline(ExecState*, JSValue slotBase, PropertyName)
 {            
     return jsBoolean(asRegExpObject(slotBase)->regExp()->multiline());
 }
 
-JSValue regExpObjectSource(ExecState* exec, JSValue slotBase, const Identifier&)
+template <typename CharacterType>
+static inline void appendLineTerminatorEscape(StringBuilder&, CharacterType);
+
+template <>
+inline void appendLineTerminatorEscape<LChar>(StringBuilder& builder, LChar lineTerminator)
 {
-    UString pattern = asRegExpObject(slotBase)->regExp()->pattern();
-    unsigned length = pattern.length();
-    const UChar* characters = pattern.characters();
+    if (lineTerminator == '\n')
+        builder.append('n');
+    else
+        builder.append('r');
+}
+
+template <>
+inline void appendLineTerminatorEscape<UChar>(StringBuilder& builder, UChar lineTerminator)
+{
+    if (lineTerminator == '\n')
+        builder.append('n');
+    else if (lineTerminator == '\r')
+        builder.append('r');
+    else if (lineTerminator == 0x2028)
+        builder.appendLiteral("u2028");
+    else
+        builder.appendLiteral("u2029");
+}
+
+template <typename CharacterType>
+static inline JSValue regExpObjectSourceInternal(ExecState* exec, String pattern, const CharacterType* characters, unsigned length)
+{
     bool previousCharacterWasBackslash = false;
     bool inBrackets = false;
     bool shouldEscape = false;
@@ -193,11 +208,11 @@ JSValue regExpObjectSource(ExecState* exec, JSValue slotBase, const Identifier&)
     // source cannot ever validly be "". If the source is empty, return a different Pattern
     // that would match the same thing.
     if (!length)
-        return jsString(exec, "(?:)");
+        return jsNontrivialString(exec, ASCIILiteral("(?:)"));
 
     // early return for strings that don't contain a forwards slash and LineTerminator
     for (unsigned i = 0; i < length; ++i) {
-        UChar ch = characters[i];
+        CharacterType ch = characters[i];
         if (!previousCharacterWasBackslash) {
             if (inBrackets) {
                 if (ch == ']')
@@ -212,7 +227,7 @@ JSValue regExpObjectSource(ExecState* exec, JSValue slotBase, const Identifier&)
             }
         }
 
-        if (Lexer<UChar>::isLineTerminator(ch)) {
+        if (Lexer<CharacterType>::isLineTerminator(ch)) {
             shouldEscape = true;
             break;
         }
@@ -228,9 +243,9 @@ JSValue regExpObjectSource(ExecState* exec, JSValue slotBase, const Identifier&)
 
     previousCharacterWasBackslash = false;
     inBrackets = false;
-    UStringBuilder result;
+    StringBuilder result;
     for (unsigned i = 0; i < length; ++i) {
-        UChar ch = characters[i];
+        CharacterType ch = characters[i];
         if (!previousCharacterWasBackslash) {
             if (inBrackets) {
                 if (ch == ']')
@@ -244,18 +259,11 @@ JSValue regExpObjectSource(ExecState* exec, JSValue slotBase, const Identifier&)
         }
 
         // escape LineTerminator
-        if (Lexer<UChar>::isLineTerminator(ch)) {
+        if (Lexer<CharacterType>::isLineTerminator(ch)) {
             if (!previousCharacterWasBackslash)
                 result.append('\\');
 
-            if (ch == '\n')
-                result.append('n');
-            else if (ch == '\r')
-                result.append('r');
-            else if (ch == 0x2028)
-                result.append("u2028");
-            else
-                result.append("u2029");
+            appendLineTerminatorEscape<CharacterType>(result, ch);
         } else
             result.append(ch);
 
@@ -265,10 +273,18 @@ JSValue regExpObjectSource(ExecState* exec, JSValue slotBase, const Identifier&)
             previousCharacterWasBackslash = ch == '\\';
     }
 
-    return jsString(exec, result.toUString());
+    return jsString(exec, result.toString());
 }
 
-void RegExpObject::put(JSCell* cell, ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
+JSValue regExpObjectSource(ExecState* exec, JSValue slotBase, PropertyName)
+{
+    String pattern = asRegExpObject(slotBase)->regExp()->pattern();
+    if (pattern.is8Bit())
+        return regExpObjectSourceInternal(exec, pattern, pattern.characters8(), pattern.length());
+    return regExpObjectSourceInternal(exec, pattern, pattern.characters16(), pattern.length());
+}
+
+void RegExpObject::put(JSCell* cell, ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
 {
     if (propertyName == exec->propertyNames().lastIndex) {
         asRegExpObject(cell)->setLastIndex(exec, value, slot.isStrictMode());
@@ -289,10 +305,10 @@ MatchResult RegExpObject::match(ExecState* exec, JSString* string)
 {
     RegExp* regExp = this->regExp();
     RegExpConstructor* regExpConstructor = exec->lexicalGlobalObject()->regExpConstructor();
-    UString input = string->value(exec);
-    JSGlobalData& globalData = exec->globalData();
+    String input = string->value(exec);
+    VM& vm = exec->vm();
     if (!regExp->global())
-        return regExpConstructor->performMatch(globalData, regExp, string, input, 0);
+        return regExpConstructor->performMatch(vm, regExp, string, input, 0);
 
     JSValue jsLastIndex = getLastIndex();
     unsigned lastIndex;
@@ -311,7 +327,7 @@ MatchResult RegExpObject::match(ExecState* exec, JSString* string)
         lastIndex = static_cast<unsigned>(doubleLastIndex);
     }
 
-    MatchResult result = regExpConstructor->performMatch(globalData, regExp, string, input, lastIndex);
+    MatchResult result = regExpConstructor->performMatch(vm, regExp, string, input, lastIndex);
     setLastIndex(exec, result.end);
     return result;
 }

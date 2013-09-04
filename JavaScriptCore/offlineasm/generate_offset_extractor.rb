@@ -25,6 +25,7 @@
 
 $: << File.dirname(__FILE__)
 
+require "config"
 require "backends"
 require "digest/sha1"
 require "offsets"
@@ -41,7 +42,7 @@ $stderr.puts "offlineasm: Parsing #{inputFlnm} and creating offset extractor #{o
 def emitMagicNumber
     OFFSET_MAGIC_NUMBERS.each {
         | number |
-        $output.puts "#{number},"
+        $output.puts "unsigned(#{number}),"
     }
 end
 
@@ -119,7 +120,7 @@ File.open(outputFlnm, "w") {
         | settings, ast, backend, index |
         OFFSET_HEADER_MAGIC_NUMBERS.each {
             | number |
-            $output.puts "#{number},"
+            $output.puts "unsigned(#{number}),"
         }
 
         offsetsList = ast.filter(StructOffset).uniq.sort

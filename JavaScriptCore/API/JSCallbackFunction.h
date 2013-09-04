@@ -32,33 +32,26 @@
 namespace JSC {
 
 class JSCallbackFunction : public InternalFunction {
-protected:
-    JSCallbackFunction(JSGlobalObject*, JSObjectCallAsFunctionCallback);
-    void finishCreation(JSGlobalData&, const Identifier& name);
-
+    friend struct APICallbackFunction;
 public:
     typedef InternalFunction Base;
 
-    static JSCallbackFunction* create(ExecState* exec, JSGlobalObject* globalObject, JSObjectCallAsFunctionCallback callback, const Identifier& name)
-    {
-        JSCallbackFunction* function = new (NotNull, allocateCell<JSCallbackFunction>(*exec->heap())) JSCallbackFunction(globalObject, callback);
-        function->finishCreation(exec->globalData(), name);
-        return function;
-    }
+    static JSCallbackFunction* create(ExecState*, JSGlobalObject*, JSObjectCallAsFunctionCallback, const String& name);
 
-    static const ClassInfo s_info;
+    DECLARE_INFO;
     
     // InternalFunction mish-mashes constructor and function behavior -- we should 
     // refactor the code so this override isn't necessary
-    static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue proto) 
+    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue proto) 
     { 
-        return Structure::create(globalData, globalObject, proto, TypeInfo(ObjectType, StructureFlags), &s_info); 
+        return Structure::create(vm, globalObject, proto, TypeInfo(ObjectType, StructureFlags), info()); 
     }
 
 private:
-    static CallType getCallData(JSCell*, CallData&);
+    JSCallbackFunction(JSGlobalObject*, Structure*, JSObjectCallAsFunctionCallback);
+    void finishCreation(VM&, const String& name);
 
-    static EncodedJSValue JSC_HOST_CALL call(ExecState*);
+    static CallType getCallData(JSCell*, CallData&);
 
     JSObjectCallAsFunctionCallback m_callback;
 };

@@ -25,6 +25,7 @@
 
 $: << File.dirname(__FILE__)
 
+require "config"
 require "backends"
 require "digest/sha1"
 require "offsets"
@@ -39,16 +40,23 @@ class Assembler
         @state = :cpp
         @commentState = :none
         @comment = nil
+        @internalComment = nil
+        @annotation = nil
+        @codeOrigin = nil
+        @numLocalLabels = 0
+        @numGlobalLabels = 0
+
+        @newlineSpacerState = :none
     end
     
     def enterAsm
-        @outp.puts "asm ("
+        @outp.puts "OFFLINE_ASM_BEGIN"
         @state = :asm
     end
     
     def leaveAsm
         putsLastComment
-        @outp.puts ");"
+        @outp.puts "OFFLINE_ASM_END"
         @state = :cpp
     end
     
@@ -58,17 +66,68 @@ class Assembler
         leaveAsm
     end
     
+    # Concatenates all the various components of the comment to dump.
     def lastComment
-        if @comment
-            result = "// #{@comment}"
-        else
-            result = ""
+        separator = " "
+        result = ""
+        result = "#{@comment}" if @comment
+        if @annotation and $enableInstrAnnotations
+            result += separator if result != ""
+            result += "#{@annotation}"
         end
+        if @internalComment
+            result += separator if result != ""
+            result += "#{@internalComment}"
+        end
+        if @codeOrigin and $enableCodeOriginComments
+            result += separator if result != ""
+            result += "#{@codeOrigin}"
+        end
+        if result != ""
+            result = "// " + result
+        end
+
+        # Reset all the components that we've just sent to be dumped.
         @commentState = :none
         @comment = nil
+        @annotation = nil
+        @codeOrigin = nil
+        @internalComment = nil
         result
     end
     
+    # Puts a C Statement in the output stream.
+    def putc(*line)
+        raise unless @state == :asm
+        @outp.puts(formatDump("    " + line.join(''), lastComment))
+    end
+    
+    def formatDump(dumpStr, comment, commentColumns=$preferredCommentStartColumn)
+        if comment.length > 0
+            "%-#{commentColumns}s %s" % [dumpStr, comment]
+        else
+            dumpStr
+        end
+    end
+
+    # private method for internal use only.
+    def putAnnotation(text)
+        raise unless @state == :asm
+        if $enableInstrAnnotations
+            @outp.puts text
+            @annotation = nil
+        end
+    end
+
+    def putLocalAnnotation()
+        putAnnotation "    // #{@annotation}" if @annotation
+    end
+
+    def putGlobalAnnotation()
+        putsNewlineSpacerIfAppropriate(:annotation)
+        putAnnotation "// #{@annotation}" if @annotation
+    end
+
     def putsLastComment
         comment = lastComment
         unless comment.empty?
@@ -78,7 +137,7 @@ class Assembler
     
     def puts(*line)
         raise unless @state == :asm
-        @outp.puts("\"\\t" + line.join('') + "\\n\" #{lastComment}")
+        @outp.puts(formatDump("    \"\\t" + line.join('') + "\\n\"", lastComment))
     end
     
     def print(line)
@@ -86,39 +145,78 @@ class Assembler
         @outp.print("\"" + line + "\"")
     end
     
+    def putsNewlineSpacerIfAppropriate(state)
+        if @newlineSpacerState != state
+            @outp.puts("\n")
+            @newlineSpacerState = state
+        end
+    end
+
     def putsLabel(labelName)
         raise unless @state == :asm
-        @outp.puts("OFFLINE_ASM_GLOBAL_LABEL(#{labelName}) #{lastComment}")
+        @numGlobalLabels += 1
+        putsNewlineSpacerIfAppropriate(:global)
+        @internalComment = $enableLabelCountComments ? "Global Label #{@numGlobalLabels}" : nil
+        if /\Allint_op_/.match(labelName)
+            @outp.puts(formatDump("OFFLINE_ASM_OPCODE_LABEL(op_#{$~.post_match})", lastComment))
+        else
+            @outp.puts(formatDump("OFFLINE_ASM_GLUE_LABEL(#{labelName})", lastComment))
+        end
+        @newlineSpacerState = :none # After a global label, we can use another spacer.
     end
     
     def putsLocalLabel(labelName)
         raise unless @state == :asm
-        @outp.puts("LOCAL_LABEL_STRING(#{labelName}) \":\\n\" #{lastComment}")
+        @numLocalLabels += 1
+        @outp.puts("\n")
+        @internalComment = $enableLabelCountComments ? "Local Label #{@numLocalLabels}" : nil
+        @outp.puts(formatDump("  OFFLINE_ASM_LOCAL_LABEL(#{labelName})", lastComment))
     end
     
     def self.labelReference(labelName)
-        "\" SYMBOL_STRING(#{labelName}) \""
+        "\" LOCAL_REFERENCE(#{labelName}) \""
     end
     
     def self.localLabelReference(labelName)
         "\" LOCAL_LABEL_STRING(#{labelName}) \""
     end
     
-    def comment(text)
+    def self.cLabelReference(labelName)
+        if /\Allint_op_/.match(labelName)
+            "op_#{$~.post_match}"  # strip opcodes of their llint_ prefix.
+        else
+            "#{labelName}"
+        end
+    end
+    
+    def self.cLocalLabelReference(labelName)
+        "#{labelName}"
+    end
+    
+    def codeOrigin(text)
         case @commentState
         when :none
-            @comment = text
+            @codeOrigin = text
             @commentState = :one
         when :one
-            @outp.puts "// #{@comment}"
-            @outp.puts "// #{text}"
-            @comment = nil
+            if $enableCodeOriginComments
+                @outp.puts "    // #{@codeOrigin}"
+                @outp.puts "    // #{text}"
+            end
+            @codeOrigin = nil
             @commentState = :many
         when :many
-            @outp.puts "// #{text}"
+            @outp.puts "// #{text}" if $enableCodeOriginComments
         else
             raise
         end
+    end
+
+    def comment(text)
+        @comment = text
+    end
+    def annotation(text)
+        @annotation = text
     end
 end
 
@@ -131,7 +229,7 @@ $stderr.puts "offlineasm: Parsing #{asmFile} and #{offsetsFile} and creating ass
 begin
     configurationList = offsetsAndConfigurationIndex(offsetsFile)
 rescue MissingMagicValuesException
-    $stderr.puts "offlineasm: No magic values found. Skipping assembly file generation assuming the classic interpreter is enabled."
+    $stderr.puts "offlineasm: No magic values found. Skipping assembly file generation."
     exit 0
 end
 

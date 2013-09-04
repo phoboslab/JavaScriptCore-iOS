@@ -46,16 +46,22 @@ class RepatchBuffer {
 public:
     RepatchBuffer(CodeBlock* codeBlock)
     {
-        JITCode& code = codeBlock->getJITCode();
-        m_start = code.start();
-        m_size = code.size();
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
+        RefPtr<JITCode> code = codeBlock->jitCode();
+        m_start = code->start();
+        m_size = code->size();
 
         ExecutableAllocator::makeWritable(m_start, m_size);
+#else
+        UNUSED_PARAM(codeBlock);
+#endif
     }
 
     ~RepatchBuffer()
     {
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
         ExecutableAllocator::makeExecutable(m_start, m_size);
+#endif
     }
 
     void relink(CodeLocationJump jump, CodeLocationLabel destination)
@@ -122,10 +128,58 @@ public:
     {
         relinkNearCallerToTrampoline(returnAddress, CodeLocationLabel(newCalleeFunction));
     }
+    
+    void replaceWithLoad(CodeLocationConvertibleLoad label)
+    {
+        MacroAssembler::replaceWithLoad(label);
+    }
+    
+    void replaceWithAddressComputation(CodeLocationConvertibleLoad label)
+    {
+        MacroAssembler::replaceWithAddressComputation(label);
+    }
+    
+    void setLoadInstructionIsActive(CodeLocationConvertibleLoad label, bool isActive)
+    {
+        if (isActive)
+            replaceWithLoad(label);
+        else
+            replaceWithAddressComputation(label);
+    }
+
+    static CodeLocationLabel startOfBranchPtrWithPatchOnRegister(CodeLocationDataLabelPtr label)
+    {
+        return MacroAssembler::startOfBranchPtrWithPatchOnRegister(label);
+    }
+    
+    static CodeLocationLabel startOfPatchableBranchPtrWithPatchOnAddress(CodeLocationDataLabelPtr label)
+    {
+        return MacroAssembler::startOfPatchableBranchPtrWithPatchOnAddress(label);
+    }
+    
+    void replaceWithJump(CodeLocationLabel instructionStart, CodeLocationLabel destination)
+    {
+        MacroAssembler::replaceWithJump(instructionStart, destination);
+    }
+    
+    // This is a *bit* of a silly API, since we currently always also repatch the
+    // immediate after calling this. But I'm fine with that, since this just feels
+    // less yucky.
+    void revertJumpReplacementToBranchPtrWithPatch(CodeLocationLabel instructionStart, MacroAssembler::RegisterID reg, void* value)
+    {
+        MacroAssembler::revertJumpReplacementToBranchPtrWithPatch(instructionStart, reg, value);
+    }
+
+    void revertJumpReplacementToPatchableBranchPtrWithPatch(CodeLocationLabel instructionStart, MacroAssembler::Address address, void* value)
+    {
+        MacroAssembler::revertJumpReplacementToPatchableBranchPtrWithPatch(instructionStart, address, value);
+    }
 
 private:
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
     void* m_start;
     size_t m_size;
+#endif
 };
 
 } // namespace JSC

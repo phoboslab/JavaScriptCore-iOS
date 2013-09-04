@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,31 +31,23 @@
 #if ENABLE(LLINT)
 
 #include "CodeSpecializationKind.h"
+#include "JITCode.h"
+#include <wtf/RefPtr.h>
 
 namespace JSC {
 
 class EvalCodeBlock;
-class JITCode;
-class JSGlobalData;
+class FunctionCodeBlock;
+class VM;
 class MacroAssemblerCodePtr;
 class MacroAssemblerCodeRef;
 class ProgramCodeBlock;
 
 namespace LLInt {
 
-void getFunctionEntrypoint(JSGlobalData&, CodeSpecializationKind, JITCode&, MacroAssemblerCodePtr& arityCheck);
-void getEvalEntrypoint(JSGlobalData&, JITCode&);
-void getProgramEntrypoint(JSGlobalData&, JITCode&);
-
-inline void getEntrypoint(JSGlobalData& globalData, EvalCodeBlock*, JITCode& jitCode)
-{
-    getEvalEntrypoint(globalData, jitCode);
-}
-
-inline void getEntrypoint(JSGlobalData& globalData, ProgramCodeBlock*, JITCode& jitCode)
-{
-    getProgramEntrypoint(globalData, jitCode);
-}
+void setFunctionEntrypoint(VM&, FunctionCodeBlock*);
+void setEvalEntrypoint(VM&, EvalCodeBlock*);
+void setProgramEntrypoint(VM&, ProgramCodeBlock*);
 
 } } // namespace JSC::LLInt
 

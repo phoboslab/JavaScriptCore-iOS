@@ -28,43 +28,29 @@ namespace JSC {
 
     class RegExpMatchesArray : public JSArray {
     private:
-        RegExpMatchesArray(JSGlobalData& globalData, JSGlobalObject* globalObject, JSString* input, RegExp* regExp, MatchResult result)
-            : JSArray(globalData, globalObject->regExpMatchesArrayStructure())
-            , m_result(result)
-            , m_state(ReifiedNone)
-        {
-            m_input.set(globalData, this, input);
-            m_regExp.set(globalData, this, regExp);
-        }
+        RegExpMatchesArray(VM&, Butterfly*, JSGlobalObject*, JSString*, RegExp*, MatchResult);
 
         enum ReifiedState { ReifiedNone, ReifiedMatch, ReifiedAll };
 
     public:
         typedef JSArray Base;
 
-        static RegExpMatchesArray* create(ExecState* exec, JSString* input, RegExp* regExp, MatchResult result)
-        {
-            ASSERT(result);
-            JSGlobalData& globalData = exec->globalData();
-            RegExpMatchesArray* array = new (NotNull, allocateCell<RegExpMatchesArray>(globalData.heap)) RegExpMatchesArray(globalData, exec->lexicalGlobalObject(), input, regExp, result);
-            array->finishCreation(globalData);
-            return array;
-        }
+        static RegExpMatchesArray* create(ExecState*, JSString*, RegExp*, MatchResult);
 
         JSString* leftContext(ExecState*);
         JSString* rightContext(ExecState*);
 
-        static const ClassInfo s_info;
+        DECLARE_INFO;
 
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
         {
-            return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+            return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info(), ArrayWithSlowPutArrayStorage);
         }
 
         static void visitChildren(JSCell*, SlotVisitor&);
 
     protected:
-        void finishCreation(JSGlobalData&);
+        void finishCreation(VM&);
 
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesVisitChildren | OverridesGetPropertyNames | Base::StructureFlags;
 
@@ -81,16 +67,16 @@ namespace JSC {
                 reifyMatchProperty(exec);
         }
 
-        static bool getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+        static bool getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
         {
-            RegExpMatchesArray* thisObject = jsCast<RegExpMatchesArray*>(cell);
+            RegExpMatchesArray* thisObject = jsCast<RegExpMatchesArray*>(object);
             thisObject->reifyAllPropertiesIfNecessary(exec);
             return JSArray::getOwnPropertySlot(thisObject, exec, propertyName, slot);
         }
 
-        static bool getOwnPropertySlotByIndex(JSCell* cell, ExecState* exec, unsigned propertyName, PropertySlot& slot)
+        static bool getOwnPropertySlotByIndex(JSObject* object, ExecState* exec, unsigned propertyName, PropertySlot& slot)
         {
-            RegExpMatchesArray* thisObject = jsCast<RegExpMatchesArray*>(cell);
+            RegExpMatchesArray* thisObject = jsCast<RegExpMatchesArray*>(object);
             if (propertyName)
                 thisObject->reifyAllPropertiesIfNecessary(exec);
             else
@@ -98,14 +84,7 @@ namespace JSC {
             return JSArray::getOwnPropertySlotByIndex(thisObject, exec, propertyName, slot);
         }
 
-        static bool getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
-        {
-            RegExpMatchesArray* thisObject = jsCast<RegExpMatchesArray*>(object);
-            thisObject->reifyAllPropertiesIfNecessary(exec);
-            return JSArray::getOwnPropertyDescriptor(thisObject, exec, propertyName, descriptor);
-        }
-
-        static void put(JSCell* cell, ExecState* exec, const Identifier& propertyName, JSValue v, PutPropertySlot& slot)
+        static void put(JSCell* cell, ExecState* exec, PropertyName propertyName, JSValue v, PutPropertySlot& slot)
         {
             RegExpMatchesArray* thisObject = jsCast<RegExpMatchesArray*>(cell);
             thisObject->reifyAllPropertiesIfNecessary(exec);
@@ -119,7 +98,7 @@ namespace JSC {
             JSArray::putByIndex(thisObject, exec, propertyName, v, shouldThrow);
         }
 
-        static bool deleteProperty(JSCell* cell, ExecState* exec, const Identifier& propertyName)
+        static bool deleteProperty(JSCell* cell, ExecState* exec, PropertyName propertyName)
         {
             RegExpMatchesArray* thisObject = jsCast<RegExpMatchesArray*>(cell);
             thisObject->reifyAllPropertiesIfNecessary(exec);
@@ -140,7 +119,7 @@ namespace JSC {
             JSArray::getOwnPropertyNames(thisObject, exec, arr, mode);
         }
 
-        static bool defineOwnProperty(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor, bool shouldThrow)
+        static bool defineOwnProperty(JSObject* object, ExecState* exec, PropertyName propertyName, const PropertyDescriptor& descriptor, bool shouldThrow)
         {
             RegExpMatchesArray* thisObject = jsCast<RegExpMatchesArray*>(object);
             thisObject->reifyAllPropertiesIfNecessary(exec);

@@ -23,20 +23,9 @@
 
 #include <wtf/Compiler.h>
 
-#if COMPILER_SUPPORTS(CXX_DELETED_FUNCTIONS)
-    #define WTF_MAKE_NONCOPYABLE(ClassName) \
-        _Pragma("clang diagnostic push") \
-        _Pragma("clang diagnostic ignored \"-Wunknown-pragmas\"") \
-        _Pragma("clang diagnostic ignored \"-Wc++0x-extensions\"") \
-        private: \
-            ClassName(const ClassName&) = delete; \
-            ClassName& operator=(const ClassName&) = delete; \
-        _Pragma("clang diagnostic pop")
-#else
-    #define WTF_MAKE_NONCOPYABLE(ClassName) \
-        private: \
-            ClassName(const ClassName&); \
-            ClassName& operator=(const ClassName&)
-#endif
+#define WTF_MAKE_NONCOPYABLE(ClassName) \
+    private: \
+        ClassName(const ClassName&) WTF_DELETED_FUNCTION; \
+        ClassName& operator=(const ClassName&) WTF_DELETED_FUNCTION; \
 
 #endif // WTF_Noncopyable_h

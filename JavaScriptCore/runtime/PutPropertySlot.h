@@ -37,34 +37,39 @@ namespace JSC {
     class PutPropertySlot {
     public:
         enum Type { Uncachable, ExistingProperty, NewProperty };
+        enum Context { UnknownContext, PutById, PutByIdEval };
 
-        PutPropertySlot(bool isStrictMode = false)
+        PutPropertySlot(bool isStrictMode = false, Context context = UnknownContext)
             : m_type(Uncachable)
             , m_base(0)
             , m_isStrictMode(isStrictMode)
+            , m_context(context)
         {
         }
 
-        void setExistingProperty(JSObject* base, size_t offset)
+        void setExistingProperty(JSObject* base, PropertyOffset offset)
         {
             m_type = ExistingProperty;
             m_base = base;
             m_offset = offset;
         }
 
-        void setNewProperty(JSObject* base, size_t offset)
+        void setNewProperty(JSObject* base, PropertyOffset offset)
         {
             m_type = NewProperty;
             m_base = base;
             m_offset = offset;
         }
+        
+        Context context() const { return static_cast<Context>(m_context); }
 
         Type type() const { return m_type; }
         JSObject* base() const { return m_base; }
 
         bool isStrictMode() const { return m_isStrictMode; }
         bool isCacheable() const { return m_type != Uncachable; }
-        size_t cachedOffset() const {
+        PropertyOffset cachedOffset() const
+        {
             ASSERT(isCacheable());
             return m_offset;
         }
@@ -72,8 +77,9 @@ namespace JSC {
     private:
         Type m_type;
         JSObject* m_base;
-        size_t m_offset;
+        PropertyOffset m_offset;
         bool m_isStrictMode;
+        uint8_t m_context;
     };
 
 } // namespace JSC

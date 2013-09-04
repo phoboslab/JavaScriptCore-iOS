@@ -43,13 +43,17 @@
 #endif
 
 #if (OS(LINUX) || OS(FREEBSD)) && CPU(X86_64)
-#define SYMBOL_STRING_RELOCATION(name) #name "@plt"
-#elif OS(DARWIN) || (CPU(X86_64) && COMPILER(MINGW) && !GCC_VERSION_AT_LEAST(4, 5, 0))
-#define SYMBOL_STRING_RELOCATION(name) "_" #name
+#define GLOBAL_REFERENCE(name) #name "@plt"
 #elif CPU(X86) && COMPILER(MINGW)
-#define SYMBOL_STRING_RELOCATION(name) "@" #name "@4"
+#define GLOBAL_REFERENCE(name) "@" #name "@4"
 #else
-#define SYMBOL_STRING_RELOCATION(name) SYMBOL_STRING(name)
+#define GLOBAL_REFERENCE(name) SYMBOL_STRING(name)
+#endif
+
+#if HAVE(INTERNAL_VISIBILITY)
+#define LOCAL_REFERENCE(name) SYMBOL_STRING(name)
+#else
+#define LOCAL_REFERENCE(name) GLOBAL_REFERENCE(name)
 #endif
 
 #if OS(DARWIN)
@@ -71,10 +75,23 @@
 #endif
 
 // FIXME: figure out how this works on all the platforms. I know that
-// on Linux, the preferred form is ".Lstuff" as opposed to "Lstuff".
+// on ELF, the preferred form is ".Lstuff" as opposed to "Lstuff".
 // Don't know about any of the others.
-#if PLATFORM(MAC)
+#if OS(DARWIN)
 #define LOCAL_LABEL_STRING(name) "L" #name
+#elif   OS(LINUX)               \
+     || OS(FREEBSD)             \
+     || OS(OPENBSD)             \
+     || OS(NETBSD)              \
+     || OS(QNX)
+    // GNU as-compatible syntax.
+#define LOCAL_LABEL_STRING(name) ".L" #name
+#endif
+
+#if (CPU(ARM_TRADITIONAL) && (defined(thumb2) || defined(__thumb2__) || defined(__thumb) || defined(__thumb__))) || CPU(ARM_THUMB2)
+#define INLINE_ARM_FUNCTION(name) ".thumb" "\n" ".thumb_func " THUMB_FUNC_PARAM(name) "\n"
+#else
+#define INLINE_ARM_FUNCTION(name)
 #endif
 
 #endif // InlineASM_h

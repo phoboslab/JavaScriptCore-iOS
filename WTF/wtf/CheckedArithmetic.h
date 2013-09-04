@@ -27,6 +27,7 @@
 #define CheckedArithmetic_h
 
 #include <wtf/Assertions.h>
+#include <wtf/EnumClass.h>
 #include <wtf/TypeTraits.h>
 
 #include <limits>
@@ -66,9 +67,15 @@
 
 namespace WTF {
 
+ENUM_CLASS(CheckedState)
+{
+    DidOverflow,
+    DidNotOverflow
+} ENUM_CLASS_END(CheckedState);
+    
 class CrashOnOverflow {
-protected:
-    NO_RETURN_DUE_TO_CRASH void overflowed()
+public:
+    static NO_RETURN_DUE_TO_CRASH void overflowed()
     {
         CRASH();
     }
@@ -154,7 +161,7 @@ template <typename Target, typename Source> struct BoundsChecker<Target, Source,
     }
 };
 
-template <typename Target, typename Source, bool SameType = IsSameType<Target, Source>::value> struct BoundsCheckElider;
+template <typename Target, typename Source, bool CanElide = IsSameType<Target, Source>::value || (sizeof(Target) > sizeof(Source)) > struct BoundsCheckElider;
 template <typename Target, typename Source> struct BoundsCheckElider<Target, Source, true> {
     static bool inBounds(Source) { return true; }
 };
@@ -270,7 +277,7 @@ template <typename LHS, typename RHS, typename ResultType> struct ArithmeticOper
                 if (lhs && (std::numeric_limits<ResultType>::max() / lhs) < rhs)
                     return false;
             } else {
-                if (lhs == std::numeric_limits<ResultType>::min() || rhs == std::numeric_limits<ResultType>::min())
+                if (static_cast<ResultType>(lhs) == std::numeric_limits<ResultType>::min() || static_cast<ResultType>(rhs) == std::numeric_limits<ResultType>::min())
                     return false;
                 if ((std::numeric_limits<ResultType>::max() / -lhs) < -rhs)
                     return false;
@@ -314,10 +321,13 @@ template <typename LHS, typename RHS, typename ResultType> struct ArithmeticOper
 
     static inline bool multiply(LHS lhs, RHS rhs, ResultType& result) WARN_UNUSED_RETURN
     {
-        ResultType temp = lhs * rhs;
-        if (temp < lhs)
+        if (!lhs || !rhs) {
+            result = 0;
+            return true;
+        }
+        if (std::numeric_limits<ResultType>::max() / lhs < rhs)
             return false;
-        result = temp;
+        result = lhs * rhs;
         return true;
     }
 
@@ -534,10 +544,12 @@ public:
         return m_value;
     }
     
-    bool safeGet(T& value) const WARN_UNUSED_RETURN
+    inline CheckedState safeGet(T& value) const WARN_UNUSED_RETURN
     {
         value = m_value;
-        return this->hasOverflowed();
+        if (this->hasOverflowed())
+            return CheckedState::DidOverflow;
+        return CheckedState::DidNotOverflow;
     }
 
     // Mutating assignment
@@ -638,7 +650,7 @@ template <typename U, typename V, typename OverflowHandler> static inline Checke
 {
     U x = 0;
     V y = 0;
-    bool overflowed = lhs.safeGet(x) || rhs.safeGet(y);
+    bool overflowed = lhs.safeGet(x) == CheckedState::DidOverflow || rhs.safeGet(y) == CheckedState::DidOverflow;
     typename Result<U, V>::ResultType result = 0;
     overflowed |= !safeAdd(x, y, result);
     if (overflowed)
@@ -650,7 +662,7 @@ template <typename U, typename V, typename OverflowHandler> static inline Checke
 {
     U x = 0;
     V y = 0;
-    bool overflowed = lhs.safeGet(x) || rhs.safeGet(y);
+    bool overflowed = lhs.safeGet(x) == CheckedState::DidOverflow || rhs.safeGet(y) == CheckedState::DidOverflow;
     typename Result<U, V>::ResultType result = 0;
     overflowed |= !safeSub(x, y, result);
     if (overflowed)
@@ -662,7 +674,7 @@ template <typename U, typename V, typename OverflowHandler> static inline Checke
 {
     U x = 0;
     V y = 0;
-    bool overflowed = lhs.safeGet(x) || rhs.safeGet(y);
+    bool overflowed = lhs.safeGet(x) == CheckedState::DidOverflow || rhs.safeGet(y) == CheckedState::DidOverflow;
     typename Result<U, V>::ResultType result = 0;
     overflowed |= !safeMultiply(x, y, result);
     if (overflowed)
@@ -700,9 +712,30 @@ template <typename U, typename V, typename OverflowHandler> static inline Checke
     return Checked<U, OverflowHandler>(lhs) * rhs;
 }
 
+// Convenience typedefs.
+typedef Checked<int8_t, RecordOverflow> CheckedInt8;
+typedef Checked<uint8_t, RecordOverflow> CheckedUint8;
+typedef Checked<int16_t, RecordOverflow> CheckedInt16;
+typedef Checked<uint16_t, RecordOverflow> CheckedUint16;
+typedef Checked<int32_t, RecordOverflow> CheckedInt32;
+typedef Checked<uint32_t, RecordOverflow> CheckedUint32;
+typedef Checked<int64_t, RecordOverflow> CheckedInt64;
+typedef Checked<uint64_t, RecordOverflow> CheckedUint64;
+typedef Checked<size_t, RecordOverflow> CheckedSize;
+
 }
 
 using WTF::Checked;
+using WTF::CheckedState;
 using WTF::RecordOverflow;
+using WTF::CheckedInt8;
+using WTF::CheckedUint8;
+using WTF::CheckedInt16;
+using WTF::CheckedUint16;
+using WTF::CheckedInt32;
+using WTF::CheckedUint32;
+using WTF::CheckedInt64;
+using WTF::CheckedUint64;
+using WTF::CheckedSize;
 
 #endif

@@ -4,9 +4,11 @@ The goal is to bring the new Objective-C to Javascript bridge to be featured in 
 Some refactoring was involved but nothing major mostly just making sure the project doesn't use undocumented frameworks/functions.
 
 Some good examples on how to use it here:
+
 http://www.steamclock.com/blog/2013/05/apple-objective-c-javascript-bridge/
 
 The most basic example:
+
 	@protocol NativeObjectExport <JSExport>
 	-(void)log:(NSString*)string;
 	@end

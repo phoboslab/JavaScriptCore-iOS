@@ -1,7 +1,32 @@
 # About this fork
 
-The goal is to bring the new Objective-C to Javascript bridge to be featured in iOS 7 to iOS 5 and 6. That means that the same code will transition seamlessly to iOS 7 when the time to drop older iOS version comes.
+The goal is to bring the new Objective-C to Javascript bridge to be featured in iOS 7 to iOS 5 and 6. That means that the same code will transition seamlessly to iOS 7 when the time to drop older iOS versions comes.
 Some refactoring was involved but nothing major mostly just making sure the project doesn't use undocumented frameworks/functions.
+
+Some good examples on how to use it here:
+http://www.steamclock.com/blog/2013/05/apple-objective-c-javascript-bridge/
+
+The most basic example:
+	@protocol NativeObjectExport <JSExport>
+	-(void)log:(NSString*)string;
+	@end
+
+	@interface NativeObject : NSObject <NativeObjectExport>
+	@end
+
+	@implementation NativeObject
+
+	-(void)log:(NSString*)string {
+	    NSLog(@"js: %@", string);
+	}
+
+	@end
+	
+	JSContext* context = [[JSContext alloc] init];
+	context[@"nativeObject"] = [[NativeObject alloc] init];
+	[context evaluateScript:@"nativeObject.log(\"Hello Javascript\")"];
+
+
 
 A pull request was submitted to merge this into the main repo.
 

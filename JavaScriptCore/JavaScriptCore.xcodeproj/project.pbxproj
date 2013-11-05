@@ -8594,6 +8594,7 @@
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
 				ARCHS = armv7;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				HEADER_SEARCH_PATHS = (
 					"\"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"",
 					"$(HEADER_SEARCH_PATHS)",
@@ -8618,6 +8619,7 @@
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
 				ARCHS = armv7;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				HEADER_SEARCH_PATHS = (
 					"\"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"",
 					"$(HEADER_SEARCH_PATHS)",
@@ -8642,6 +8644,7 @@
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
 				ARCHS = armv7;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				HEADER_SEARCH_PATHS = (
 					"\"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"",
 					"$(HEADER_SEARCH_PATHS)",
@@ -8667,6 +8670,7 @@
 			buildSettings = {
 				ARCHS = armv7;
 				BUILD_VARIANTS = normal;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				HEADER_SEARCH_PATHS = (
 					"\"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"",
 					"$(HEADER_SEARCH_PATHS)",

@@ -1993,6 +1993,7 @@
 			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
 			buildSettings = {
 				ARCHS = armv7;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(DEBUG_DEFINES)",
 					"WEBKIT_VERSION_MIN_REQUIRED=WEBKIT_VERSION_LATEST",
@@ -2016,6 +2017,7 @@
 			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
 			buildSettings = {
 				ARCHS = armv7;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(DEBUG_DEFINES)",
 					"WEBKIT_VERSION_MIN_REQUIRED=WEBKIT_VERSION_LATEST",
@@ -2039,6 +2041,7 @@
 			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
 			buildSettings = {
 				ARCHS = armv7;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(DEBUG_DEFINES)",
 					"WEBKIT_VERSION_MIN_REQUIRED=WEBKIT_VERSION_LATEST",
@@ -2098,6 +2101,7 @@
 				B64797551829123B00CCF60F /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
 		};
 		B6F09CA218290CFA00D62E5F /* Build configuration list for PBXNativeTarget "WTF iOS" */ = {
 			isa = XCConfigurationList;

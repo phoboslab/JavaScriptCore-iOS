@@ -572,6 +572,8 @@
 		0FFFC95E14EF90B700C72532 /* DFGPredictionPropagationPhase.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFFC95214EF909500C72532 /* DFGPredictionPropagationPhase.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0FFFC95F14EF90BB00C72532 /* DFGVirtualRegisterAllocationPhase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0FFFC95314EF909500C72532 /* DFGVirtualRegisterAllocationPhase.cpp */; };
 		0FFFC96014EF90BD00C72532 /* DFGVirtualRegisterAllocationPhase.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFFC95414EF909500C72532 /* DFGVirtualRegisterAllocationPhase.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		104A28CC188A011B002CCBE0 /* JSTypedArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 104A28CA188A011B002CCBE0 /* JSTypedArray.cpp */; };
+		104A28CD188A011B002CCBE0 /* JSTypedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = 104A28CB188A011B002CCBE0 /* JSTypedArray.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		10D58E051889C1A000C05A0D /* LLIntOffsetsExtractor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F4680A114BA7F8200BFE272 /* LLIntOffsetsExtractor.cpp */; };
 		10D58E141889C3DF00C05A0D /* A64DOpcode.h in Headers */ = {isa = PBXBuildFile; fileRef = 652A3A231651C69700A80AFE /* A64DOpcode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		10D58E151889C3DF00C05A0D /* AbstractMacroAssembler.h in Headers */ = {isa = PBXBuildFile; fileRef = 860161DF0F3A83C100F84710 /* AbstractMacroAssembler.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3196,6 +3198,8 @@
 		0FFFC95214EF909500C72532 /* DFGPredictionPropagationPhase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DFGPredictionPropagationPhase.h; path = dfg/DFGPredictionPropagationPhase.h; sourceTree = "<group>"; };
 		0FFFC95314EF909500C72532 /* DFGVirtualRegisterAllocationPhase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DFGVirtualRegisterAllocationPhase.cpp; path = dfg/DFGVirtualRegisterAllocationPhase.cpp; sourceTree = "<group>"; };
 		0FFFC95414EF909500C72532 /* DFGVirtualRegisterAllocationPhase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DFGVirtualRegisterAllocationPhase.h; path = dfg/DFGVirtualRegisterAllocationPhase.h; sourceTree = "<group>"; };
+		104A28CA188A011B002CCBE0 /* JSTypedArray.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSTypedArray.cpp; sourceTree = "<group>"; };
+		104A28CB188A011B002CCBE0 /* JSTypedArray.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSTypedArray.h; sourceTree = "<group>"; };
 		10D58E0C1889C1A000C05A0D /* libJSCLLIntOffsetsExtractor.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJSCLLIntOffsetsExtractor.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		10D592F41889C3DF00C05A0D /* libJavaScriptCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJavaScriptCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = "JavaScriptCore-iOS-Static.xcconfig"; path = "../../JavaScriptCore-iOS-Static.xcconfig"; sourceTree = "<group>"; };
@@ -4618,6 +4622,8 @@
 				146AAB370B66A94400E55F16 /* JSStringRefCF.cpp */,
 				146AAB2A0B66A84900E55F16 /* JSStringRefCF.h */,
 				1A28D4A7177B71C80007FA3C /* JSStringRefPrivate.h */,
+				104A28CA188A011B002CCBE0 /* JSTypedArray.cpp */,
+				104A28CB188A011B002CCBE0 /* JSTypedArray.h */,
 				86E3C606167BAB87006D760A /* JSValue.h */,
 				86E3C60D167BAB87006D760A /* JSValue.mm */,
 				86E3C60E167BAB87006D760A /* JSValueInternal.h */,
@@ -5738,6 +5744,7 @@
 			files = (
 				10D58E141889C3DF00C05A0D /* A64DOpcode.h in Headers */,
 				10D58E151889C3DF00C05A0D /* AbstractMacroAssembler.h in Headers */,
+				104A28CD188A011B002CCBE0 /* JSTypedArray.h in Headers */,
 				10D58E161889C3DF00C05A0D /* AbstractPC.h in Headers */,
 				10D58E171889C3DF00C05A0D /* APICallbackFunction.h in Headers */,
 				10D58E181889C3DF00C05A0D /* APICast.h in Headers */,
@@ -7962,6 +7969,7 @@
 				10D591A11889C3DF00C05A0D /* ErrorConstructor.cpp in Sources */,
 				10D591A21889C3DF00C05A0D /* ErrorInstance.cpp in Sources */,
 				10D591A31889C3DF00C05A0D /* ErrorPrototype.cpp in Sources */,
+				104A28CC188A011B002CCBE0 /* JSTypedArray.cpp in Sources */,
 				10D591A41889C3DF00C05A0D /* ExceptionHelpers.cpp in Sources */,
 				10D591A51889C3DF00C05A0D /* Executable.cpp in Sources */,
 				10D591A61889C3DF00C05A0D /* ExecutableAllocator.cpp in Sources */,

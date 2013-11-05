@@ -8625,7 +8625,19 @@
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
 				ARCHS = armv7;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(DEBUG_DEFINES)",
+					"HAVE_DTRACE=$(HAVE_DTRACE)",
+					"WEBKIT_VERSION_MIN_REQUIRED=WEBKIT_VERSION_LATEST",
+					HAVE_HEADER_DETECTION_H,
+					JSC_OBJC_API_AVAILABLE_MAC_OS_X_1080,
+					"$(FEATURE_DEFINES)",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+					"__MAC_OS_X_VERSION_MIN_REQUIRED=0",
+				);
 				HEADER_SEARCH_PATHS = (
 					"\"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"",
 					"$(HEADER_SEARCH_PATHS)",
@@ -8633,6 +8645,7 @@
 				);
 				INFOPLIST_FILE = "JavaScriptCore copy-Info.plist";
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
 				LIBRARY_SEARCH_PATHS = (
 					"\\\"${SOURCE_ROOT}/../Build/\\\"",
 					/Users/dominic/xcode/JavaScriptCore/Build,
@@ -8640,6 +8653,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
+				STRIP_INSTALLED_PRODUCT = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				VALID_ARCHS = "i386 armv7";
 			};
@@ -8650,7 +8664,19 @@
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
 				ARCHS = armv7;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(DEBUG_DEFINES)",
+					"HAVE_DTRACE=$(HAVE_DTRACE)",
+					"WEBKIT_VERSION_MIN_REQUIRED=WEBKIT_VERSION_LATEST",
+					HAVE_HEADER_DETECTION_H,
+					JSC_OBJC_API_AVAILABLE_MAC_OS_X_1080,
+					"$(FEATURE_DEFINES)",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+					"__MAC_OS_X_VERSION_MIN_REQUIRED=0",
+				);
 				HEADER_SEARCH_PATHS = (
 					"\"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"",
 					"$(HEADER_SEARCH_PATHS)",
@@ -8658,6 +8684,7 @@
 				);
 				INFOPLIST_FILE = "JavaScriptCore copy-Info.plist";
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
 				LIBRARY_SEARCH_PATHS = (
 					"\\\"${SOURCE_ROOT}/../Build/\\\"",
 					/Users/dominic/xcode/JavaScriptCore/Build,
@@ -8665,6 +8692,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
+				STRIP_INSTALLED_PRODUCT = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				VALID_ARCHS = "i386 armv7";
 			};
@@ -8675,7 +8703,19 @@
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
 				ARCHS = armv7;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(DEBUG_DEFINES)",
+					"HAVE_DTRACE=$(HAVE_DTRACE)",
+					"WEBKIT_VERSION_MIN_REQUIRED=WEBKIT_VERSION_LATEST",
+					HAVE_HEADER_DETECTION_H,
+					JSC_OBJC_API_AVAILABLE_MAC_OS_X_1080,
+					"$(FEATURE_DEFINES)",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+					"__MAC_OS_X_VERSION_MIN_REQUIRED=0",
+				);
 				HEADER_SEARCH_PATHS = (
 					"\"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"",
 					"$(HEADER_SEARCH_PATHS)",
@@ -8683,6 +8723,7 @@
 				);
 				INFOPLIST_FILE = "JavaScriptCore copy-Info.plist";
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
 				LIBRARY_SEARCH_PATHS = (
 					"\\\"${SOURCE_ROOT}/../Build/\\\"",
 					/Users/dominic/xcode/JavaScriptCore/Build,
@@ -8690,6 +8731,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
+				STRIP_INSTALLED_PRODUCT = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				VALID_ARCHS = "i386 armv7";
 			};
@@ -8701,13 +8743,26 @@
 			buildSettings = {
 				ARCHS = armv7;
 				BUILD_VARIANTS = normal;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(DEBUG_DEFINES)",
+					"HAVE_DTRACE=$(HAVE_DTRACE)",
+					"WEBKIT_VERSION_MIN_REQUIRED=WEBKIT_VERSION_LATEST",
+					HAVE_HEADER_DETECTION_H,
+					JSC_OBJC_API_AVAILABLE_MAC_OS_X_1080,
+					"$(FEATURE_DEFINES)",
+					"$(GCC_PREPROCESSOR_DEFINITIONS)",
+					"__MAC_OS_X_VERSION_MIN_REQUIRED=0",
+				);
 				HEADER_SEARCH_PATHS = (
 					"\"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"",
 					"$(HEADER_SEARCH_PATHS)",
 					"\"${SOURCE_ROOT}/../WTF/\"",
 				);
 				INFOPLIST_FILE = "JavaScriptCore copy-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
 				LIBRARY_SEARCH_PATHS = (
 					"\\\"${SOURCE_ROOT}/../Build/\\\"",
 					/Users/dominic/xcode/JavaScriptCore/Build,
@@ -8715,6 +8770,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
+				STRIP_INSTALLED_PRODUCT = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				VALID_ARCHS = "i386 armv7";
 			};

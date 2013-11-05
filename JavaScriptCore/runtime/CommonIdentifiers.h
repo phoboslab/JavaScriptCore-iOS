@@ -27,40 +27,109 @@
 // MarkedArgumentBuffer of property names, passed to a macro so we can do set them up various
 // ways without repeating the list.
 #define JSC_COMMON_IDENTIFIERS_EACH_PROPERTY_NAME(macro) \
+    macro(Array) \
+    macro(ArrayBuffer) \
+    macro(ArrayIterator) \
+    macro(BYTES_PER_ELEMENT) \
+    macro(Boolean) \
+    macro(Date) \
+    macro(Error) \
+    macro(EvalError) \
+    macro(Function) \
+    macro(Infinity) \
+    macro(JSON) \
+    macro(Math) \
+    macro(NaN) \
+    macro(Number) \
+    macro(Object) \
+    macro(Promise) \
+    macro(PromiseResolver) \
+    macro(RangeError) \
+    macro(ReferenceError) \
+    macro(RegExp) \
+    macro(String) \
+    macro(SyntaxError) \
+    macro(TypeError) \
+    macro(URIError) \
+    macro(UTC) \
+    macro(__defineGetter__) \
+    macro(__defineSetter__) \
+    macro(__lookupGetter__) \
+    macro(__lookupSetter__) \
+    macro(anonymous) \
     macro(apply) \
     macro(arguments) \
     macro(bind) \
+    macro(buffer) \
+    macro(byteLength) \
+    macro(byteOffset) \
+    macro(bytecode) \
+    macro(bytecodeIndex) \
+    macro(bytecodes) \
+    macro(bytecodesID) \
     macro(call) \
     macro(callee) \
     macro(caller) \
+    macro(compilationKind) \
+    macro(compilations) \
     macro(compile) \
     macro(configurable) \
     macro(constructor) \
+    macro(count) \
+    macro(counters) \
+    macro(description) \
+    macro(descriptions) \
+    macro(displayName) \
+    macro(document) \
+    macro(done) \
     macro(enumerable) \
     macro(eval) \
     macro(exec) \
+    macro(executionCount) \
+    macro(exitKind) \
     macro(fromCharCode) \
-    macro(global) \
     macro(get) \
+    macro(global) \
     macro(hasOwnProperty) \
+    macro(hash) \
+    macro(header) \
+    macro(id) \
     macro(ignoreCase) \
     macro(index) \
+    macro(inferredName) \
     macro(input) \
+    macro(instructionCount) \
     macro(isArray) \
     macro(isPrototypeOf) \
+    macro(isWatchpoint) \
+    macro(join) \
     macro(lastIndex) \
     macro(length) \
     macro(message) \
     macro(multiline) \
     macro(name) \
+    macro(next) \
     macro(now) \
+    macro(numInlinedCalls) \
+    macro(numInlinedGetByIds) \
+    macro(numInlinedPutByIds) \
+    macro(of) \
+    macro(opcode) \
+    macro(origin) \
+    macro(osrExitSites) \
+    macro(osrExits) \
     macro(parse) \
+    macro(profiledBytecodes) \
     macro(propertyIsEnumerable) \
     macro(prototype) \
     macro(set) \
+    macro(slice) \
     macro(source) \
+    macro(sourceCode) \
     macro(stack) \
+    macro(subarray) \
     macro(test) \
+    macro(then) \
     macro(toExponential) \
     macro(toFixed) \
     macro(toISOString) \
@@ -68,12 +137,18 @@
     macro(toLocaleString) \
     macro(toPrecision) \
     macro(toString) \
-    macro(UTC) \
     macro(value) \
     macro(valueOf) \
+    macro(window) \
     macro(writable) \
-    macro(displayName) \
-    macro(join)
+    macro(has) \
+    macro(forEach) \
+    macro(clear) \
+    macro(size) \
+    macro(Map)\
+    macro(Set)\
+    macro(WeakMap)\
+    macro(add)
 
 #define JSC_COMMON_IDENTIFIERS_EACH_KEYWORD(macro) \
     macro(null) \
@@ -128,8 +203,8 @@ namespace JSC {
     class CommonIdentifiers {
         WTF_MAKE_NONCOPYABLE(CommonIdentifiers); WTF_MAKE_FAST_ALLOCATED;
     private:
-        CommonIdentifiers(JSGlobalData*);
-        friend class JSGlobalData;
+        CommonIdentifiers(VM*);
+        friend class VM;
 
     public:
         const Identifier nullIdentifier;
@@ -137,6 +212,9 @@ namespace JSC {
         const Identifier underscoreProto;
         const Identifier thisIdentifier;
         const Identifier useStrictIdentifier;
+        const Identifier iteratorPrivateName;
+        const Identifier iteratorNextPrivateName;
+        const Identifier hasNextIdentifier;
 
         
 #define JSC_IDENTIFIER_DECLARE_KEYWORD_NAME_GLOBAL(name) const Identifier name##Keyword;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,33 +31,53 @@
 
 #include <wtf/Assertions.h>
 #include <wtf/RedBlackTree.h>
-#include <wtf/RefCounted.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace WTF {
 
 class MetaAllocator;
 
-class MetaAllocatorHandle : public RefCounted<MetaAllocatorHandle>, public RedBlackTree<MetaAllocatorHandle, void*>::Node {
+class MetaAllocatorHandle : public ThreadSafeRefCounted<MetaAllocatorHandle>, public RedBlackTree<MetaAllocatorHandle, void*>::Node {
 private:
     MetaAllocatorHandle(MetaAllocator*, void* start, size_t sizeInBytes, void* ownerUID);
     
 public:
     WTF_EXPORT_PRIVATE ~MetaAllocatorHandle();
     
-    void* start()
+    void* start() const
     {
         return m_start;
     }
     
-    void* end()
+    void* end() const
     {
-        return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_start) + m_sizeInBytes);
+        return reinterpret_cast<void*>(endAsInteger());
+    }
+    
+    uintptr_t startAsInteger() const
+    {
+        return reinterpret_cast<uintptr_t>(m_start);
+    }
+    
+    uintptr_t endAsInteger() const
+    {
+        return startAsInteger() + m_sizeInBytes;
     }
         
-    size_t sizeInBytes()
+    size_t sizeInBytes() const
     {
         return m_sizeInBytes;
+    }
+    
+    bool containsIntegerAddress(uintptr_t address) const
+    {
+        return address - startAsInteger() < sizeInBytes();
+    }
+    
+    bool contains(void* address) const
+    {
+        return containsIntegerAddress(reinterpret_cast<uintptr_t>(address));
     }
         
     WTF_EXPORT_PRIVATE void shrink(size_t newSizeInBytes);

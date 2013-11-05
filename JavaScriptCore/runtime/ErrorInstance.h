@@ -21,7 +21,9 @@
 #ifndef ErrorInstance_h
 #define ErrorInstance_h
 
+#include "Interpreter.h"
 #include "JSObject.h"
+#include "SourceProvider.h"
 
 namespace JSC {
 
@@ -29,23 +31,23 @@ namespace JSC {
     public:
         typedef JSNonFinalObject Base;
 
-        static const ClassInfo s_info;
+        DECLARE_INFO;
 
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
         {
-            return Structure::create(globalData, globalObject, prototype, TypeInfo(ErrorInstanceType, StructureFlags), &s_info);
+            return Structure::create(vm, globalObject, prototype, TypeInfo(ErrorInstanceType, StructureFlags), info());
         }
 
-        static ErrorInstance* create(JSGlobalData& globalData, Structure* structure, const UString& message)
+        static ErrorInstance* create(VM& vm, Structure* structure, const String& message, Vector<StackFrame> stackTrace = Vector<StackFrame>())
         {
-            ErrorInstance* instance = new (NotNull, allocateCell<ErrorInstance>(globalData.heap)) ErrorInstance(globalData, structure);
-            instance->finishCreation(globalData, message);
+            ErrorInstance* instance = new (NotNull, allocateCell<ErrorInstance>(vm.heap)) ErrorInstance(vm, structure);
+            instance->finishCreation(vm, message, stackTrace);
             return instance;
         }
 
-        static ErrorInstance* create(ExecState* exec, Structure* structure, JSValue message)
+        static ErrorInstance* create(ExecState* exec, Structure* structure, JSValue message, Vector<StackFrame> stackTrace = Vector<StackFrame>())
         {
-            return create(exec->globalData(), structure, message.isUndefined() ? UString() : message.toString(exec)->value(exec));
+            return create(exec->vm(), structure, message.isUndefined() ? String() : message.toString(exec)->value(exec), stackTrace);
         }
 
         bool appendSourceToMessage() { return m_appendSourceToMessage; }
@@ -53,15 +55,9 @@ namespace JSC {
         void clearAppendSourceToMessage() { m_appendSourceToMessage = false; }
 
     protected:
-        explicit ErrorInstance(JSGlobalData&, Structure*);
+        explicit ErrorInstance(VM&, Structure*);
 
-        void finishCreation(JSGlobalData& globalData, const UString& message)
-        {
-            Base::finishCreation(globalData);
-            ASSERT(inherits(&s_info));
-            if (!message.isNull())
-                putDirect(globalData, globalData.propertyNames->message, jsString(&globalData, message), DontEnum);
-        }
+        void finishCreation(VM&, const String&, Vector<StackFrame> = Vector<StackFrame>());
 
         bool m_appendSourceToMessage;
     };

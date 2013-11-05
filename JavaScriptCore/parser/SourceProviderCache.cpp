@@ -36,18 +36,11 @@ SourceProviderCache::~SourceProviderCache()
 void SourceProviderCache::clear()
 {
     m_map.clear();
-    m_contentByteSize = 0;
 }
 
-unsigned SourceProviderCache::byteSize() const
-{ 
-    return m_contentByteSize + sizeof(*this) + m_map.capacity() * sizeof(SourceProviderCacheItem*);
-}
-
-void SourceProviderCache::add(int sourcePosition, PassOwnPtr<SourceProviderCacheItem> item, unsigned size)
+void SourceProviderCache::add(int sourcePosition, std::unique_ptr<SourceProviderCacheItem> item)
 {
-    m_map.add(sourcePosition, item);
-    m_contentByteSize += size;
+    m_map.add(sourcePosition, std::move(item));
 }
 
 }

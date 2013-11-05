@@ -28,7 +28,9 @@
 
 #if ENABLE(DFG_JIT)
 
-#include <dfg/DFGCommon.h>
+#include "DFGCommon.h"
+#include "FPRInfo.h"
+#include "GPRInfo.h"
 
 namespace JSC { namespace DFG {
 
@@ -75,7 +77,6 @@ class RegisterBank {
 
 public:
     RegisterBank()
-        : m_lastAllocated(NUM_REGS - 1)
     {
     }
 
@@ -84,15 +85,10 @@ public:
     // returns -1 (InvalidGPRReg or InvalidFPRReg).
     RegID tryAllocate()
     {
-        VirtualRegister ignored;
+        VirtualRegister ignored = VirtualRegister();
         
-        for (uint32_t i = m_lastAllocated + 1; i < NUM_REGS; ++i) {
-            if (!m_data[i].lockCount && m_data[i].name == InvalidVirtualRegister)
-                return allocateInternal(i, ignored);
-        }
-        // Loop over the remaining entries.
-        for (uint32_t i = 0; i <= m_lastAllocated; ++i) {
-            if (!m_data[i].lockCount && m_data[i].name == InvalidVirtualRegister)
+        for (uint32_t i = 0; i < NUM_REGS; ++i) {
+            if (!m_data[i].lockCount && !m_data[i].name.isValid())
                 return allocateInternal(i, ignored);
         }
         
@@ -115,9 +111,6 @@ public:
         uint32_t currentLowest = NUM_REGS;
         SpillHint currentSpillOrder = SpillHintInvalid;
 
-        // Scan through all register, starting at the last allocated & looping around.
-        ASSERT(m_lastAllocated < NUM_REGS);
-
         // This loop is broken into two halves, looping from the last allocated
         // register (the register returned last time this method was called) to
         // the maximum register value, then from 0 to the last allocated.
@@ -125,7 +118,7 @@ public:
         // thrash, and minimize time spent scanning locked registers in allocation.
         // If a unlocked and unnamed register is found return it immediately.
         // Otherwise, find the first unlocked register with the lowest spillOrder.
-        for (uint32_t i = m_lastAllocated + 1; i < NUM_REGS; ++i) {
+        for (uint32_t i = 0 ; i < NUM_REGS; ++i) {
             // (1) If the current register is locked, it is not a candidate.
             if (m_data[i].lockCount)
                 continue;
@@ -135,18 +128,6 @@ public:
                 return allocateInternal(i, spillMe);
             // If this register is better (has a lower spill order value) than any prior
             // candidate, then record it.
-            if (spillOrder < currentSpillOrder) {
-                currentSpillOrder = spillOrder;
-                currentLowest = i;
-            }
-        }
-        // Loop over the remaining entries.
-        for (uint32_t i = 0; i <= m_lastAllocated; ++i) {
-            if (m_data[i].lockCount)
-                continue;
-            SpillHint spillOrder = m_data[i].spillOrder;
-            if (spillOrder == SpillHintInvalid)
-                return allocateInternal(i, spillMe);
             if (spillOrder < currentSpillOrder) {
                 currentSpillOrder = spillOrder;
                 currentLowest = i;
@@ -166,7 +147,7 @@ public:
 
         ++m_data[index].lockCount;
         VirtualRegister name = nameAtIndex(index);
-        if (name != InvalidVirtualRegister)
+        if (name.isValid())
             releaseAtIndex(index);
         
         return name;
@@ -184,8 +165,8 @@ public:
         ASSERT(index < NUM_REGS);
         ASSERT(m_data[index].lockCount);
         // 'index' should not currently be named, the new name must be valid.
-        ASSERT(m_data[index].name == InvalidVirtualRegister);
-        ASSERT(name != InvalidVirtualRegister);
+        ASSERT(!m_data[index].name.isValid());
+        ASSERT(name.isValid());
         // 'index' should not currently have a spillOrder.
         ASSERT(m_data[index].spillOrder == SpillHintInvalid);
 
@@ -220,10 +201,15 @@ public:
     }
 
     // Get the name (VirtualRegister) associated with the
-    // given register (or InvalidVirtualRegister for none).
+    // given register (or default VirtualRegister() for none).
     VirtualRegister name(RegID reg) const
     {
         return nameAtIndex(BankInfo::toIndex(reg));
+    }
+    
+    bool isInUse(RegID reg) const
+    {
+        return isLocked(reg) || name(reg).isValid();
     }
     
 #ifndef NDEBUG
@@ -231,12 +217,12 @@ public:
     {
         // For each register, print the VirtualRegister 'name'.
         for (uint32_t i =0; i < NUM_REGS; ++i) {
-            if (m_data[i].name != InvalidVirtualRegister)
-                dataLog("[%02d]", m_data[i].name);
+            if (m_data[i].name.isValid())
+                dataLogF("[%02d]", m_data[i].name.offset());
             else
-                dataLog("[--]");
+                dataLogF("[--]");
         }
-        dataLog("\n");
+        dataLogF("\n");
     }
 #endif
 
@@ -326,11 +312,11 @@ private:
         // 'index' must be a valid register.
         ASSERT(index < NUM_REGS);
         // 'index' should currently be named.
-        ASSERT(m_data[index].name != InvalidVirtualRegister);
+        ASSERT(m_data[index].name.isValid());
         // 'index' should currently have a valid spill order.
         ASSERT(m_data[index].spillOrder != SpillHintInvalid);
 
-        m_data[index].name = InvalidVirtualRegister;
+        m_data[index].name = VirtualRegister();
         m_data[index].spillOrder = SpillHintInvalid;
     }
 
@@ -341,7 +327,7 @@ private:
         ASSERT(i < NUM_REGS && !m_data[i].lockCount);
 
         // Return the VirtualRegister of the named value currently stored in
-        // the register being returned - or InvalidVirtualRegister if none.
+        // the register being returned - or default VirtualRegister() if none.
         spillMe = m_data[i].name;
 
         // Clear any name/spillOrder currently associated with the register,
@@ -349,7 +335,6 @@ private:
         // Mark the register as locked (with a lock count of 1).
         m_data[i].lockCount = 1;
 
-        m_lastAllocated = i;
         return BankInfo::toRegister(i);
     }
 
@@ -360,7 +345,7 @@ private:
     // count, name and spillOrder hint.
     struct MapEntry {
         MapEntry()
-            : name(InvalidVirtualRegister)
+            : name(VirtualRegister())
             , spillOrder(SpillHintInvalid)
             , lockCount(0)
         {
@@ -373,9 +358,10 @@ private:
 
     // Holds the current status of all registers.
     MapEntry m_data[NUM_REGS];
-    // Used to to implement a simple round-robin like allocation scheme.
-    uint32_t m_lastAllocated;
 };
+
+typedef RegisterBank<GPRInfo>::iterator gpr_iterator;
+typedef RegisterBank<FPRInfo>::iterator fpr_iterator;
 
 } } // namespace JSC::DFG
 

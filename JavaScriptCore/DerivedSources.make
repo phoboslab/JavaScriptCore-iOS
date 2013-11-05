@@ -1,4 +1,4 @@
-# Copyright (C) 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
+# Copyright (C) 2006, 2007, 2008, 2009, 2011, 2013 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -41,23 +41,25 @@ all : \
     DateConstructor.lut.h \
     DatePrototype.lut.h \
     ErrorPrototype.lut.h \
-    HeaderDetection.h \
+    JSDataViewPrototype.lut.h \
     JSONObject.lut.h \
     JSGlobalObject.lut.h \
+    JSPromisePrototype.lut.h \
+    JSPromiseConstructor.lut.h \
+    JSPromiseResolverPrototype.lut.h \
     KeywordLookup.h \
     Lexer.lut.h \
-    MathObject.lut.h \
+    NamePrototype.lut.h \
     NumberConstructor.lut.h \
     NumberPrototype.lut.h \
     ObjectConstructor.lut.h \
-    ObjectPrototype.lut.h \
     RegExpConstructor.lut.h \
     RegExpPrototype.lut.h \
     RegExpJitTables.h \
     RegExpObject.lut.h \
     StringConstructor.lut.h \
-    StringPrototype.lut.h \
     docs/bytecode.html \
+    udis86_itab.h \
 #
 
 # lookup tables for classes
@@ -78,18 +80,7 @@ RegExpJitTables.h: create_regex_tables
 KeywordLookup.h: KeywordLookupGenerator.py Keywords.table
 	python $^ > $@
 
-# header detection
+# udis86 instruction tables
 
-ifeq ($(OS),MACOS)
-
-HeaderDetection.h : DerivedSources.make /System/Library/CoreServices/SystemVersion.plist
-	rm -f $@
-	echo "/* This is a generated file. Do not edit. */" > $@
-	if [ -f $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/pthread_machdep.h ]; then echo "#define HAVE_PTHREAD_MACHDEP_H 1" >> $@; else echo >> $@; fi
-
-else
-
-HeaderDetection.h :
-	echo > $@
-
-endif
+udis86_itab.h: $(JavaScriptCore)/disassembler/udis86/itab.py $(JavaScriptCore)/disassembler/udis86/optable.xml
+	(PYTHONPATH=$(JavaScriptCore)/disassembler/udis86 python $(JavaScriptCore)/disassembler/udis86/itab.py $(JavaScriptCore)/disassembler/udis86/optable.xml || exit 1)

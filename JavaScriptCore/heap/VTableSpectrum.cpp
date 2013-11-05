@@ -30,7 +30,6 @@
 #include "Structure.h"
 #include <algorithm>
 #include <stdio.h>
-#include <wtf/Platform.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(MAC)
@@ -69,7 +68,7 @@ void VTableSpectrum::dump(FILE* output, const char* comment)
 #if PLATFORM(MAC)
         Dl_info info;
         if (dladdr(item.key, &info)) {
-            char* findResult = strrchr(info.dli_fname, '/');
+            const char* findResult = strrchr(info.dli_fname, '/');
             const char* strippedFileName;
             
             if (findResult)

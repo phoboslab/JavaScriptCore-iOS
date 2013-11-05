@@ -1,7 +1,8 @@
 /*
- * Copyright (C) 2006, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Google Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
+ * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,7 +34,8 @@
 #include "config.h"
 #include "CurrentTime.h"
 
-#if PLATFORM(MAC)
+#if OS(DARWIN)
+#include <mach/mach.h>
 #include <mach/mach_time.h>
 #include <sys/time.h>
 #elif OS(WINDOWS)
@@ -47,38 +49,44 @@
 #include <stdint.h>
 #include <time.h>
 
-#if USE(QUERY_PERFORMANCE_COUNTER)
-#if OS(WINCE)
-extern "C" time_t mktime(struct tm *t);
-#else
-#include <sys/timeb.h>
-#include <sys/types.h>
-#endif
-#endif
-
-#elif PLATFORM(WX)
-#include <wx/datetime.h>
 #elif PLATFORM(EFL)
 #include <Ecore.h>
 #else
 #include <sys/time.h>
 #endif
 
-#if PLATFORM(GTK)
+#if USE(GLIB) && !PLATFORM(EFL)
 #include <glib.h>
-#endif
-
-#if PLATFORM(QT)
-#include <QElapsedTimer>
 #endif
 
 namespace WTF {
 
-const double msPerSecond = 1000.0;
-
-#if !PLATFORM(CHROMIUM)
-
 #if OS(WINDOWS)
+
+// Number of 100 nanosecond between January 1, 1601 and January 1, 1970.
+static const ULONGLONG epochBias = 116444736000000000ULL;
+static const double hundredsOfNanosecondsPerMillisecond = 10000;
+
+static double lowResUTCTime()
+{
+    FILETIME fileTime;
+
+#if OS(WINCE)
+    GetCurrentFT(&fileTime);
+#else
+    GetSystemTimeAsFileTime(&fileTime);
+#endif
+
+    // As per Windows documentation for FILETIME, copy the resulting FILETIME structure to a
+    // ULARGE_INTEGER structure using memcpy (using memcpy instead of direct assignment can
+    // prevent alignment faults on 64-bit Windows).
+
+    ULARGE_INTEGER dateTime;
+    memcpy(&dateTime, &fileTime, sizeof(dateTime));
+
+    // Windows file times are in 100s of nanoseconds.
+    return (dateTime.QuadPart - epochBias) / hundredsOfNanosecondsPerMillisecond;
+}
 
 #if USE(QUERY_PERFORMANCE_COUNTER)
 
@@ -126,28 +134,6 @@ static double highResUpTime()
     tickCountLast = tickCount;
 
     return (1000.0 * qpc.QuadPart) / static_cast<double>(qpcFrequency.QuadPart);
-}
-
-static double lowResUTCTime()
-{
-#if OS(WINCE)
-    SYSTEMTIME systemTime;
-    GetSystemTime(&systemTime);
-    struct tm tmtime;
-    tmtime.tm_year = systemTime.wYear - 1900;
-    tmtime.tm_mon = systemTime.wMonth - 1;
-    tmtime.tm_mday = systemTime.wDay;
-    tmtime.tm_wday = systemTime.wDayOfWeek;
-    tmtime.tm_hour = systemTime.wHour;
-    tmtime.tm_min = systemTime.wMinute;
-    tmtime.tm_sec = systemTime.wSecond;
-    time_t timet = mktime(&tmtime);
-    return timet * msPerSecond + systemTime.wMilliseconds;
-#else
-    struct _timeb timebuffer;
-    _ftime(&timebuffer);
-    return timebuffer.time * msPerSecond + timebuffer.millitm;
-#endif
 }
 
 static bool qpcAvailable()
@@ -208,36 +194,13 @@ double currentTime()
 
 #else
 
-static double currentSystemTime()
-{
-    FILETIME ft;
-    GetCurrentFT(&ft);
-
-    // As per Windows documentation for FILETIME, copy the resulting FILETIME structure to a
-    // ULARGE_INTEGER structure using memcpy (using memcpy instead of direct assignment can
-    // prevent alignment faults on 64-bit Windows).
-
-    ULARGE_INTEGER t;
-    memcpy(&t, &ft, sizeof(t));
-
-    // Windows file times are in 100s of nanoseconds.
-    // To convert to seconds, we have to divide by 10,000,000, which is more quickly
-    // done by multiplying by 0.0000001.
-
-    // Between January 1, 1601 and January 1, 1970, there were 369 complete years,
-    // of which 89 were leap years (1700, 1800, and 1900 were not leap years).
-    // That is a total of 134774 days, which is 11644473600 seconds.
-
-    return t.QuadPart * 0.0000001 - 11644473600.0;
-}
-
 double currentTime()
 {
     static bool init = false;
     static double lastTime;
     static DWORD lastTickCount;
     if (!init) {
-        lastTime = currentSystemTime();
+        lastTime = lowResUTCTime();
         lastTickCount = GetTickCount();
         init = true;
         return lastTime;
@@ -255,7 +218,7 @@ double currentTime()
 
 #endif // USE(QUERY_PERFORMANCE_COUNTER)
 
-#elif PLATFORM(GTK)
+#elif USE(GLIB) && !PLATFORM(EFL)
 
 // Note: GTK on Windows will pick up the PLATFORM(WIN) implementation above which provides
 // better accuracy compared with Windows implementation of g_get_current_time:
@@ -268,19 +231,21 @@ double currentTime()
     return static_cast<double>(now.tv_sec) + static_cast<double>(now.tv_usec / 1000000.0);
 }
 
-#elif PLATFORM(WX)
-
-double currentTime()
-{
-    wxDateTime now = wxDateTime::UNow();
-    return (double)now.GetTicks() + (double)(now.GetMillisecond() / 1000.0);
-}
-
 #elif PLATFORM(EFL)
 
 double currentTime()
 {
     return ecore_time_unix_get();
+}
+
+#elif OS(QNX)
+
+double currentTime()
+{
+    struct timespec time;
+    if (clock_gettime(CLOCK_REALTIME, &time))
+        CRASH();
+    return time.tv_sec + time.tv_nsec / 1.0e9;
 }
 
 #else
@@ -314,20 +279,21 @@ double monotonicallyIncreasingTime()
     return ecore_time_get();
 }
 
-#elif PLATFORM(GTK)
+#elif USE(GLIB) && !PLATFORM(EFL)
 
 double monotonicallyIncreasingTime()
 {
     return static_cast<double>(g_get_monotonic_time() / 1000000.0);
 }
 
-#elif PLATFORM(QT)
+#elif OS(QNX)
 
 double monotonicallyIncreasingTime()
 {
-    ASSERT(QElapsedTimer::isMonotonic());
-    static QElapsedTimer timer;
-    return timer.nsecsElapsed() / 1.0e9;
+    struct timespec time;
+    if (clock_gettime(CLOCK_MONOTONIC, &time))
+        CRASH();
+    return time.tv_sec + time.tv_nsec / 1.0e9;
 }
 
 #else
@@ -344,23 +310,51 @@ double monotonicallyIncreasingTime()
 
 #endif
 
-#endif // !PLATFORM(CHROMIUM)
-
-void getLocalTime(const time_t* localTime, struct tm* localTM)
+double currentCPUTime()
 {
-#if COMPILER(MSVC7_OR_LOWER) || COMPILER(MINGW) || OS(WINCE)
-    *localTM = *localtime(localTime);
-#elif COMPILER(MSVC)
-    localtime_s(localTM, localTime);
+#if OS(DARWIN)
+    mach_msg_type_number_t infoCount = THREAD_BASIC_INFO_COUNT;
+    thread_basic_info_data_t info;
+
+    // Get thread information
+    mach_port_t threadPort = mach_thread_self();
+    thread_info(threadPort, THREAD_BASIC_INFO, reinterpret_cast<thread_info_t>(&info), &infoCount);
+    mach_port_deallocate(mach_task_self(), threadPort);
+    
+    double time = info.user_time.seconds + info.user_time.microseconds / 1000000.;
+    time += info.system_time.seconds + info.system_time.microseconds / 1000000.;
+    
+    return time;
+#elif OS(WINDOWS)
+    union {
+        FILETIME fileTime;
+        unsigned long long fileTimeAsLong;
+    } userTime, kernelTime;
+    
+    // GetThreadTimes won't accept null arguments so we pass these even though
+    // they're not used.
+    FILETIME creationTime, exitTime;
+    
+    GetThreadTimes(GetCurrentThread(), &creationTime, &exitTime, &kernelTime.fileTime, &userTime.fileTime);
+    
+    return userTime.fileTimeAsLong / 10000000. + kernelTime.fileTimeAsLong / 10000000.;
+#elif OS(QNX)
+    struct timespec time;
+    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time))
+        CRASH();
+    return time.tv_sec + time.tv_nsec / 1.0e9;
 #else
-    localtime_r(localTime, localTM);
+    // FIXME: We should return the time the current thread has spent executing.
+
+    // use a relative time from first call in order to avoid an overflow
+    static double firstTime = currentTime();
+    return currentTime() - firstTime;
 #endif
 }
 
-void getCurrentLocalTime(struct tm* localTM)
+double currentCPUTimeMS()
 {
-    time_t localTime = time(0);
-    getLocalTime(&localTime, localTM);
+    return currentCPUTime() * 1000;
 }
 
 } // namespace WTF

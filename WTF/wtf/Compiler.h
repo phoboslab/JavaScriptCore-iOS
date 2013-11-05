@@ -32,36 +32,42 @@
 /* COMPILER_SUPPORTS() - whether the compiler being used to build the project supports the given feature. */
 #define COMPILER_SUPPORTS(WTF_COMPILER_FEATURE) (defined WTF_COMPILER_SUPPORTS_##WTF_COMPILER_FEATURE  && WTF_COMPILER_SUPPORTS_##WTF_COMPILER_FEATURE)
 
+/* COMPILER_QUIRK() - whether the compiler being used to build the project requires a given quirk. */
+#define COMPILER_QUIRK(WTF_COMPILER_QUIRK) (defined WTF_COMPILER_QUIRK_##WTF_COMPILER_QUIRK  && WTF_COMPILER_QUIRK_##WTF_COMPILER_QUIRK)
+
 /* ==== COMPILER() - the compiler being used to build the project ==== */
 
 /* COMPILER(CLANG) - Clang  */
 #if defined(__clang__)
 #define WTF_COMPILER_CLANG 1
 
-#ifndef __has_extension
-#define __has_extension __has_feature /* Compatibility with older versions of clang */
-#endif
-
 /* Specific compiler features */
 #define WTF_COMPILER_SUPPORTS_CXX_VARIADIC_TEMPLATES __has_feature(cxx_variadic_templates)
 #define WTF_COMPILER_SUPPORTS_CXX_RVALUE_REFERENCES __has_feature(cxx_rvalue_references)
 #define WTF_COMPILER_SUPPORTS_CXX_DELETED_FUNCTIONS __has_feature(cxx_deleted_functions)
 #define WTF_COMPILER_SUPPORTS_CXX_NULLPTR __has_feature(cxx_nullptr)
+#define WTF_COMPILER_SUPPORTS_CXX_EXPLICIT_CONVERSIONS __has_feature(cxx_explicit_conversions)
 #define WTF_COMPILER_SUPPORTS_BLOCKS __has_feature(blocks)
-#define WTF_COMPILER_SUPPORTS_C_STATIC_ASSERT __has_extension(c_static_assert)
+#define WTF_COMPILER_SUPPORTS_C_STATIC_ASSERT __has_feature(c_static_assert)
+#define WTF_COMPILER_SUPPORTS_CXX_STATIC_ASSERT __has_feature(cxx_static_assert)
+#define WTF_COMPILER_SUPPORTS_CXX_OVERRIDE_CONTROL __has_feature(cxx_override_control)
+#define WTF_COMPILER_SUPPORTS_CXX_STRONG_ENUMS __has_feature(cxx_strong_enums)
+#define WTF_COMPILER_SUPPORTS_CXX_REFERENCE_QUALIFIED_FUNCTIONS __has_feature(cxx_reference_qualified_functions)
+#define WTF_COMPILER_SUPPORTS_CXX_AUTO_TYPE __has_feature(cxx_auto_type)
 
-#define WTF_COMPILER_SUPPORTS_HAS_TRIVIAL_DESTRUCTOR __has_extension(has_trivial_destructor)
+/* Disable final on versions of Apple clang earlier than 4.2 to avoid bugs like http://webkit.org/b/119165 */
+#if defined(__APPLE__) && (__clang_major__ < 4 || (__clang_major__ == 4 && __clang_minor__ < 2))
+#define WTF_COMPILER_QUIRK_FINAL_IS_BUGGY 1
+// #error "Please use a newer version of Xcode, this version has code generation bugs when using 'final' in C++ code"
+#endif
 
 #endif
 
 /* COMPILER(MSVC) - Microsoft Visual C++ */
-/* COMPILER(MSVC7_OR_LOWER) - Microsoft Visual C++ 2003 or lower*/
 /* COMPILER(MSVC9_OR_LOWER) - Microsoft Visual C++ 2008 or lower*/
 #if defined(_MSC_VER)
 #define WTF_COMPILER_MSVC 1
-#if _MSC_VER < 1400
-#define WTF_COMPILER_MSVC7_OR_LOWER 1
-#elif _MSC_VER < 1600
+#if _MSC_VER < 1600
 #define WTF_COMPILER_MSVC9_OR_LOWER 1
 #endif
 
@@ -70,10 +76,21 @@
 #define WTF_COMPILER_SUPPORTS_CXX_NULLPTR 1
 #endif
 
+#if !COMPILER(CLANG)
+#define WTF_COMPILER_SUPPORTS_CXX_OVERRIDE_CONTROL 1
+#define WTF_COMPILER_QUIRK_FINAL_IS_CALLED_SEALED 1
 #endif
 
+/* Check for VS2010 or newer */
+#if _MSC_VER >= 1600
+#define WTF_COMPILER_SUPPORTS_CXX_RVALUE_REFERENCES 1
+#define WTF_COMPILER_SUPPORTS_CXX_STATIC_ASSERT 1
+#define WTF_COMPILER_SUPPORTS_CXX_AUTO_TYPE 1
+#endif
+
+#endif /* defined(_MSC_VER) */
+
 /* COMPILER(RVCT) - ARM RealView Compilation Tools */
-/* COMPILER(RVCT4_OR_GREATER) - ARM RealView Compilation Tools 4.0 or greater */
 #if defined(__CC_ARM) || defined(__ARMCC__)
 #define WTF_COMPILER_RVCT 1
 #define RVCT_VERSION_AT_LEAST(major, minor, patch, build) (__ARMCC_VERSION >= (major * 100000 + minor * 10000 + patch * 1000 + build))
@@ -95,16 +112,45 @@
 #define WTF_COMPILER_GCC 1
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 #define GCC_VERSION_AT_LEAST(major, minor, patch) (GCC_VERSION >= (major * 10000 + minor * 100 + patch))
-
-/* Specific compiler features */
-#if !COMPILER(CLANG) && GCC_VERSION_AT_LEAST(4, 6, 0) && defined(__GXX_EXPERIMENTAL_CXX0X__)
-#define WTF_COMPILER_SUPPORTS_CXX_NULLPTR 1 
-#endif
-
 #else
 /* Define this for !GCC compilers, just so we can write things like GCC_VERSION_AT_LEAST(4, 1, 0). */
 #define GCC_VERSION_AT_LEAST(major, minor, patch) 0
 #endif
+
+/* Specific compiler features */
+#if COMPILER(GCC) && !COMPILER(CLANG)
+#if GCC_VERSION_AT_LEAST(4, 8, 0)
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+/* C11 support */
+#define WTF_COMPILER_SUPPORTS_C_STATIC_ASSERT 1
+#endif
+#if defined(__GXX_EXPERIMENTAL_CXX0X__) || (defined(__cplusplus) && __cplusplus >= 201103L)
+/* C++11 support */
+#if GCC_VERSION_AT_LEAST(4, 3, 0)
+#define WTF_COMPILER_SUPPORTS_CXX_RVALUE_REFERENCES 1
+#define WTF_COMPILER_SUPPORTS_CXX_STATIC_ASSERT 1
+#define WTF_COMPILER_SUPPORTS_CXX_VARIADIC_TEMPLATES 1
+#define WTF_COMPILER_SUPPORTS_CXX_AUTO_TYPE 1
+#endif
+#if GCC_VERSION_AT_LEAST(4, 4, 0)
+#define WTF_COMPILER_SUPPORTS_CXX_DELETED_FUNCTIONS 1
+#endif
+#if GCC_VERSION_AT_LEAST(4, 5, 0)
+#define WTF_COMPILER_SUPPORTS_CXX_EXPLICIT_CONVERSIONS 1
+#endif
+#if GCC_VERSION_AT_LEAST(4, 6, 0)
+#define WTF_COMPILER_SUPPORTS_CXX_NULLPTR 1
+/* Strong enums should work from gcc 4.4, but doesn't seem to support some operators */
+#define WTF_COMPILER_SUPPORTS_CXX_STRONG_ENUMS 1
+#endif
+#if GCC_VERSION_AT_LEAST(4, 7, 0)
+#define WTF_COMPILER_SUPPORTS_CXX_OVERRIDE_CONTROL 1
+#endif
+#endif /* defined(__GXX_EXPERIMENTAL_CXX0X__) || (defined(__cplusplus) && __cplusplus >= 201103L) */
+#endif /* COMPILER(GCC) */
 
 /* COMPILER(MINGW) - MinGW GCC */
 /* COMPILER(MINGW64) - mingw-w64 GCC - only used as additional check to exclude mingw.org specific functions */
@@ -126,8 +172,34 @@
 #define WTF_COMPILER_SUNCC 1
 #endif
 
+/* ABI */
+#if defined(__ARM_EABI__) || defined(__EABI__)
+#define WTF_COMPILER_SUPPORTS_EABI 1
+#endif
+
 /* ==== Compiler features ==== */
 
+/* Required C++11 features. We can remove these once they've been required for some time */
+
+#ifdef __cplusplus
+#if !COMPILER_SUPPORTS(CXX_RVALUE_REFERENCES)
+#error "Please use a compiler that supports C++11 rvalue references."
+#endif
+#if !COMPILER_SUPPORTS(CXX_STATIC_ASSERT)
+#error "Please use a compiler that supports C++11 static_assert."
+#endif
+#if !COMPILER_SUPPORTS(CXX_AUTO_TYPE)
+#error "Please use a compiler that supports C++11 auto."
+#endif
+#endif
+
+/* PURE_FUNCTION */
+
+#if COMPILER(GCC)
+#define PURE_FUNCTION __attribute__ ((__pure__))
+#else
+#define PURE_FUNCTION
+#endif
 
 /* ALWAYS_INLINE */
 
@@ -158,8 +230,8 @@
 /* UNLIKELY */
 
 #ifndef UNLIKELY
-#if COMPILER(GCC) || (RVCT_VERSION_AT_LEAST(3, 0, 0, 0) && defined(__GNUC__))
-#define UNLIKELY(x) __builtin_expect((x), 0)
+#if COMPILER(GCC) || (COMPILER(RVCT) && defined(__GNUC__))
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #else
 #define UNLIKELY(x) (x)
 #endif
@@ -169,8 +241,8 @@
 /* LIKELY */
 
 #ifndef LIKELY
-#if COMPILER(GCC) || (RVCT_VERSION_AT_LEAST(3, 0, 0, 0) && defined(__GNUC__))
-#define LIKELY(x) __builtin_expect((x), 1)
+#if COMPILER(GCC) || (COMPILER(RVCT) && defined(__GNUC__))
+#define LIKELY(x) __builtin_expect(!!(x), 1)
 #else
 #define LIKELY(x) (x)
 #endif
@@ -210,36 +282,39 @@
 #define WARN_UNUSED_RETURN
 #endif
 
-/* OVERRIDE */
+/* OVERRIDE and FINAL */
 
-#ifndef OVERRIDE
-#if COMPILER(CLANG)
-#if __has_extension(cxx_override_control)
+#if COMPILER_SUPPORTS(CXX_OVERRIDE_CONTROL)
 #define OVERRIDE override
-#endif
-#elif COMPILER(MSVC)
-#define OVERRIDE override
-#endif
-#endif
-
-#ifndef OVERRIDE
+#else
 #define OVERRIDE
 #endif
 
-/* FINAL */
-
-#ifndef FINAL
-#if COMPILER(CLANG)
-#if __has_extension(cxx_override_control)
+#if COMPILER_SUPPORTS(CXX_OVERRIDE_CONTROL) && !COMPILER_QUIRK(FINAL_IS_BUGGY)
+#if COMPILER_QUIRK(FINAL_IS_CALLED_SEALED)
+#define FINAL sealed
+#define final sealed
+#else
 #define FINAL final
 #endif
-#elif COMPILER(MSVC)
-#define FINAL sealed
-#endif
+#else
+#define FINAL
 #endif
 
-#ifndef FINAL
-#define FINAL
+#if COMPILER_SUPPORTS(CXX_DELETED_FUNCTIONS)
+#define WTF_DELETED_FUNCTION = delete
+#else
+#define WTF_DELETED_FUNCTION
+#endif
+
+/* REFERENCED_FROM_ASM */
+
+#ifndef REFERENCED_FROM_ASM
+#if COMPILER(GCC)
+#define REFERENCED_FROM_ASM __attribute__((used))
+#else
+#define REFERENCED_FROM_ASM
+#endif
 #endif
 
 /* OBJC_CLASS */
@@ -251,5 +326,31 @@
 #define OBJC_CLASS class
 #endif
 #endif
+
+/* UNUSED_PARAM */
+
+#if COMPILER(INTEL) && !(defined(WIN32) || defined(_WIN32)) || COMPILER(RVCT)
+template<typename T>
+inline void unusedParam(T& x) { (void)x; }
+#define UNUSED_PARAM(variable) unusedParam(variable)
+#elif COMPILER(MSVC)
+#define UNUSED_PARAM(variable) (void)&variable
+#else
+#define UNUSED_PARAM(variable) (void)variable
+#endif
+
+/* UNUSED_LABEL */
+
+/* This is to keep the compiler from complaining when for local labels are
+ declared but not referenced. For example, this can happen with code that
+ works with auto-generated code.
+ */
+#if COMPILER(MSVC)
+#define UNUSED_LABEL(label) if (false) goto label
+#else
+#define UNUSED_LABEL(label) UNUSED_PARAM(&& label)
+#endif
+
+
 
 #endif /* WTF_Compiler_h */

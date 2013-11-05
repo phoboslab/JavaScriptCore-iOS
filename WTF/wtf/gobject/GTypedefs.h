@@ -64,10 +64,18 @@ typedef union _GdkEvent GdkEvent;
 typedef struct _GTimer GTimer;
 typedef struct _GKeyFile GKeyFile;
 typedef struct _GPtrArray GPtrArray;
+typedef struct _GByteArray GByteArray;
+typedef struct _GBytes GBytes;
+typedef struct _GClosure GClosure;
 
 #if USE(CAIRO)
 typedef struct _cairo_surface cairo_surface_t;
 typedef struct _cairo_rectangle_int cairo_rectangle_int_t;
+#endif
+
+#if USE(CLUTTER)
+typedef struct _ClutterActor ClutterActor;
+typedef struct _GraphicsLayerActor GraphicsLayerActor;
 #endif
 
 #if PLATFORM(GTK)

@@ -35,11 +35,8 @@
 namespace JSC {
 
 class MacroAssemblerARMv7 : public AbstractMacroAssembler<ARMv7Assembler> {
-    // FIXME: switch dataTempRegister & addressTempRegister, or possibly use r7?
-    //        - dTR is likely used more than aTR, and we'll get better instruction
-    //        encoding if it's in the low 8 registers.
     static const RegisterID dataTempRegister = ARMRegisters::ip;
-    static const RegisterID addressTempRegister = ARMRegisters::r3;
+    static const RegisterID addressTempRegister = ARMRegisters::r6;
 
     static const ARMRegisters::FPDoubleRegisterID fpTempRegister = ARMRegisters::d7;
     inline ARMRegisters::FPSingleRegisterID fpTempRegisterAsSingle() { return ARMRegisters::asSingle(fpTempRegister); }
@@ -53,11 +50,17 @@ public:
     typedef ARMv7Assembler::LinkRecord LinkRecord;
     typedef ARMv7Assembler::JumpType JumpType;
     typedef ARMv7Assembler::JumpLinkType JumpLinkType;
-    // Magic number is the biggest useful offset we can get on ARMv7 with
-    // a LDR_imm_T2 encoding
-    static const int MaximumCompactPtrAlignedAddressOffset = 124;
-    
-    Vector<LinkRecord>& jumpsToLink() { return m_assembler.jumpsToLink(); }
+    typedef ARMv7Assembler::Condition Condition;
+
+    static const ARMv7Assembler::Condition DefaultCondition = ARMv7Assembler::ConditionInvalid;
+    static const ARMv7Assembler::JumpType DefaultJump = ARMv7Assembler::JumpNoConditionFixedSize;
+
+    static bool isCompactPtrAlignedAddressOffset(ptrdiff_t value)
+    {
+        return value >= -255 && value <= 255;
+    }
+
+    Vector<LinkRecord, 0, UnsafeVectorOverflow>& jumpsToLink() { return m_assembler.jumpsToLink(); }
     void* unlinkedCode() { return m_assembler.unlinkedCode(); }
     bool canCompact(JumpType jumpType) { return m_assembler.canCompact(jumpType); }
     JumpLinkType computeJumpType(JumpType jumpType, const uint8_t* from, const uint8_t* to) { return m_assembler.computeJumpType(jumpType, from, to); }
@@ -97,8 +100,6 @@ public:
     };
     
 public:
-    typedef ARMRegisters::FPDoubleRegisterID FPRegisterID;
-
     static const Scale ScalePtr = TimesFour;
 
     enum RelationalCondition {
@@ -117,6 +118,7 @@ public:
     enum ResultCondition {
         Overflow = ARMv7Assembler::ConditionVS,
         Signed = ARMv7Assembler::ConditionMI,
+        PositiveOrZero = ARMv7Assembler::ConditionPL,
         Zero = ARMv7Assembler::ConditionEQ,
         NonZero = ARMv7Assembler::ConditionNE
     };
@@ -139,6 +141,7 @@ public:
     };
 
     static const RegisterID stackPointerRegister = ARMRegisters::sp;
+    static const RegisterID framePointerRegister = ARMRegisters::fp;
     static const RegisterID linkRegister = ARMRegisters::lr;
 
     // Integer arithmetic operations:
@@ -156,6 +159,12 @@ public:
     void add32(TrustedImm32 imm, RegisterID dest)
     {
         add32(imm, dest, dest);
+    }
+    
+    void add32(AbsoluteAddress src, RegisterID dest)
+    {
+        load32(src.m_ptr, dataTempRegister);
+        add32(dataTempRegister, dest);
     }
 
     void add32(TrustedImm32 imm, RegisterID src, RegisterID dest)
@@ -255,6 +264,12 @@ public:
         and32(imm, dest, dest);
     }
 
+    void and32(Address src, RegisterID dest)
+    {
+        load32(src, dataTempRegister);
+        and32(dataTempRegister, dest);
+    }
+
     void countLeadingZeros32(RegisterID src, RegisterID dest)
     {
         m_assembler.clz(dest, src);
@@ -304,6 +319,14 @@ public:
     void or32(RegisterID src, RegisterID dest)
     {
         m_assembler.orr(dest, dest, src);
+    }
+    
+    void or32(RegisterID src, AbsoluteAddress dest)
+    {
+        move(TrustedImmPtr(dest.m_ptr), addressTempRegister);
+        load32(addressTempRegister, dataTempRegister);
+        or32(src, dataTempRegister);
+        store32(dataTempRegister, addressTempRegister);
     }
 
     void or32(TrustedImm32 imm, RegisterID dest)
@@ -600,6 +623,14 @@ public:
         move(TrustedImmPtr(address), addressTempRegister);
         m_assembler.ldr(dest, addressTempRegister, ARMThumbImmediate::makeUInt16(0));
     }
+    
+    ConvertibleLoadLabel convertibleLoadPtr(Address address, RegisterID dest)
+    {
+        ConvertibleLoadLabel result(this);
+        ASSERT(address.offset >= 0 && address.offset <= 255);
+        m_assembler.ldrWide8BitImmediate(dest, address.base, address.offset);
+        return result;
+    }
 
     void load8(ImplicitAddress address, RegisterID dest)
     {
@@ -608,7 +639,7 @@ public:
 
     void load8Signed(ImplicitAddress, RegisterID)
     {
-        unreachableForPlatform();
+        UNREACHABLE_FOR_PLATFORM();
     }
 
     void load8(BaseIndex address, RegisterID dest)
@@ -628,26 +659,16 @@ public:
         return label;
     }
     
-    // FIXME: we should be able to plant a compact load relative to/from any base/dest register.
     DataLabelCompact load32WithCompactAddressOffsetPatch(Address address, RegisterID dest)
     {
+        padBeforePatch();
+
         RegisterID base = address.base;
         
-        if (base >= ARMRegisters::r8) {
-            move(base, addressTempRegister);
-            base = addressTempRegister;
-        }
-
         DataLabelCompact label(this);
-        ASSERT(address.offset >= 0);
-        ASSERT(address.offset <= MaximumCompactPtrAlignedAddressOffset);
-        ASSERT(ARMThumbImmediate::makeUInt12(address.offset).isUInt7());
+        ASSERT(isCompactPtrAlignedAddressOffset(address.offset));
 
-        if (dest >= ARMRegisters::r8) {
-            m_assembler.ldrCompact(addressTempRegister, base, ARMThumbImmediate::makeUInt12(address.offset));
-            move(addressTempRegister, dest);
-        } else
-            m_assembler.ldrCompact(dest, base, ARMThumbImmediate::makeUInt12(address.offset));
+        m_assembler.ldr(dest, base, address.offset, true, false);
         return label;
     }
 
@@ -674,7 +695,7 @@ public:
     
     void load16Signed(ImplicitAddress, RegisterID)
     {
-        unreachableForPlatform();
+        UNREACHABLE_FOR_PLATFORM();
     }
 
     DataLabel32 store32WithAddressOffsetPatch(RegisterID src, Address address)
@@ -723,12 +744,35 @@ public:
         store8(src, setupArmAddress(address));
     }
     
+    void store8(RegisterID src, void* address)
+    {
+        move(TrustedImmPtr(address), addressTempRegister);
+        store8(src, ArmAddress(addressTempRegister, 0));
+    }
+    
+    void store8(TrustedImm32 imm, void* address)
+    {
+        move(imm, dataTempRegister);
+        store8(dataTempRegister, address);
+    }
+    
     void store16(RegisterID src, BaseIndex address)
     {
         store16(src, setupArmAddress(address));
     }
 
-#if ENABLE(JIT_CONSTANT_BLINDING)
+    // Possibly clobbers src, but not on this architecture.
+    void moveDoubleToInts(FPRegisterID src, RegisterID dest1, RegisterID dest2)
+    {
+        m_assembler.vmov(dest1, dest2, src);
+    }
+    
+    void moveIntsToDouble(RegisterID src1, RegisterID src2, FPRegisterID dest, FPRegisterID scratch)
+    {
+        UNUSED_PARAM(scratch);
+        m_assembler.vmov(dest, src1, src2);
+    }
+
     static bool shouldBlindForSpecificArch(uint32_t value)
     {
         ARMThumbImmediate immediate = ARMThumbImmediate::makeEncodedImm(value);
@@ -746,7 +790,6 @@ public:
         // be controlled by an attacker.
         return !immediate.isUInt12();
     }
-#endif
 
     // Floating-point operations:
 
@@ -1059,7 +1102,7 @@ public:
     // If the result is not representable as a 32 bit value, branch.
     // May also branch for some values that are representable in 32 bits
     // (specifically, in this case, 0).
-    void branchConvertDoubleToInt32(FPRegisterID src, RegisterID dest, JumpList& failureCases, FPRegisterID)
+    void branchConvertDoubleToInt32(FPRegisterID src, RegisterID dest, JumpList& failureCases, FPRegisterID, bool negZeroCheck = true)
     {
         m_assembler.vcvt_floatingPointToSigned(fpTempRegisterAsSingle(), src);
         m_assembler.vmov(dest, fpTempRegisterAsSingle());
@@ -1069,7 +1112,8 @@ public:
         failureCases.append(branchDouble(DoubleNotEqualOrUnordered, src, fpTempRegister));
 
         // If the result is zero, it might have been -0.0, and the double comparison won't catch this!
-        failureCases.append(branchTest32(Zero, dest));
+        if (negZeroCheck)
+            failureCases.append(branchTest32(Zero, dest));
     }
 
     Jump branchDoubleNonZero(FPRegisterID reg, FPRegisterID)
@@ -1135,20 +1179,16 @@ public:
     {
         uint32_t value = imm.m_value;
 
-        if (imm.m_isPointer)
-            moveFixedWidthEncoding(imm, dest);
-        else {
-            ARMThumbImmediate armImm = ARMThumbImmediate::makeEncodedImm(value);
+        ARMThumbImmediate armImm = ARMThumbImmediate::makeEncodedImm(value);
 
-            if (armImm.isValid())
-                m_assembler.mov(dest, armImm);
-            else if ((armImm = ARMThumbImmediate::makeEncodedImm(~value)).isValid())
-                m_assembler.mvn(dest, armImm);
-            else {
-                m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(value));
-                if (value & 0xffff0000)
-                    m_assembler.movt(dest, ARMThumbImmediate::makeUInt16(value >> 16));
-            }
+        if (armImm.isValid())
+            m_assembler.mov(dest, armImm);
+        else if ((armImm = ARMThumbImmediate::makeEncodedImm(~value)).isValid())
+            m_assembler.mvn(dest, armImm);
+        else {
+            m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(value));
+            if (value & 0xffff0000)
+                m_assembler.movt(dest, ARMThumbImmediate::makeUInt16(value >> 16));
         }
     }
 
@@ -1189,6 +1229,16 @@ public:
     void nop()
     {
         m_assembler.nop();
+    }
+    
+    static void replaceWithJump(CodeLocationLabel instructionStart, CodeLocationLabel destination)
+    {
+        ARMv7Assembler::replaceWithJump(instructionStart.dataLocation(), destination.dataLocation());
+    }
+    
+    static ptrdiff_t maxJumpReplacementSize()
+    {
+        return ARMv7Assembler::maxJumpReplacementSize();
     }
 
     // Forwards / external control flow operations:
@@ -1357,6 +1407,14 @@ public:
     {
         // use addressTempRegister incase the branchTest8 we call uses dataTempRegister. :-/
         load8(address, addressTempRegister);
+        return branchTest32(cond, addressTempRegister, mask);
+    }
+
+    Jump branchTest8(ResultCondition cond, AbsoluteAddress address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        // use addressTempRegister incase the branchTest8 we call uses dataTempRegister. :-/
+        move(TrustedImmPtr(address.m_ptr), addressTempRegister);
+        load8(Address(addressTempRegister), addressTempRegister);
         return branchTest32(cond, addressTempRegister, mask);
     }
 
@@ -1608,12 +1666,14 @@ public:
 
     ALWAYS_INLINE DataLabel32 moveWithPatch(TrustedImm32 imm, RegisterID dst)
     {
+        padBeforePatch();
         moveFixedWidthEncoding(imm, dst);
         return DataLabel32(this);
     }
 
     ALWAYS_INLINE DataLabelPtr moveWithPatch(TrustedImmPtr imm, RegisterID dst)
     {
+        padBeforePatch();
         moveFixedWidthEncoding(TrustedImm32(imm), dst);
         return DataLabelPtr(this);
     }
@@ -1630,6 +1690,30 @@ public:
         dataLabel = moveWithPatch(initialRightValue, dataTempRegister);
         return branch32(cond, addressTempRegister, dataTempRegister);
     }
+    
+    PatchableJump patchableBranchPtr(RelationalCondition cond, Address left, TrustedImmPtr right = TrustedImmPtr(0))
+    {
+        m_makeJumpPatchable = true;
+        Jump result = branch32(cond, left, TrustedImm32(right));
+        m_makeJumpPatchable = false;
+        return PatchableJump(result);
+    }
+    
+    PatchableJump patchableBranchTest32(ResultCondition cond, RegisterID reg, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        m_makeJumpPatchable = true;
+        Jump result = branchTest32(cond, reg, mask);
+        m_makeJumpPatchable = false;
+        return PatchableJump(result);
+    }
+
+    PatchableJump patchableBranch32(RelationalCondition cond, RegisterID reg, TrustedImm32 imm)
+    {
+        m_makeJumpPatchable = true;
+        Jump result = branch32(cond, reg, imm);
+        m_makeJumpPatchable = false;
+        return PatchableJump(result);
+    }
 
     PatchableJump patchableBranchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
     {
@@ -1641,6 +1725,7 @@ public:
 
     PatchableJump patchableJump()
     {
+        padBeforePatch();
         m_makeJumpPatchable = true;
         Jump result = jump();
         m_makeJumpPatchable = false;
@@ -1679,16 +1764,73 @@ public:
     {
         return FunctionPtr(reinterpret_cast<void(*)()>(ARMv7Assembler::readCallTarget(call.dataLocation())));
     }
+    
+    static bool canJumpReplacePatchableBranchPtrWithPatch() { return false; }
+    
+    static CodeLocationLabel startOfBranchPtrWithPatchOnRegister(CodeLocationDataLabelPtr label)
+    {
+        const unsigned twoWordOpSize = 4;
+        return label.labelAtOffset(-twoWordOpSize * 2);
+    }
+    
+    static void revertJumpReplacementToBranchPtrWithPatch(CodeLocationLabel instructionStart, RegisterID rd, void* initialValue)
+    {
+#if OS(LINUX) || OS(QNX)
+        ARMv7Assembler::revertJumpTo_movT3movtcmpT2(instructionStart.dataLocation(), rd, dataTempRegister, reinterpret_cast<uintptr_t>(initialValue));
+#else
+        UNUSED_PARAM(rd);
+        ARMv7Assembler::revertJumpTo_movT3(instructionStart.dataLocation(), dataTempRegister, ARMThumbImmediate::makeUInt16(reinterpret_cast<uintptr_t>(initialValue) & 0xffff));
+#endif
+    }
+    
+    static CodeLocationLabel startOfPatchableBranchPtrWithPatchOnAddress(CodeLocationDataLabelPtr)
+    {
+        UNREACHABLE_FOR_PLATFORM();
+        return CodeLocationLabel();
+    }
+    
+    static void revertJumpReplacementToPatchableBranchPtrWithPatch(CodeLocationLabel, Address, void*)
+    {
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+#if USE(MASM_PROBE)
+    struct CPUState {
+        #define DECLARE_REGISTER(_type, _regName) \
+            _type _regName;
+        FOR_EACH_CPU_REGISTER(DECLARE_REGISTER)
+        #undef DECLARE_REGISTER
+    };
+
+    struct ProbeContext;
+    typedef void (*ProbeFunction)(struct ProbeContext*);
+
+    struct ProbeContext {
+        ProbeFunction probeFunction;
+        void* arg1;
+        void* arg2;
+        CPUState cpu;
+
+        void dump(const char* indentation = 0);
+    private:
+        void dumpCPURegisters(const char* indentation);
+    };
+
+    // For details about probe(), see comment in MacroAssemblerX86_64.h.
+    void probe(ProbeFunction, void* arg1 = 0, void* arg2 = 0);
+#endif // USE(MASM_PROBE)
 
 protected:
     ALWAYS_INLINE Jump jump()
     {
+        m_assembler.label(); // Force nop-padding if we're in the middle of a watchpoint.
         moveFixedWidthEncoding(TrustedImm32(0), dataTempRegister);
         return Jump(m_assembler.bx(dataTempRegister), m_makeJumpPatchable ? ARMv7Assembler::JumpNoConditionFixedSize : ARMv7Assembler::JumpNoCondition);
     }
 
     ALWAYS_INLINE Jump makeBranch(ARMv7Assembler::Condition cond)
     {
+        m_assembler.label(); // Force nop-padding if we're in the middle of a watchpoint.
         m_assembler.it(cond, true, true);
         moveFixedWidthEncoding(TrustedImm32(0), dataTempRegister);
         return Jump(m_assembler.bx(dataTempRegister), m_makeJumpPatchable ? ARMv7Assembler::JumpConditionFixedSize : ARMv7Assembler::JumpCondition, cond);
@@ -1787,6 +1929,23 @@ private:
     {
         ARMv7Assembler::relinkCall(call.dataLocation(), destination.executableAddress());
     }
+
+#if USE(MASM_PROBE)
+    inline TrustedImm32 trustedImm32FromPtr(void* ptr)
+    {
+        return TrustedImm32(TrustedImmPtr(ptr));
+    }
+
+    inline TrustedImm32 trustedImm32FromPtr(ProbeFunction function)
+    {
+        return TrustedImm32(TrustedImmPtr(reinterpret_cast<void*>(function)));
+    }
+
+    inline TrustedImm32 trustedImm32FromPtr(void (*function)())
+    {
+        return TrustedImm32(TrustedImmPtr(reinterpret_cast<void*>(function)));
+    }
+#endif
 
     bool m_makeJumpPatchable;
 };

@@ -36,33 +36,35 @@ namespace JSC {
     public:
         typedef JSNonFinalObject Base;
 
-        static JSONObject* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
+        static JSONObject* create(VM& vm, Structure* structure)
         {
-            JSONObject* object = new (NotNull, allocateCell<JSONObject>(*exec->heap())) JSONObject(globalObject, structure);
-            object->finishCreation(globalObject);
+            JSONObject* object = new (NotNull, allocateCell<JSONObject>(vm.heap)) JSONObject(vm, structure);
+            object->finishCreation(vm);
             return object;
         }
         
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
         {
-            return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+            return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
         }
         
-        static const ClassInfo s_info;
+        DECLARE_INFO;
 
     protected:
-        void finishCreation(JSGlobalObject*);
+        void finishCreation(VM&);
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | JSObject::StructureFlags;
 
     private:
-        JSONObject(JSGlobalObject*, Structure*);
-        static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier&, PropertySlot&);
-        static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&);
+        JSONObject(VM&, Structure*);
+        static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
 
     };
 
-    UString JSONStringify(ExecState* exec, JSValue value, unsigned indent);
+    JS_EXPORT_PRIVATE JSValue JSONParse(ExecState*, const String&);
+    String JSONStringify(ExecState*, JSValue, unsigned indent);
 
+    void escapeStringToBuilder(StringBuilder&, const String&);
+    
 } // namespace JSC
 
 #endif // JSONObject_h

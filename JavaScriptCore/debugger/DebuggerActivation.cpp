@@ -27,63 +27,57 @@
 #include "DebuggerActivation.h"
 
 #include "JSActivation.h"
+#include "Operations.h"
 
 namespace JSC {
 
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(DebuggerActivation);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(DebuggerActivation);
 
 const ClassInfo DebuggerActivation::s_info = { "DebuggerActivation", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(DebuggerActivation) };
 
-DebuggerActivation::DebuggerActivation(JSGlobalData& globalData)
-    : JSNonFinalObject(globalData, globalData.debuggerActivationStructure.get())
+DebuggerActivation::DebuggerActivation(VM& vm)
+    : JSNonFinalObject(vm, vm.debuggerActivationStructure.get())
 {
 }
 
-void DebuggerActivation::finishCreation(JSGlobalData& globalData, JSObject* activation)
+void DebuggerActivation::finishCreation(VM& vm, JSObject* activation)
 {
-    Base::finishCreation(globalData);
+    Base::finishCreation(vm);
     ASSERT(activation);
     ASSERT(activation->isActivationObject());
-    m_activation.set(globalData, this, jsCast<JSActivation*>(activation));
+    m_activation.set(vm, this, jsCast<JSActivation*>(activation));
 }
 
 void DebuggerActivation::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     DebuggerActivation* thisObject = jsCast<DebuggerActivation*>(cell);
-    ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
     ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
-    JSObject::visitChildren(thisObject, visitor);
 
-    if (thisObject->m_activation)
-        visitor.append(&thisObject->m_activation);
+    JSObject::visitChildren(thisObject, visitor);
+    visitor.append(&thisObject->m_activation);
 }
 
-UString DebuggerActivation::className(const JSObject* object)
+String DebuggerActivation::className(const JSObject* object)
 {
     const DebuggerActivation* thisObject = jsCast<const DebuggerActivation*>(object);
     return thisObject->m_activation->methodTable()->className(thisObject->m_activation.get());
 }
 
-bool DebuggerActivation::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+bool DebuggerActivation::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
-    DebuggerActivation* thisObject = jsCast<DebuggerActivation*>(cell);
+    DebuggerActivation* thisObject = jsCast<DebuggerActivation*>(object);
     return thisObject->m_activation->methodTable()->getOwnPropertySlot(thisObject->m_activation.get(), exec, propertyName, slot);
 }
 
-void DebuggerActivation::put(JSCell* cell, ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
+void DebuggerActivation::put(JSCell* cell, ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
 {
     DebuggerActivation* thisObject = jsCast<DebuggerActivation*>(cell);
     thisObject->m_activation->methodTable()->put(thisObject->m_activation.get(), exec, propertyName, value, slot);
 }
 
-void DebuggerActivation::putDirectVirtual(JSObject* object, ExecState* exec, const Identifier& propertyName, JSValue value, unsigned attributes)
-{
-    DebuggerActivation* thisObject = jsCast<DebuggerActivation*>(object);
-    thisObject->m_activation->methodTable()->putDirectVirtual(thisObject->m_activation.get(), exec, propertyName, value, attributes);
-}
-
-bool DebuggerActivation::deleteProperty(JSCell* cell, ExecState* exec, const Identifier& propertyName)
+bool DebuggerActivation::deleteProperty(JSCell* cell, ExecState* exec, PropertyName propertyName)
 {
     DebuggerActivation* thisObject = jsCast<DebuggerActivation*>(cell);
     return thisObject->m_activation->methodTable()->deleteProperty(thisObject->m_activation.get(), exec, propertyName);
@@ -95,13 +89,7 @@ void DebuggerActivation::getOwnPropertyNames(JSObject* object, ExecState* exec, 
     thisObject->m_activation->methodTable()->getPropertyNames(thisObject->m_activation.get(), exec, propertyNames, mode);
 }
 
-bool DebuggerActivation::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
-{
-    DebuggerActivation* thisObject = jsCast<DebuggerActivation*>(object);
-    return thisObject->m_activation->methodTable()->getOwnPropertyDescriptor(thisObject->m_activation.get(), exec, propertyName, descriptor);
-}
-
-bool DebuggerActivation::defineOwnProperty(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor, bool shouldThrow)
+bool DebuggerActivation::defineOwnProperty(JSObject* object, ExecState* exec, PropertyName propertyName, const PropertyDescriptor& descriptor, bool shouldThrow)
 {
     DebuggerActivation* thisObject = jsCast<DebuggerActivation*>(object);
     return thisObject->m_activation->methodTable()->defineOwnProperty(thisObject->m_activation.get(), exec, propertyName, descriptor, shouldThrow);

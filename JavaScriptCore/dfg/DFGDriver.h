@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,24 +26,30 @@
 #ifndef DFGDriver_h
 #define DFGDriver_h
 
+#include "CallFrame.h"
+#include "DFGCompilationMode.h"
+#include "DFGPlan.h"
 #include <wtf/Platform.h>
 
 namespace JSC {
 
 class CodeBlock;
 class JITCode;
-class JSGlobalData;
 class MacroAssemblerCodePtr;
+class VM;
 
 namespace DFG {
 
-#if ENABLE(DFG_JIT)
-bool tryCompile(JSGlobalData&, CodeBlock*, JITCode&);
-bool tryCompileFunction(JSGlobalData&, CodeBlock*, JITCode&, MacroAssemblerCodePtr& jitCodeWithArityCheck);
-#else
-inline bool tryCompile(JSGlobalData&, CodeBlock*, JITCode&) { return false; }
-inline bool tryCompileFunction(JSGlobalData&, CodeBlock*, JITCode&, MacroAssemblerCodePtr&) { return false; }
-#endif
+class Worklist;
+
+JS_EXPORT_PRIVATE unsigned getNumCompilations();
+
+// If the worklist is non-null, we do a concurrent compile. Otherwise we do a synchronous
+// compile. Even if we do a synchronous compile, we call the callback with the result.
+CompilationResult compile(
+    VM&, CodeBlock*, CompilationMode, unsigned osrEntryBytecodeIndex,
+    const Operands<JSValue>& mustHandleValues,
+    PassRefPtr<DeferredCompilationCallback>, Worklist*);
 
 } } // namespace JSC::DFG
 

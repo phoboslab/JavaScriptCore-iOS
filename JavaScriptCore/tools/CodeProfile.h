@@ -33,6 +33,7 @@
 namespace JSC {
 
 class CodeProfile {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CodeProfile(const SourceCode& source, CodeProfile* parent)
         : m_file(source.provider()->url().utf8())
@@ -81,7 +82,7 @@ private:
     CString m_file;
     unsigned m_lineNo;
     CodeProfile* m_parent;
-    Vector< OwnPtr<CodeProfile> > m_children;
+    Vector< OwnPtr<CodeProfile>> m_children;
     TieredMMapArray<CodeRecord> m_samples;
 
     static const char* s_codeTypeNames[NumberOfCodeTypes];

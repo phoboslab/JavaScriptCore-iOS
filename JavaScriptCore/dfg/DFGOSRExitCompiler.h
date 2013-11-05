@@ -30,7 +30,8 @@
 
 #if ENABLE(DFG_JIT)
 
-#include "DFGAssemblyHelpers.h"
+#include "AssemblyHelpers.h"
+#include "CCallHelpers.h"
 #include "DFGOSRExit.h"
 #include "DFGOperations.h"
 
@@ -42,12 +43,12 @@ namespace DFG {
 
 class OSRExitCompiler {
 public:
-    OSRExitCompiler(AssemblyHelpers& jit)
+    OSRExitCompiler(CCallHelpers& jit)
         : m_jit(jit)
     {
     }
     
-    void compileExit(const OSRExit&, SpeculationRecovery*);
+    void compileExit(const OSRExit&, const Operands<ValueRecovery>&, SpeculationRecovery*);
 
 private:
 #if !ASSERT_DISABLED
@@ -70,14 +71,12 @@ private:
         return result;
     }
     
-    void handleExitCounts(const OSRExit&);
-    
-    AssemblyHelpers& m_jit;
+    CCallHelpers& m_jit;
     Vector<unsigned> m_poisonScratchIndices;
 };
 
 extern "C" {
-void DFG_OPERATION compileOSRExit(ExecState*);
+void JIT_OPERATION compileOSRExit(ExecState*) WTF_INTERNAL;
 }
 
 } } // namespace JSC::DFG

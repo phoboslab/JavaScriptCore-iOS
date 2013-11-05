@@ -31,51 +31,36 @@
 #include "CallFrame.h"
 #include "CodeBlock.h"
 #include "Instruction.h"
-#include "JITExceptions.h"
 #include "LLIntCommon.h"
 #include "LowLevelInterpreter.h"
+#include "Operations.h"
 
 namespace JSC { namespace LLInt {
 
-void interpreterThrowInCaller(ExecState* exec, ReturnAddressPtr pc)
-{
-    JSGlobalData* globalData = &exec->globalData();
-    NativeCallFrameTracer tracer(globalData, exec);
-#if LLINT_SLOW_PATH_TRACING
-    dataLog("Throwing exception %s.\n", globalData->exception.description());
-#endif
-    genericThrow(
-        globalData, exec, globalData->exception,
-        exec->codeBlock()->bytecodeOffset(exec, pc));
-}
-
 Instruction* returnToThrowForThrownException(ExecState* exec)
 {
-    return exec->globalData().llintData.exceptionInstructions();
+    UNUSED_PARAM(exec);
+    return LLInt::exceptionInstructions();
 }
 
-Instruction* returnToThrow(ExecState* exec, Instruction* pc)
+Instruction* returnToThrow(ExecState* exec)
 {
-    JSGlobalData* globalData = &exec->globalData();
-    NativeCallFrameTracer tracer(globalData, exec);
+    UNUSED_PARAM(exec);
 #if LLINT_SLOW_PATH_TRACING
-    dataLog("Throwing exception %s (returnToThrow).\n", globalData->exception.description());
+    VM* vm = &exec->vm();
+    dataLog("Throwing exception ", vm->exception(), " (returnToThrow).\n");
 #endif
-    genericThrow(globalData, exec, globalData->exception, pc - exec->codeBlock()->instructions().begin());
-    
-    return globalData->llintData.exceptionInstructions();
+    return LLInt::exceptionInstructions();
 }
 
-void* callToThrow(ExecState* exec, Instruction* pc)
+void* callToThrow(ExecState* exec)
 {
-    JSGlobalData* globalData = &exec->globalData();
-    NativeCallFrameTracer tracer(globalData, exec);
+    UNUSED_PARAM(exec);
 #if LLINT_SLOW_PATH_TRACING
-    dataLog("Throwing exception %s (callToThrow).\n", globalData->exception.description());
+    VM* vm = &exec->vm();
+    dataLog("Throwing exception ", vm->exception(), " (callToThrow).\n");
 #endif
-    genericThrow(globalData, exec, globalData->exception, pc - exec->codeBlock()->instructions().begin());
-    
-    return bitwise_cast<void*>(&llint_throw_during_call_trampoline);
+    return LLInt::getCodePtr(llint_throw_during_call_trampoline);
 }
 
 } } // namespace JSC::LLInt

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,26 +30,59 @@
 
 #include "CallFrame.h"
 #include "CodeBlock.h"
+#include "DFGJITCode.h"
 #include "DFGNode.h"
 #include "JIT.h"
+#include "Operations.h"
 
 namespace JSC { namespace DFG {
 
 void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIndex)
 {
-#if DFG_ENABLE(OSR_ENTRY)
-    ASSERT(codeBlock->getJITType() == JITCode::DFGJIT);
+    ASSERT(JITCode::isOptimizingJIT(codeBlock->jitType()));
     ASSERT(codeBlock->alternative());
-    ASSERT(codeBlock->alternative()->getJITType() == JITCode::BaselineJIT);
+    ASSERT(codeBlock->alternative()->jitType() == JITCode::BaselineJIT);
     ASSERT(!codeBlock->jitCodeMap());
-    ASSERT(codeBlock->numberOfDFGOSREntries());
 
-#if ENABLE(JIT_VERBOSE_OSR)
-    dataLog("OSR in %p(%p) from bc#%u\n", codeBlock, codeBlock->alternative(), bytecodeIndex);
-#endif
+    if (Options::verboseOSR()) {
+        dataLog(
+            "DFG OSR in ", *codeBlock->alternative(), " -> ", *codeBlock,
+            " from bc#", bytecodeIndex, "\n");
+    }
     
-    JSGlobalData* globalData = &exec->globalData();
-    OSREntryData* entry = codeBlock->dfgOSREntryDataForBytecodeIndex(bytecodeIndex);
+    VM* vm = &exec->vm();
+    if (codeBlock->jitType() != JITCode::DFGJIT) {
+        RELEASE_ASSERT(codeBlock->jitType() == JITCode::FTLJIT);
+        
+        // When will this happen? We could have:
+        //
+        // - An exit from the FTL JIT into the baseline JIT followed by an attempt
+        //   to reenter. We're fine with allowing this to fail. If it happens
+        //   enough we'll just reoptimize. It basically means that the OSR exit cost
+        //   us dearly and so reoptimizing is the right thing to do.
+        //
+        // - We have recursive code with hot loops. Consider that foo has a hot loop
+        //   that calls itself. We have two foo's on the stack, lets call them foo1
+        //   and foo2, with foo1 having called foo2 from foo's hot loop. foo2 gets
+        //   optimized all the way into the FTL. Then it returns into foo1, and then
+        //   foo1 wants to get optimized. It might reach this conclusion from its
+        //   hot loop and attempt to OSR enter. And we'll tell it that it can't. It
+        //   might be worth addressing this case, but I just think this case will
+        //   be super rare. For now, if it does happen, it'll cause some compilation
+        //   thrashing.
+        
+        if (Options::verboseOSR())
+            dataLog("    OSR failed because the target code block is not DFG.\n");
+        return 0;
+    }
+    
+    OSREntryData* entry = codeBlock->jitCode()->dfg()->osrEntryDataForBytecodeIndex(bytecodeIndex);
+    
+    if (!entry) {
+        if (Options::verboseOSR())
+            dataLogF("    OSR failed because the entrypoint was optimized out.\n");
+        return 0;
+    }
     
     ASSERT(entry->m_bytecodeIndex == bytecodeIndex);
     
@@ -79,11 +112,11 @@ void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIn
     
     for (size_t argument = 0; argument < entry->m_expectedValues.numberOfArguments(); ++argument) {
         if (argument >= exec->argumentCountIncludingThis()) {
-#if ENABLE(JIT_VERBOSE_OSR)
-            dataLog("    OSR failed because argument %zu was not passed, expected ", argument);
-            entry->m_expectedValues.argument(argument).dump(WTF::dataFile());
-            dataLog(".\n");
-#endif
+            if (Options::verboseOSR()) {
+                dataLogF("    OSR failed because argument %zu was not passed, expected ", argument);
+                entry->m_expectedValues.argument(argument).dump(WTF::dataFile());
+                dataLogF(".\n");
+            }
             return 0;
         }
         
@@ -94,31 +127,47 @@ void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIn
             value = exec->argument(argument - 1);
         
         if (!entry->m_expectedValues.argument(argument).validate(value)) {
-#if ENABLE(JIT_VERBOSE_OSR)
-            dataLog("    OSR failed because argument %zu is %s, expected ", argument, value.description());
-            entry->m_expectedValues.argument(argument).dump(WTF::dataFile());
-            dataLog(".\n");
-#endif
+            if (Options::verboseOSR()) {
+                dataLog(
+                    "    OSR failed because argument ", argument, " is ", value,
+                    ", expected ", entry->m_expectedValues.argument(argument), ".\n");
+            }
             return 0;
         }
     }
     
     for (size_t local = 0; local < entry->m_expectedValues.numberOfLocals(); ++local) {
+        int localOffset = virtualRegisterForLocal(local).offset();
         if (entry->m_localsForcedDouble.get(local)) {
-            if (!exec->registers()[local].jsValue().isNumber()) {
-#if ENABLE(JIT_VERBOSE_OSR)
-                dataLog("    OSR failed because variable %zu is %s, expected number.\n", local, exec->registers()[local].jsValue().description());
-#endif
+            if (!exec->registers()[localOffset].jsValue().isNumber()) {
+                if (Options::verboseOSR()) {
+                    dataLog(
+                        "    OSR failed because variable ", localOffset, " is ",
+                        exec->registers()[localOffset].jsValue(), ", expected number.\n");
+                }
                 return 0;
             }
             continue;
         }
-        if (!entry->m_expectedValues.local(local).validate(exec->registers()[local].jsValue())) {
-#if ENABLE(JIT_VERBOSE_OSR)
-            dataLog("    OSR failed because variable %zu is %s, expected ", local, exec->registers()[local].jsValue().description());
-            entry->m_expectedValues.local(local).dump(WTF::dataFile());
-            dataLog(".\n");
-#endif
+        if (entry->m_localsForcedMachineInt.get(local)) {
+            if (!exec->registers()[localOffset].jsValue().isMachineInt()) {
+                if (Options::verboseOSR()) {
+                    dataLog(
+                        "    OSR failed because variable ", localOffset, " is ",
+                        exec->registers()[localOffset].jsValue(), ", expected ",
+                        "machine int.\n");
+                }
+                return 0;
+            }
+            continue;
+        }
+        if (!entry->m_expectedValues.local(local).validate(exec->registers()[localOffset].jsValue())) {
+            if (Options::verboseOSR()) {
+                dataLog(
+                    "    OSR failed because variable ", localOffset, " is ",
+                    exec->registers()[localOffset].jsValue(), ", expected ",
+                    entry->m_expectedValues.local(local), ".\n");
+            }
             return 0;
         }
     }
@@ -130,42 +179,44 @@ void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIn
     //    it seems silly: you'd be diverting the program to error handling when it
     //    would have otherwise just kept running albeit less quickly.
     
-    if (!globalData->interpreter->registerFile().grow(&exec->registers()[codeBlock->m_numCalleeRegisters])) {
-#if ENABLE(JIT_VERBOSE_OSR)
-        dataLog("    OSR failed because stack growth failed.\n");
-#endif
+    if (!vm->interpreter->stack().grow(&exec->registers()[virtualRegisterForLocal(codeBlock->m_numCalleeRegisters).offset()])) {
+        if (Options::verboseOSR())
+            dataLogF("    OSR failed because stack growth failed.\n");
         return 0;
     }
     
-#if ENABLE(JIT_VERBOSE_OSR)
-    dataLog("    OSR should succeed.\n");
-#endif
+    if (Options::verboseOSR())
+        dataLogF("    OSR should succeed.\n");
     
     // 3) Perform data format conversions.
     for (size_t local = 0; local < entry->m_expectedValues.numberOfLocals(); ++local) {
         if (entry->m_localsForcedDouble.get(local))
-            *bitwise_cast<double*>(exec->registers() + local) = exec->registers()[local].jsValue().asNumber();
+            *bitwise_cast<double*>(exec->registers() + virtualRegisterForLocal(local).offset()) = exec->registers()[virtualRegisterForLocal(local).offset()].jsValue().asNumber();
+        if (entry->m_localsForcedMachineInt.get(local))
+            *bitwise_cast<int64_t*>(exec->registers() + virtualRegisterForLocal(local).offset()) = exec->registers()[virtualRegisterForLocal(local).offset()].jsValue().asMachineInt() << JSValue::int52ShiftAmount;
     }
     
-    // 4) Fix the call frame.
+    // 4) Reshuffle those registers that need reshuffling.
+    
+    Vector<EncodedJSValue> temporaryLocals(entry->m_reshufflings.size());
+    EncodedJSValue* registers = bitwise_cast<EncodedJSValue*>(exec->registers());
+    for (unsigned i = entry->m_reshufflings.size(); i--;)
+        temporaryLocals[i] = registers[entry->m_reshufflings[i].fromOffset];
+    for (unsigned i = entry->m_reshufflings.size(); i--;)
+        registers[entry->m_reshufflings[i].toOffset] = temporaryLocals[i];
+    
+    // 5) Fix the call frame.
     
     exec->setCodeBlock(codeBlock);
     
-    // 5) Find and return the destination machine code address.
+    // 6) Find and return the destination machine code address.
     
-    void* result = codeBlock->getJITCode().executableAddressAtOffset(entry->m_machineCodeOffset);
+    void* result = codeBlock->jitCode()->executableAddressAtOffset(entry->m_machineCodeOffset);
     
-#if ENABLE(JIT_VERBOSE_OSR)
-    dataLog("    OSR returning machine code address %p.\n", result);
-#endif
+    if (Options::verboseOSR())
+        dataLogF("    OSR returning machine code address %p.\n", result);
     
     return result;
-#else // DFG_ENABLE(OSR_ENTRY)
-    UNUSED_PARAM(exec);
-    UNUSED_PARAM(codeBlock);
-    UNUSED_PARAM(bytecodeIndex);
-    return 0;
-#endif
 }
 
 } } // namespace JSC::DFG

@@ -26,146 +26,113 @@
 #ifndef WeakGCMap_h
 #define WeakGCMap_h
 
-#include "Handle.h"
-#include "JSGlobalData.h"
+#include "Weak.h"
+#include "WeakInlines.h"
 #include <wtf/HashMap.h>
 
 namespace JSC {
 
-// A HashMap for GC'd values that removes entries when the associated value
-// dies.
-template <typename KeyType, typename MappedType> struct DefaultWeakGCMapFinalizerCallback {
-    static void* finalizerContextFor(KeyType key)
-    {
-        return reinterpret_cast<void*>(key);
-    }
+// A HashMap with Weak<JSCell> values, which automatically removes values once they're garbage collected.
 
-    static KeyType keyForFinalizer(void* context, typename HandleTypes<MappedType>::ExternalType)
-    {
-        return reinterpret_cast<KeyType>(context);
-    }
-};
-
-template<typename KeyType, typename MappedType, typename FinalizerCallback = DefaultWeakGCMapFinalizerCallback<KeyType, MappedType>, typename HashArg = typename DefaultHash<KeyType>::Hash, typename KeyTraitsArg = HashTraits<KeyType> >
-class WeakGCMap : private WeakHandleOwner {
-    WTF_MAKE_FAST_ALLOCATED;
-    WTF_MAKE_NONCOPYABLE(WeakGCMap);
-
-    typedef HashMap<KeyType, WeakImpl*, HashArg, KeyTraitsArg> MapType;
-    typedef typename HandleTypes<MappedType>::ExternalType ExternalType;
-    typedef typename MapType::iterator map_iterator;
+template<typename KeyArg, typename ValueArg, typename HashArg = typename DefaultHash<KeyArg>::Hash,
+    typename KeyTraitsArg = HashTraits<KeyArg>>
+class WeakGCMap {
+    typedef Weak<ValueArg> ValueType;
+    typedef HashMap<KeyArg, ValueType, HashArg, KeyTraitsArg> HashMapType;
 
 public:
-
-    struct iterator {
-        friend class WeakGCMap;
-        iterator(map_iterator iter)
-            : m_iterator(iter)
-        {
-        }
-        
-        std::pair<KeyType, ExternalType> get() const { return std::make_pair(m_iterator->first, HandleTypes<MappedType>::getFromSlot(const_cast<JSValue*>(&m_iterator->second->jsValue()))); }
-        
-        iterator& operator++() { ++m_iterator; return *this; }
-        
-        // postfix ++ intentionally omitted
-        
-        // Comparison.
-        bool operator==(const iterator& other) const { return m_iterator == other.m_iterator; }
-        bool operator!=(const iterator& other) const { return m_iterator != other.m_iterator; }
-        
-    private:
-        map_iterator m_iterator;
-    };
-
-    typedef WTF::HashTableAddResult<iterator> AddResult;
+    typedef typename HashMapType::KeyType KeyType;
+    typedef typename HashMapType::AddResult AddResult;
+    typedef typename HashMapType::iterator iterator;
+    typedef typename HashMapType::const_iterator const_iterator;
 
     WeakGCMap()
+        : m_gcThreshold(minGCThreshold)
     {
     }
 
-    bool isEmpty() { return m_map.isEmpty(); }
+    ValueArg* get(const KeyType& key) const
+    {
+        return m_map.get(key);
+    }
+
+    AddResult set(const KeyType& key, ValueType value)
+    {
+        gcMapIfNeeded();
+        return m_map.set(key, std::move(value));
+    }
+
+    AddResult add(const KeyType& key, ValueType value)
+    {
+        gcMapIfNeeded();
+        AddResult addResult = m_map.add(key, nullptr);
+        if (!addResult.iterator->value) { // New value or found a zombie value.
+            addResult.isNewEntry = true;
+            addResult.iterator->value = std::move(value);
+        }
+        return addResult;
+    }
+
+    bool remove(const KeyType& key)
+    {
+        return m_map.remove(key);
+    }
+
     void clear()
     {
-        map_iterator end = m_map.end();
-        for (map_iterator ptr = m_map.begin(); ptr != end; ++ptr)
-            WeakSet::deallocate(ptr->second);
         m_map.clear();
-    }
-
-    bool contains(const KeyType& key) const
-    {
-        return m_map.contains(key);
     }
 
     iterator find(const KeyType& key)
     {
-        return m_map.find(key);
+        iterator it = m_map.find(key);
+        iterator end = m_map.end();
+        if (it != end && !it->value) // Found a zombie value.
+            return end;
+        return it;
     }
 
-    void remove(iterator iter)
+    const_iterator find(const KeyType& key) const
     {
-        ASSERT(iter.m_iterator != m_map.end());
-        WeakImpl* impl = iter.m_iterator->second;
-        ASSERT(impl);
-        WeakSet::deallocate(impl);
-        m_map.remove(iter.m_iterator);
+        return const_cast<WeakGCMap*>(this)->find(key);
     }
 
-    ExternalType get(const KeyType& key) const
+    bool contains(const KeyType& key) const
     {
-        return HandleTypes<MappedType>::getFromSlot(const_cast<JSValue*>(&m_map.get(key)->jsValue()));
+        return find(key) != m_map.end();
     }
 
-    AddResult add(JSGlobalData&, const KeyType& key, ExternalType value)
-    {
-        typename MapType::AddResult result = m_map.add(key, 0);
-        if (result.isNewEntry)
-            result.iterator->second = WeakSet::allocate(value, this, FinalizerCallback::finalizerContextFor(key));
-
-        // WeakGCMap exposes a different iterator, so we need to wrap it and create our own AddResult.
-        return AddResult(iterator(result.iterator), result.isNewEntry);
-    }
-
-    void set(JSGlobalData& globalData, const KeyType& key, ExternalType value)
-    {
-        ASSERT_UNUSED(globalData, globalData.apiLock().currentThreadIsHoldingLock());
-        typename MapType::AddResult result = m_map.add(key, 0);
-        if (!result.isNewEntry)
-            WeakSet::deallocate(result.iterator->second);
-        result.iterator->second = WeakSet::allocate(value, this, FinalizerCallback::finalizerContextFor(key));
-    }
-
-    ExternalType take(const KeyType& key)
-    {
-        WeakImpl* impl = m_map.take(key);
-        if (!impl)
-            return HashTraits<ExternalType>::emptyValue();
-        ExternalType result = HandleTypes<MappedType>::getFromSlot(const_cast<JSValue*>(&impl->jsValue()));
-        WeakSet::deallocate(impl);
-        return result;
-    }
-
-    size_t size() { return m_map.size(); }
-
-    iterator begin() { return iterator(m_map.begin()); }
-    iterator end() { return iterator(m_map.end()); }
-    
-    ~WeakGCMap()
-    {
-        clear();
-    }
-    
 private:
-    virtual void finalize(Handle<Unknown> handle, void* context)
+    static const int minGCThreshold = 3;
+
+    void gcMap()
     {
-        WeakImpl* impl = m_map.take(FinalizerCallback::keyForFinalizer(context, HandleTypes<MappedType>::getFromSlot(handle.slot())));
-        ASSERT(impl);
-        WeakSet::deallocate(impl);
+        Vector<KeyType, 4> zombies;
+
+        for (iterator it = m_map.begin(), end = m_map.end(); it != end; ++it) {
+            if (!it->value)
+                zombies.append(it->key);
+        }
+
+        for (size_t i = 0; i < zombies.size(); ++i)
+            m_map.remove(zombies[i]);
     }
 
-    MapType m_map;
+    void gcMapIfNeeded()
+    {
+        if (m_map.size() < m_gcThreshold)
+            return;
+
+        gcMap();
+        m_gcThreshold = std::max(minGCThreshold, m_map.size() * 2 - 1);
+    }
+
+    HashMapType m_map;
+    int m_gcThreshold;
 };
+
+template<typename KeyArg, typename RawMappedArg, typename HashArg, typename KeyTraitsArg>
+const int WeakGCMap<KeyArg, RawMappedArg, HashArg, KeyTraitsArg>::minGCThreshold;
 
 } // namespace JSC
 

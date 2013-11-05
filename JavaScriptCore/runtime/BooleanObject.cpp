@@ -21,22 +21,24 @@
 #include "config.h"
 #include "BooleanObject.h"
 
+#include "JSScope.h"
+#include "Operations.h"
+
 namespace JSC {
 
-ASSERT_CLASS_FITS_IN_CELL(BooleanObject);
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(BooleanObject);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(BooleanObject);
 
 const ClassInfo BooleanObject::s_info = { "Boolean", &JSWrapperObject::s_info, 0, 0, CREATE_METHOD_TABLE(BooleanObject) };
 
-BooleanObject::BooleanObject(JSGlobalData& globalData, Structure* structure)
-    : JSWrapperObject(globalData, structure)
+BooleanObject::BooleanObject(VM& vm, Structure* structure)
+    : JSWrapperObject(vm, structure)
 {
 }
 
-void BooleanObject::finishCreation(JSGlobalData& globalData)
+void BooleanObject::finishCreation(VM& vm)
 {
-    Base::finishCreation(globalData);
-    ASSERT(inherits(&s_info));
+    Base::finishCreation(vm);
+    ASSERT(inherits(info()));
 }
 
 } // namespace JSC

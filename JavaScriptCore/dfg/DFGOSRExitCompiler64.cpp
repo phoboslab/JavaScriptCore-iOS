@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,30 +29,35 @@
 #if ENABLE(DFG_JIT) && USE(JSVALUE64)
 
 #include "DFGOperations.h"
+#include "DFGOSRExitCompilerCommon.h"
+#include "Operations.h"
+#include "VirtualRegister.h"
+
+#include <wtf/DataLog.h>
 
 namespace JSC { namespace DFG {
 
-void OSRExitCompiler::compileExit(const OSRExit& exit, SpeculationRecovery* recovery)
+void OSRExitCompiler::compileExit(const OSRExit& exit, const Operands<ValueRecovery>& operands, SpeculationRecovery* recovery)
 {
     // 1) Pro-forma stuff.
 #if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLog("OSR exit for Node @%d (", (int)exit.m_nodeIndex);
+    dataLogF("OSR exit for (");
     for (CodeOrigin codeOrigin = exit.m_codeOrigin; ; codeOrigin = codeOrigin.inlineCallFrame->caller) {
-        dataLog("bc#%u", codeOrigin.bytecodeIndex);
+        dataLogF("bc#%u", codeOrigin.bytecodeIndex);
         if (!codeOrigin.inlineCallFrame)
             break;
-        dataLog(" -> %p ", codeOrigin.inlineCallFrame->executable.get());
+        dataLogF(" -> %p ", codeOrigin.inlineCallFrame->executable.get());
     }
-    dataLog(")  ");
-    exit.dump(WTF::dataFile());
+    dataLogF(")  ");
+    dataLog(operands);
 #endif
-#if DFG_ENABLE(VERBOSE_SPECULATION_FAILURE)
-    SpeculationFailureDebugInfo* debugInfo = new SpeculationFailureDebugInfo;
-    debugInfo->codeBlock = m_jit.codeBlock();
-    debugInfo->nodeIndex = exit.m_nodeIndex;
-    
-    m_jit.debugCall(debugOperationPrintSpeculationFailure, debugInfo);
-#endif
+
+    if (Options::printEachOSRExit()) {
+        SpeculationFailureDebugInfo* debugInfo = new SpeculationFailureDebugInfo;
+        debugInfo->codeBlock = m_jit.codeBlock();
+        
+        m_jit.debugCall(debugOperationPrintSpeculationFailure, debugInfo);
+    }
     
 #if DFG_ENABLE(JIT_BREAK_ON_SPECULATION_FAILURE)
     m_jit.breakpoint();
@@ -66,18 +71,15 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, SpeculationRecovery* reco
     // 2) Perform speculation recovery. This only comes into play when an operation
     //    starts mutating state before verifying the speculation it has already made.
     
-    GPRReg alreadyBoxed = InvalidGPRReg;
-    
     if (recovery) {
         switch (recovery->type()) {
         case SpeculativeAdd:
             m_jit.sub32(recovery->src(), recovery->dest());
-            m_jit.orPtr(GPRInfo::tagTypeNumberRegister, recovery->dest());
-            alreadyBoxed = recovery->dest();
+            m_jit.or64(GPRInfo::tagTypeNumberRegister, recovery->dest());
             break;
             
         case BooleanSpeculationCheck:
-            m_jit.xorPtr(AssemblyHelpers::TrustedImm32(static_cast<int32_t>(ValueFalse)), recovery->dest());
+            m_jit.xor64(AssemblyHelpers::TrustedImm32(static_cast<int32_t>(ValueFalse)), recovery->dest());
             break;
             
         default:
@@ -85,527 +87,359 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, SpeculationRecovery* reco
         }
     }
 
-    // 3) Refine some value profile, if appropriate.
+    // 3) Refine some array and/or value profile, if appropriate.
     
-    if (!!exit.m_jsValueSource && !!exit.m_valueProfile) {
-        EncodedJSValue* bucket = exit.m_valueProfile.getSpecFailBucket(0);
+    if (!!exit.m_jsValueSource) {
+        if (exit.m_kind == BadCache || exit.m_kind == BadIndexingType) {
+            // If the instruction that this originated from has an array profile, then
+            // refine it. If it doesn't, then do nothing. The latter could happen for
+            // hoisted checks, or checks emitted for operations that didn't have array
+            // profiling - either ops that aren't array accesses at all, or weren't
+            // known to be array acceses in the bytecode. The latter case is a FIXME
+            // while the former case is an outcome of a CheckStructure not knowing why
+            // it was emitted (could be either due to an inline cache of a property
+            // property access, or due to an array profile).
+            
+            CodeOrigin codeOrigin = exit.m_codeOriginForExitProfile;
+            if (ArrayProfile* arrayProfile = m_jit.baselineCodeBlockFor(codeOrigin)->getArrayProfile(codeOrigin.bytecodeIndex)) {
+                GPRReg usedRegister;
+                if (exit.m_jsValueSource.isAddress())
+                    usedRegister = exit.m_jsValueSource.base();
+                else
+                    usedRegister = exit.m_jsValueSource.gpr();
+                
+                GPRReg scratch1;
+                GPRReg scratch2;
+                scratch1 = AssemblyHelpers::selectScratchGPR(usedRegister);
+                scratch2 = AssemblyHelpers::selectScratchGPR(usedRegister, scratch1);
+                
+#if CPU(ARM64)
+                m_jit.pushToSave(scratch1);
+                m_jit.pushToSave(scratch2);
+#else
+                m_jit.push(scratch1);
+                m_jit.push(scratch2);
+#endif
+                
+                GPRReg value;
+                if (exit.m_jsValueSource.isAddress()) {
+                    value = scratch1;
+                    m_jit.loadPtr(AssemblyHelpers::Address(exit.m_jsValueSource.asAddress()), value);
+                } else
+                    value = exit.m_jsValueSource.gpr();
+                
+                m_jit.loadPtr(AssemblyHelpers::Address(value, JSCell::structureOffset()), scratch1);
+                m_jit.storePtr(scratch1, arrayProfile->addressOfLastSeenStructure());
+                m_jit.load8(AssemblyHelpers::Address(scratch1, Structure::indexingTypeOffset()), scratch1);
+                m_jit.move(AssemblyHelpers::TrustedImm32(1), scratch2);
+                m_jit.lshift32(scratch1, scratch2);
+                m_jit.or32(scratch2, AssemblyHelpers::AbsoluteAddress(arrayProfile->addressOfArrayModes()));
+                
+#if CPU(ARM64)
+                m_jit.popToRestore(scratch2);
+                m_jit.popToRestore(scratch1);
+#else
+                m_jit.pop(scratch2);
+                m_jit.pop(scratch1);
+#endif
+            }
+        }
         
-#if DFG_ENABLE(VERBOSE_SPECULATION_FAILURE)
-        dataLog("  (have exit profile, bucket %p)  ", bucket);
-#endif
+        if (!!exit.m_valueProfile) {
+            EncodedJSValue* bucket = exit.m_valueProfile.getSpecFailBucket(0);
             
-        if (exit.m_jsValueSource.isAddress()) {
-            // We can't be sure that we have a spare register. So use the tagTypeNumberRegister,
-            // since we know how to restore it.
-            m_jit.loadPtr(AssemblyHelpers::Address(exit.m_jsValueSource.asAddress()), GPRInfo::tagTypeNumberRegister);
-            m_jit.storePtr(GPRInfo::tagTypeNumberRegister, bucket);
-            m_jit.move(AssemblyHelpers::TrustedImmPtr(bitwise_cast<void*>(TagTypeNumber)), GPRInfo::tagTypeNumberRegister);
-        } else
-            m_jit.storePtr(exit.m_jsValueSource.gpr(), bucket);
-    }
-
-    // 4) Figure out how many scratch slots we'll need. We need one for every GPR/FPR
-    //    whose destination is now occupied by a DFG virtual register, and we need
-    //    one for every displaced virtual register if there are more than
-    //    GPRInfo::numberOfRegisters of them. Also see if there are any constants,
-    //    any undefined slots, any FPR slots, and any unboxed ints.
-            
-    Vector<bool> poisonedVirtualRegisters(exit.m_variables.size());
-    for (unsigned i = 0; i < poisonedVirtualRegisters.size(); ++i)
-        poisonedVirtualRegisters[i] = false;
-
-    unsigned numberOfPoisonedVirtualRegisters = 0;
-    unsigned numberOfDisplacedVirtualRegisters = 0;
-    
-    // Booleans for fast checks. We expect that most OSR exits do not have to rebox
-    // Int32s, have no FPRs, and have no constants. If there are constants, we
-    // expect most of them to be jsUndefined(); if that's true then we handle that
-    // specially to minimize code size and execution time.
-    bool haveUnboxedInt32s = false;
-    bool haveUnboxedDoubles = false;
-    bool haveFPRs = false;
-    bool haveConstants = false;
-    bool haveUndefined = false;
-    bool haveUInt32s = false;
-    
-    for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-        const ValueRecovery& recovery = exit.valueRecovery(index);
-        switch (recovery.technique()) {
-        case Int32DisplacedInRegisterFile:
-        case DoubleDisplacedInRegisterFile:
-        case DisplacedInRegisterFile:
-            numberOfDisplacedVirtualRegisters++;
-            ASSERT((int)recovery.virtualRegister() >= 0);
-            
-            // See if we might like to store to this virtual register before doing
-            // virtual register shuffling. If so, we say that the virtual register
-            // is poisoned: it cannot be stored to until after displaced virtual
-            // registers are handled. We track poisoned virtual register carefully
-            // to ensure this happens efficiently. Note that we expect this case
-            // to be rare, so the handling of it is optimized for the cases in
-            // which it does not happen.
-            if (recovery.virtualRegister() < (int)exit.m_variables.size()) {
-                switch (exit.m_variables[recovery.virtualRegister()].technique()) {
-                case InGPR:
-                case UnboxedInt32InGPR:
-                case UInt32InGPR:
-                case InFPR:
-                    if (!poisonedVirtualRegisters[recovery.virtualRegister()]) {
-                        poisonedVirtualRegisters[recovery.virtualRegister()] = true;
-                        numberOfPoisonedVirtualRegisters++;
-                    }
-                    break;
-                default:
-                    break;
-                }
-            }
-            break;
-            
-        case UnboxedInt32InGPR:
-        case AlreadyInRegisterFileAsUnboxedInt32:
-            haveUnboxedInt32s = true;
-            break;
-            
-        case AlreadyInRegisterFileAsUnboxedDouble:
-            haveUnboxedDoubles = true;
-            break;
-            
-        case UInt32InGPR:
-            haveUInt32s = true;
-            break;
-            
-        case InFPR:
-            haveFPRs = true;
-            break;
-            
-        case Constant:
-            haveConstants = true;
-            if (recovery.constant().isUndefined())
-                haveUndefined = true;
-            break;
-            
-        default:
-            break;
+            if (exit.m_jsValueSource.isAddress()) {
+                // We can't be sure that we have a spare register. So use the tagTypeNumberRegister,
+                // since we know how to restore it.
+                m_jit.load64(AssemblyHelpers::Address(exit.m_jsValueSource.asAddress()), GPRInfo::tagTypeNumberRegister);
+                m_jit.store64(GPRInfo::tagTypeNumberRegister, bucket);
+                m_jit.move(AssemblyHelpers::TrustedImm64(TagTypeNumber), GPRInfo::tagTypeNumberRegister);
+            } else
+                m_jit.store64(exit.m_jsValueSource.gpr(), bucket);
         }
     }
     
-#if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLog("  ");
-    if (numberOfPoisonedVirtualRegisters)
-        dataLog("Poisoned=%u ", numberOfPoisonedVirtualRegisters);
-    if (numberOfDisplacedVirtualRegisters)
-        dataLog("Displaced=%u ", numberOfDisplacedVirtualRegisters);
-    if (haveUnboxedInt32s)
-        dataLog("UnboxedInt32 ");
-    if (haveUnboxedDoubles)
-        dataLog("UnboxedDoubles ");
-    if (haveUInt32s)
-        dataLog("UInt32 ");
-    if (haveFPRs)
-        dataLog("FPR ");
-    if (haveConstants)
-        dataLog("Constants ");
-    if (haveUndefined)
-        dataLog("Undefined ");
-    dataLog(" ");
-#endif
-    
-    ScratchBuffer* scratchBuffer = m_jit.globalData()->scratchBufferForSize(sizeof(EncodedJSValue) * std::max(haveUInt32s ? 2u : 0u, numberOfPoisonedVirtualRegisters + (numberOfDisplacedVirtualRegisters <= GPRInfo::numberOfRegisters ? 0 : numberOfDisplacedVirtualRegisters)));
-    EncodedJSValue* scratchDataBuffer = scratchBuffer ? static_cast<EncodedJSValue*>(scratchBuffer->dataBuffer()) : 0;
+    // What follows is an intentionally simple OSR exit implementation that generates
+    // fairly poor code but is very easy to hack. In particular, it dumps all state that
+    // needs conversion into a scratch buffer so that in step 6, where we actually do the
+    // conversions, we know that all temp registers are free to use and the variable is
+    // definitely in a well-known spot in the scratch buffer regardless of whether it had
+    // originally been in a register or spilled. This allows us to decouple "where was
+    // the variable" from "how was it represented". Consider that the
+    // Int32DisplacedInJSStack recovery: it tells us that the value is in a
+    // particular place and that that place holds an unboxed int32. We have two different
+    // places that a value could be (displaced, register) and a bunch of different
+    // ways of representing a value. The number of recoveries is two * a bunch. The code
+    // below means that we have to have two + a bunch cases rather than two * a bunch.
+    // Once we have loaded the value from wherever it was, the reboxing is the same
+    // regardless of its location. Likewise, before we do the reboxing, the way we get to
+    // the value (i.e. where we load it from) is the same regardless of its type. Because
+    // the code below always dumps everything into a scratch buffer first, the two
+    // questions become orthogonal, which simplifies adding new types and adding new
+    // locations.
+    //
+    // This raises the question: does using such a suboptimal implementation of OSR exit,
+    // where we always emit code to dump all state into a scratch buffer only to then
+    // dump it right back into the stack, hurt us in any way? The asnwer is that OSR exits
+    // are rare. Our tiering strategy ensures this. This is because if an OSR exit is
+    // taken more than ~100 times, we jettison the DFG code block along with all of its
+    // exits. It is impossible for an OSR exit - i.e. the code we compile below - to
+    // execute frequently enough for the codegen to matter that much. It probably matters
+    // enough that we don't want to turn this into some super-slow function call, but so
+    // long as we're generating straight-line code, that code can be pretty bad. Also
+    // because we tend to exit only along one OSR exit from any DFG code block - that's an
+    // empirical result that we're extremely confident about - the code size of this
+    // doesn't matter much. Hence any attempt to optimize the codegen here is just purely
+    // harmful to the system: it probably won't reduce either net memory usage or net
+    // execution time. It will only prevent us from cleanly decoupling "where was the
+    // variable" from "how was it represented", which will make it more difficult to add
+    // features in the future and it will make it harder to reason about bugs.
 
-    // From here on, the code assumes that it is profitable to maximize the distance
-    // between when something is computed and when it is stored.
+    // 4) Save all state from GPRs into the scratch buffer.
     
-    // 5) Perform all reboxing of integers.
+    ScratchBuffer* scratchBuffer = m_jit.vm()->scratchBufferForSize(sizeof(EncodedJSValue) * operands.size());
+    EncodedJSValue* scratch = scratchBuffer ? static_cast<EncodedJSValue*>(scratchBuffer->dataBuffer()) : 0;
     
-    if (haveUnboxedInt32s || haveUInt32s) {
-        for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-            const ValueRecovery& recovery = exit.valueRecovery(index);
-            switch (recovery.technique()) {
-            case UnboxedInt32InGPR:
-                if (recovery.gpr() != alreadyBoxed)
-                    m_jit.orPtr(GPRInfo::tagTypeNumberRegister, recovery.gpr());
-                break;
-                
-            case AlreadyInRegisterFileAsUnboxedInt32:
-                m_jit.store32(AssemblyHelpers::TrustedImm32(static_cast<uint32_t>(TagTypeNumber >> 32)), AssemblyHelpers::tagFor(static_cast<VirtualRegister>(exit.operandForIndex(index))));
-                break;
-                
-            case UInt32InGPR: {
-                // This occurs when the speculative JIT left an unsigned 32-bit integer
-                // in a GPR. If it's positive, we can just box the int. Otherwise we
-                // need to turn it into a boxed double.
-                
-                // We don't try to be clever with register allocation here; we assume
-                // that the program is using FPRs and we don't try to figure out which
-                // ones it is using. Instead just temporarily save fpRegT0 and then
-                // restore it. This makes sense because this path is not cheap to begin
-                // with, and should happen very rarely.
-                
-                GPRReg addressGPR = GPRInfo::regT0;
-                if (addressGPR == recovery.gpr())
-                    addressGPR = GPRInfo::regT1;
-                
-                m_jit.storePtr(addressGPR, scratchDataBuffer);
-                m_jit.move(AssemblyHelpers::TrustedImmPtr(scratchDataBuffer + 1), addressGPR);
-                m_jit.storeDouble(FPRInfo::fpRegT0, addressGPR);
-                
-                AssemblyHelpers::Jump positive = m_jit.branch32(AssemblyHelpers::GreaterThanOrEqual, recovery.gpr(), AssemblyHelpers::TrustedImm32(0));
-
-                m_jit.convertInt32ToDouble(recovery.gpr(), FPRInfo::fpRegT0);
-                m_jit.addDouble(AssemblyHelpers::AbsoluteAddress(&AssemblyHelpers::twoToThe32), FPRInfo::fpRegT0);
-                m_jit.boxDouble(FPRInfo::fpRegT0, recovery.gpr());
-                
-                AssemblyHelpers::Jump done = m_jit.jump();
-                
-                positive.link(&m_jit);
-                
-                m_jit.orPtr(GPRInfo::tagTypeNumberRegister, recovery.gpr());
-                
-                done.link(&m_jit);
-                
-                m_jit.loadDouble(addressGPR, FPRInfo::fpRegT0);
-                m_jit.loadPtr(scratchDataBuffer, addressGPR);
-                break;
-            }
-                
-            default:
-                break;
-            }
-        }
-    }
-    
-    // 6) Dump all non-poisoned GPRs. For poisoned GPRs, save them into the scratch storage.
-    //    Note that GPRs do not have a fast change (like haveFPRs) because we expect that
-    //    most OSR failure points will have at least one GPR that needs to be dumped.
-    
-    initializePoisoned(exit.m_variables.size());
-    unsigned currentPoisonIndex = 0;
-    
-    for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-        const ValueRecovery& recovery = exit.valueRecovery(index);
-        int operand = exit.operandForIndex(index);
+    for (size_t index = 0; index < operands.size(); ++index) {
+        const ValueRecovery& recovery = operands[index];
+        
         switch (recovery.technique()) {
         case InGPR:
         case UnboxedInt32InGPR:
         case UInt32InGPR:
-            if (exit.isVariable(index) && poisonedVirtualRegisters[exit.variableForIndex(index)]) {
-                m_jit.storePtr(recovery.gpr(), scratchDataBuffer + currentPoisonIndex);
-                m_poisonScratchIndices[exit.variableForIndex(index)] = currentPoisonIndex;
-                currentPoisonIndex++;
-            } else
-                m_jit.storePtr(recovery.gpr(), AssemblyHelpers::addressFor((VirtualRegister)operand));
+        case UnboxedInt52InGPR:
+        case UnboxedStrictInt52InGPR:
+        case UnboxedCellInGPR:
+            m_jit.store64(recovery.gpr(), scratch + index);
             break;
+            
         default:
             break;
         }
     }
     
-    // At this point all GPRs are available for scratch use.
+    // And voila, all GPRs are free to reuse.
     
-    if (haveFPRs) {
-        // 7) Box all doubles (relies on there being more GPRs than FPRs)
-        
-        for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-            const ValueRecovery& recovery = exit.valueRecovery(index);
-            if (recovery.technique() != InFPR)
-                continue;
-            FPRReg fpr = recovery.fpr();
-            GPRReg gpr = GPRInfo::toRegister(FPRInfo::toIndex(fpr));
-            m_jit.boxDouble(fpr, gpr);
-        }
-        
-        // 8) Dump all doubles into the register file, or to the scratch storage if
-        //    the destination virtual register is poisoned.
-        
-        for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-            const ValueRecovery& recovery = exit.valueRecovery(index);
-            if (recovery.technique() != InFPR)
-                continue;
-            GPRReg gpr = GPRInfo::toRegister(FPRInfo::toIndex(recovery.fpr()));
-            if (exit.isVariable(index) && poisonedVirtualRegisters[exit.variableForIndex(index)]) {
-                m_jit.storePtr(gpr, scratchDataBuffer + currentPoisonIndex);
-                m_poisonScratchIndices[exit.variableForIndex(index)] = currentPoisonIndex;
-                currentPoisonIndex++;
-            } else
-                m_jit.storePtr(gpr, AssemblyHelpers::addressFor((VirtualRegister)exit.operandForIndex(index)));
-        }
-    }
+    // 5) Save all state from FPRs into the scratch buffer.
     
-    // At this point all GPRs and FPRs are available for scratch use.
-    
-    // 9) Box all unboxed doubles in the register file.
-    if (haveUnboxedDoubles) {
-        for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-            const ValueRecovery& recovery = exit.valueRecovery(index);
-            if (recovery.technique() != AlreadyInRegisterFileAsUnboxedDouble)
-                continue;
-            m_jit.loadDouble(AssemblyHelpers::addressFor((VirtualRegister)exit.operandForIndex(index)), FPRInfo::fpRegT0);
-            m_jit.boxDouble(FPRInfo::fpRegT0, GPRInfo::regT0);
-            m_jit.storePtr(GPRInfo::regT0, AssemblyHelpers::addressFor((VirtualRegister)exit.operandForIndex(index)));
-        }
-    }
-    
-    ASSERT(currentPoisonIndex == numberOfPoisonedVirtualRegisters);
-    
-    // 10) Reshuffle displaced virtual registers. Optimize for the case that
-    //    the number of displaced virtual registers is not more than the number
-    //    of available physical registers.
-    
-    if (numberOfDisplacedVirtualRegisters) {
-        if (numberOfDisplacedVirtualRegisters <= GPRInfo::numberOfRegisters) {
-            // So far this appears to be the case that triggers all the time, but
-            // that is far from guaranteed.
+    for (size_t index = 0; index < operands.size(); ++index) {
+        const ValueRecovery& recovery = operands[index];
         
-            unsigned displacementIndex = 0;
-            for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-                const ValueRecovery& recovery = exit.valueRecovery(index);
-                switch (recovery.technique()) {
-                case DisplacedInRegisterFile:
-                    m_jit.loadPtr(AssemblyHelpers::addressFor(recovery.virtualRegister()), GPRInfo::toRegister(displacementIndex++));
-                    break;
-                    
-                case Int32DisplacedInRegisterFile: {
-                    GPRReg gpr = GPRInfo::toRegister(displacementIndex++);
-                    m_jit.load32(AssemblyHelpers::addressFor(recovery.virtualRegister()), gpr);
-                    m_jit.orPtr(GPRInfo::tagTypeNumberRegister, gpr);
-                    break;
-                }
-                    
-                case DoubleDisplacedInRegisterFile: {
-                    GPRReg gpr = GPRInfo::toRegister(displacementIndex++);
-                    m_jit.loadPtr(AssemblyHelpers::addressFor(recovery.virtualRegister()), gpr);
-                    m_jit.subPtr(GPRInfo::tagTypeNumberRegister, gpr);
-                    break;
-                }
-                    
-                default:
-                    break;
-                }
-            }
-        
-            displacementIndex = 0;
-            for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-                const ValueRecovery& recovery = exit.valueRecovery(index);
-                switch (recovery.technique()) {
-                case DisplacedInRegisterFile:
-                case Int32DisplacedInRegisterFile:
-                case DoubleDisplacedInRegisterFile:
-                    m_jit.storePtr(GPRInfo::toRegister(displacementIndex++), AssemblyHelpers::addressFor((VirtualRegister)exit.operandForIndex(index)));
-                    break;
-                    
-                default:
-                    break;
-                }
-            }
-        } else {
-            // FIXME: This should use the shuffling algorithm that we use
-            // for speculative->non-speculative jumps, if we ever discover that
-            // some hot code with lots of live values that get displaced and
-            // spilled really enjoys frequently failing speculation.
-        
-            // For now this code is engineered to be correct but probably not
-            // super. In particular, it correctly handles cases where for example
-            // the displacements are a permutation of the destination values, like
-            //
-            // 1 -> 2
-            // 2 -> 1
-            //
-            // It accomplishes this by simply lifting all of the virtual registers
-            // from their old (DFG JIT) locations and dropping them in a scratch
-            // location in memory, and then transferring from that scratch location
-            // to their new (old JIT) locations.
-        
-            unsigned scratchIndex = numberOfPoisonedVirtualRegisters;
-            for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-                const ValueRecovery& recovery = exit.valueRecovery(index);
-                
-                switch (recovery.technique()) {
-                case DisplacedInRegisterFile:
-                    m_jit.loadPtr(AssemblyHelpers::addressFor(recovery.virtualRegister()), GPRInfo::regT0);
-                    m_jit.storePtr(GPRInfo::regT0, scratchDataBuffer + scratchIndex++);
-                    break;
-                    
-                case Int32DisplacedInRegisterFile: {
-                    m_jit.load32(AssemblyHelpers::addressFor(recovery.virtualRegister()), GPRInfo::regT0);
-                    m_jit.orPtr(GPRInfo::tagTypeNumberRegister, GPRInfo::regT0);
-                    m_jit.storePtr(GPRInfo::regT0, scratchDataBuffer + scratchIndex++);
-                    break;
-                }
-                    
-                case DoubleDisplacedInRegisterFile: {
-                    m_jit.loadPtr(AssemblyHelpers::addressFor(recovery.virtualRegister()), GPRInfo::regT0);
-                    m_jit.subPtr(GPRInfo::tagTypeNumberRegister, GPRInfo::regT0);
-                    m_jit.storePtr(GPRInfo::regT0, scratchDataBuffer + scratchIndex++);
-                    break;
-                }
-                    
-                default:
-                    break;
-                }
-            }
-        
-            scratchIndex = numberOfPoisonedVirtualRegisters;
-            for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-                const ValueRecovery& recovery = exit.valueRecovery(index);
-                switch (recovery.technique()) {
-                case DisplacedInRegisterFile:
-                case Int32DisplacedInRegisterFile:
-                case DoubleDisplacedInRegisterFile:
-                    m_jit.loadPtr(scratchDataBuffer + scratchIndex++, GPRInfo::regT0);
-                    m_jit.storePtr(GPRInfo::regT0, AssemblyHelpers::addressFor((VirtualRegister)exit.operandForIndex(index)));
-                    break;
-                    
-                default:
-                    break;
-                }
-            }
-        
-            ASSERT(scratchIndex == numberOfPoisonedVirtualRegisters + numberOfDisplacedVirtualRegisters);
-        }
-    }
-    
-    // 11) Dump all poisoned virtual registers.
-    
-    if (numberOfPoisonedVirtualRegisters) {
-        for (int virtualRegister = 0; virtualRegister < (int)exit.m_variables.size(); ++virtualRegister) {
-            if (!poisonedVirtualRegisters[virtualRegister])
-                continue;
+        switch (recovery.technique()) {
+        case InFPR:
+            m_jit.move(AssemblyHelpers::TrustedImmPtr(scratch + index), GPRInfo::regT0);
+            m_jit.storeDouble(recovery.fpr(), GPRInfo::regT0);
+            break;
             
-            const ValueRecovery& recovery = exit.m_variables[virtualRegister];
-            switch (recovery.technique()) {
-            case InGPR:
-            case UnboxedInt32InGPR:
-            case UInt32InGPR:
-            case InFPR:
-                m_jit.loadPtr(scratchDataBuffer + poisonIndex(virtualRegister), GPRInfo::regT0);
-                m_jit.storePtr(GPRInfo::regT0, AssemblyHelpers::addressFor((VirtualRegister)virtualRegister));
-                break;
-                
-            default:
-                break;
-            }
+        default:
+            break;
         }
     }
     
-    // 12) Dump all constants. Optimize for Undefined, since that's a constant we see
-    //     often.
+    // Now, all FPRs are also free.
+    
+    // 6) Save all state from the stack into the scratch buffer. For simplicity we
+    //    do this even for state that's already in the right place on the stack.
+    //    It makes things simpler later.
 
-    if (haveConstants) {
-        if (haveUndefined)
-            m_jit.move(AssemblyHelpers::TrustedImmPtr(JSValue::encode(jsUndefined())), GPRInfo::regT0);
+    for (size_t index = 0; index < operands.size(); ++index) {
+        const ValueRecovery& recovery = operands[index];
         
-        for (int index = 0; index < exit.numberOfRecoveries(); ++index) {
-            const ValueRecovery& recovery = exit.valueRecovery(index);
-            if (recovery.technique() != Constant)
+        switch (recovery.technique()) {
+        case DisplacedInJSStack:
+        case CellDisplacedInJSStack:
+        case BooleanDisplacedInJSStack:
+        case Int32DisplacedInJSStack:
+        case DoubleDisplacedInJSStack:
+        case Int52DisplacedInJSStack:
+        case StrictInt52DisplacedInJSStack:
+            m_jit.load64(AssemblyHelpers::addressFor(recovery.virtualRegister()), GPRInfo::regT0);
+            m_jit.store64(GPRInfo::regT0, scratch + index);
+            break;
+            
+        default:
+            break;
+        }
+    }
+    
+    // 7) Do all data format conversions and store the results into the stack.
+    
+    bool haveArguments = false;
+    
+    for (size_t index = 0; index < operands.size(); ++index) {
+        const ValueRecovery& recovery = operands[index];
+        int operand = operands.operandForIndex(index);
+        
+        switch (recovery.technique()) {
+        case InGPR:
+        case UnboxedCellInGPR:
+        case DisplacedInJSStack:
+        case CellDisplacedInJSStack:
+        case BooleanDisplacedInJSStack:
+            m_jit.load64(scratch + index, GPRInfo::regT0);
+            m_jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
+            break;
+            
+        case UnboxedInt32InGPR:
+        case Int32DisplacedInJSStack:
+            m_jit.load64(scratch + index, GPRInfo::regT0);
+            m_jit.zeroExtend32ToPtr(GPRInfo::regT0, GPRInfo::regT0);
+            m_jit.or64(GPRInfo::tagTypeNumberRegister, GPRInfo::regT0);
+            m_jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
+            break;
+            
+        case UnboxedInt52InGPR:
+        case Int52DisplacedInJSStack:
+            m_jit.load64(scratch + index, GPRInfo::regT0);
+            m_jit.rshift64(
+                AssemblyHelpers::TrustedImm32(JSValue::int52ShiftAmount), GPRInfo::regT0);
+            m_jit.boxInt52(GPRInfo::regT0, GPRInfo::regT0, GPRInfo::regT1, FPRInfo::fpRegT0);
+            m_jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
+            break;
+            
+        case UnboxedStrictInt52InGPR:
+        case StrictInt52DisplacedInJSStack:
+            m_jit.load64(scratch + index, GPRInfo::regT0);
+            m_jit.boxInt52(GPRInfo::regT0, GPRInfo::regT0, GPRInfo::regT1, FPRInfo::fpRegT0);
+            m_jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
+            break;
+            
+        case UInt32InGPR:
+            m_jit.load64(scratch + index, GPRInfo::regT0);
+            m_jit.zeroExtend32ToPtr(GPRInfo::regT0, GPRInfo::regT0);
+            m_jit.boxInt52(GPRInfo::regT0, GPRInfo::regT0, GPRInfo::regT1, FPRInfo::fpRegT0);
+            m_jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
+            break;
+            
+        case InFPR:
+        case DoubleDisplacedInJSStack:
+            m_jit.move(AssemblyHelpers::TrustedImmPtr(scratch + index), GPRInfo::regT0);
+            m_jit.loadDouble(GPRInfo::regT0, FPRInfo::fpRegT0);
+            m_jit.boxDouble(FPRInfo::fpRegT0, GPRInfo::regT0);
+            m_jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
+            break;
+            
+        case Constant:
+            m_jit.store64(
+                AssemblyHelpers::TrustedImm64(JSValue::encode(recovery.constant())),
+                AssemblyHelpers::addressFor(operand));
+            break;
+            
+        case ArgumentsThatWereNotCreated:
+            haveArguments = true;
+            // We can't restore this yet but we can make sure that the stack appears
+            // sane.
+            m_jit.store64(
+                AssemblyHelpers::TrustedImm64(JSValue::encode(JSValue())),
+                AssemblyHelpers::addressFor(operand));
+            break;
+            
+        default:
+            break;
+        }
+    }
+    
+    // 8) Adjust the old JIT's execute counter. Since we are exiting OSR, we know
+    //    that all new calls into this code will go to the new JIT, so the execute
+    //    counter only affects call frames that performed OSR exit and call frames
+    //    that were still executing the old JIT at the time of another call frame's
+    //    OSR exit. We want to ensure that the following is true:
+    //
+    //    (a) Code the performs an OSR exit gets a chance to reenter optimized
+    //        code eventually, since optimized code is faster. But we don't
+    //        want to do such reentery too aggressively (see (c) below).
+    //
+    //    (b) If there is code on the call stack that is still running the old
+    //        JIT's code and has never OSR'd, then it should get a chance to
+    //        perform OSR entry despite the fact that we've exited.
+    //
+    //    (c) Code the performs an OSR exit should not immediately retry OSR
+    //        entry, since both forms of OSR are expensive. OSR entry is
+    //        particularly expensive.
+    //
+    //    (d) Frequent OSR failures, even those that do not result in the code
+    //        running in a hot loop, result in recompilation getting triggered.
+    //
+    //    To ensure (c), we'd like to set the execute counter to
+    //    counterValueForOptimizeAfterWarmUp(). This seems like it would endanger
+    //    (a) and (b), since then every OSR exit would delay the opportunity for
+    //    every call frame to perform OSR entry. Essentially, if OSR exit happens
+    //    frequently and the function has few loops, then the counter will never
+    //    become non-negative and OSR entry will never be triggered. OSR entry
+    //    will only happen if a loop gets hot in the old JIT, which does a pretty
+    //    good job of ensuring (a) and (b). But that doesn't take care of (d),
+    //    since each speculation failure would reset the execute counter.
+    //    So we check here if the number of speculation failures is significantly
+    //    larger than the number of successes (we want 90% success rate), and if
+    //    there have been a large enough number of failures. If so, we set the
+    //    counter to 0; otherwise we set the counter to
+    //    counterValueForOptimizeAfterWarmUp().
+    
+    handleExitCounts(m_jit, exit);
+    
+    // 9) Reify inlined call frames.
+    
+    reifyInlinedCallFrames(m_jit, exit);
+    
+    // 10) Create arguments if necessary and place them into the appropriate aliased
+    //     registers.
+    
+    if (haveArguments) {
+        HashSet<InlineCallFrame*, DefaultHash<InlineCallFrame*>::Hash,
+            NullableHashTraits<InlineCallFrame*>> didCreateArgumentsObject;
+
+        for (size_t index = 0; index < operands.size(); ++index) {
+            const ValueRecovery& recovery = operands[index];
+            if (recovery.technique() != ArgumentsThatWereNotCreated)
                 continue;
-            if (recovery.constant().isUndefined())
-                m_jit.storePtr(GPRInfo::regT0, AssemblyHelpers::addressFor((VirtualRegister)exit.operandForIndex(index)));
-            else
-                m_jit.storePtr(AssemblyHelpers::TrustedImmPtr(JSValue::encode(recovery.constant())), AssemblyHelpers::addressFor((VirtualRegister)exit.operandForIndex(index)));
+            int operand = operands.operandForIndex(index);
+            // Find the right inline call frame.
+            InlineCallFrame* inlineCallFrame = 0;
+            for (InlineCallFrame* current = exit.m_codeOrigin.inlineCallFrame;
+                 current;
+                 current = current->caller.inlineCallFrame) {
+                if (current->stackOffset >= operand) {
+                    inlineCallFrame = current;
+                    break;
+                }
+            }
+
+            if (!m_jit.baselineCodeBlockFor(inlineCallFrame)->usesArguments())
+                continue;
+            VirtualRegister argumentsRegister = m_jit.baselineArgumentsRegisterFor(inlineCallFrame);
+            if (didCreateArgumentsObject.add(inlineCallFrame).isNewEntry) {
+                // We know this call frame optimized out an arguments object that
+                // the baseline JIT would have created. Do that creation now.
+                if (inlineCallFrame) {
+                    m_jit.addPtr(AssemblyHelpers::TrustedImm32(inlineCallFrame->stackOffset * sizeof(EncodedJSValue)), GPRInfo::callFrameRegister, GPRInfo::regT0);
+                    m_jit.setupArguments(GPRInfo::regT0);
+                } else
+                    m_jit.setupArgumentsExecState();
+                m_jit.move(
+                    AssemblyHelpers::TrustedImmPtr(
+                        bitwise_cast<void*>(operationCreateArguments)),
+                    GPRInfo::nonArgGPR0);
+                m_jit.call(GPRInfo::nonArgGPR0);
+                m_jit.store64(GPRInfo::returnValueGPR, AssemblyHelpers::addressFor(argumentsRegister));
+                m_jit.store64(
+                    GPRInfo::returnValueGPR,
+                    AssemblyHelpers::addressFor(unmodifiedArgumentsRegister(argumentsRegister)));
+                m_jit.move(GPRInfo::returnValueGPR, GPRInfo::regT0); // no-op move on almost all platforms.
+            }
+
+            m_jit.load64(AssemblyHelpers::addressFor(argumentsRegister), GPRInfo::regT0);
+            m_jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
         }
     }
     
-    // 13) Adjust the old JIT's execute counter. Since we are exiting OSR, we know
-    //     that all new calls into this code will go to the new JIT, so the execute
-    //     counter only affects call frames that performed OSR exit and call frames
-    //     that were still executing the old JIT at the time of another call frame's
-    //     OSR exit. We want to ensure that the following is true:
-    //
-    //     (a) Code the performs an OSR exit gets a chance to reenter optimized
-    //         code eventually, since optimized code is faster. But we don't
-    //         want to do such reentery too aggressively (see (c) below).
-    //
-    //     (b) If there is code on the call stack that is still running the old
-    //         JIT's code and has never OSR'd, then it should get a chance to
-    //         perform OSR entry despite the fact that we've exited.
-    //
-    //     (c) Code the performs an OSR exit should not immediately retry OSR
-    //         entry, since both forms of OSR are expensive. OSR entry is
-    //         particularly expensive.
-    //
-    //     (d) Frequent OSR failures, even those that do not result in the code
-    //         running in a hot loop, result in recompilation getting triggered.
-    //
-    //     To ensure (c), we'd like to set the execute counter to
-    //     counterValueForOptimizeAfterWarmUp(). This seems like it would endanger
-    //     (a) and (b), since then every OSR exit would delay the opportunity for
-    //     every call frame to perform OSR entry. Essentially, if OSR exit happens
-    //     frequently and the function has few loops, then the counter will never
-    //     become non-negative and OSR entry will never be triggered. OSR entry
-    //     will only happen if a loop gets hot in the old JIT, which does a pretty
-    //     good job of ensuring (a) and (b). But that doesn't take care of (d),
-    //     since each speculation failure would reset the execute counter.
-    //     So we check here if the number of speculation failures is significantly
-    //     larger than the number of successes (we want 90% success rate), and if
-    //     there have been a large enough number of failures. If so, we set the
-    //     counter to 0; otherwise we set the counter to
-    //     counterValueForOptimizeAfterWarmUp().
+    // 11) Load the result of the last bytecode operation into regT0.
     
-    handleExitCounts(exit);
+    if (exit.m_lastSetOperand.isValid())
+        m_jit.load64(AssemblyHelpers::addressFor(exit.m_lastSetOperand), GPRInfo::cachedResultRegister);
     
-    // 14) Load the result of the last bytecode operation into regT0.
+    // 12) And finish.
     
-    if (exit.m_lastSetOperand != std::numeric_limits<int>::max())
-        m_jit.loadPtr(AssemblyHelpers::addressFor((VirtualRegister)exit.m_lastSetOperand), GPRInfo::cachedResultRegister);
-    
-    // 15) Fix call frame(s).
-    
-    ASSERT(m_jit.baselineCodeBlock()->getJITType() == JITCode::BaselineJIT);
-    m_jit.storePtr(AssemblyHelpers::TrustedImmPtr(m_jit.baselineCodeBlock()), AssemblyHelpers::addressFor((VirtualRegister)RegisterFile::CodeBlock));
-    
-    for (CodeOrigin codeOrigin = exit.m_codeOrigin; codeOrigin.inlineCallFrame; codeOrigin = codeOrigin.inlineCallFrame->caller) {
-        InlineCallFrame* inlineCallFrame = codeOrigin.inlineCallFrame;
-        CodeBlock* baselineCodeBlock = m_jit.baselineCodeBlockFor(codeOrigin);
-        CodeBlock* baselineCodeBlockForCaller = m_jit.baselineCodeBlockFor(inlineCallFrame->caller);
-        Vector<BytecodeAndMachineOffset>& decodedCodeMap = m_jit.decodedCodeMapFor(baselineCodeBlockForCaller);
-        unsigned returnBytecodeIndex = inlineCallFrame->caller.bytecodeIndex + OPCODE_LENGTH(op_call);
-        BytecodeAndMachineOffset* mapping = binarySearch<BytecodeAndMachineOffset, unsigned, BytecodeAndMachineOffset::getBytecodeIndex>(decodedCodeMap.begin(), decodedCodeMap.size(), returnBytecodeIndex);
-        
-        ASSERT(mapping);
-        ASSERT(mapping->m_bytecodeIndex == returnBytecodeIndex);
-        
-        void* jumpTarget = baselineCodeBlockForCaller->getJITCode().executableAddressAtOffset(mapping->m_machineCodeOffset);
-
-        GPRReg callerFrameGPR;
-        if (inlineCallFrame->caller.inlineCallFrame) {
-            m_jit.addPtr(AssemblyHelpers::TrustedImm32(inlineCallFrame->caller.inlineCallFrame->stackOffset * sizeof(EncodedJSValue)), GPRInfo::callFrameRegister, GPRInfo::regT3);
-            callerFrameGPR = GPRInfo::regT3;
-        } else
-            callerFrameGPR = GPRInfo::callFrameRegister;
-        
-        m_jit.storePtr(AssemblyHelpers::TrustedImmPtr(baselineCodeBlock), AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + RegisterFile::CodeBlock)));
-        m_jit.storePtr(AssemblyHelpers::TrustedImmPtr(inlineCallFrame->callee->scope()), AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + RegisterFile::ScopeChain)));
-        m_jit.storePtr(callerFrameGPR, AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + RegisterFile::CallerFrame)));
-        m_jit.storePtr(AssemblyHelpers::TrustedImmPtr(jumpTarget), AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + RegisterFile::ReturnPC)));
-        m_jit.store32(AssemblyHelpers::TrustedImm32(inlineCallFrame->arguments.size()), AssemblyHelpers::payloadFor((VirtualRegister)(inlineCallFrame->stackOffset + RegisterFile::ArgumentCount)));
-        m_jit.storePtr(AssemblyHelpers::TrustedImmPtr(inlineCallFrame->callee.get()), AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + RegisterFile::Callee)));
-    }
-    
-    if (exit.m_codeOrigin.inlineCallFrame)
-        m_jit.addPtr(AssemblyHelpers::TrustedImm32(exit.m_codeOrigin.inlineCallFrame->stackOffset * sizeof(EncodedJSValue)), GPRInfo::callFrameRegister);
-    
-    // 16) Jump into the corresponding baseline JIT code.
-    
-    CodeBlock* baselineCodeBlock = m_jit.baselineCodeBlockFor(exit.m_codeOrigin);
-    Vector<BytecodeAndMachineOffset>& decodedCodeMap = m_jit.decodedCodeMapFor(baselineCodeBlock);
-    
-    BytecodeAndMachineOffset* mapping = binarySearch<BytecodeAndMachineOffset, unsigned, BytecodeAndMachineOffset::getBytecodeIndex>(decodedCodeMap.begin(), decodedCodeMap.size(), exit.m_codeOrigin.bytecodeIndex);
-    
-    ASSERT(mapping);
-    ASSERT(mapping->m_bytecodeIndex == exit.m_codeOrigin.bytecodeIndex);
-    
-    void* jumpTarget = baselineCodeBlock->getJITCode().executableAddressAtOffset(mapping->m_machineCodeOffset);
-    
-    ASSERT(GPRInfo::regT1 != GPRInfo::cachedResultRegister);
-    
-    m_jit.move(AssemblyHelpers::TrustedImmPtr(jumpTarget), GPRInfo::regT1);
-    
-    m_jit.jump(GPRInfo::regT1);
-
-#if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLog("-> %p\n", jumpTarget);
-#endif
+    adjustAndJumpToTarget(m_jit, exit);
 }
 
 } } // namespace JSC::DFG

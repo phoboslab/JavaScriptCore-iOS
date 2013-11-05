@@ -36,7 +36,6 @@
 #include "dtoa.h"
 
 #include <stdio.h>
-#include <wtf/AlwaysInline.h>
 #include <wtf/MathExtras.h>
 #include <wtf/Threading.h>
 #include <wtf/Vector.h>
@@ -45,6 +44,12 @@
 #pragma warning(disable: 4244)
 #pragma warning(disable: 4245)
 #pragma warning(disable: 4554)
+#endif
+
+#if CPU(PPC64) || CPU(X86_64) || CPU(ARM64)
+// FIXME: should we enable this on all 64-bit CPUs?
+// 64-bit emulation provided by the compiler is likely to be slower than dtoa own code on 32-bit hardware.
+#define USE_LONG_LONG
 #endif
 
 namespace WTF {
@@ -65,6 +70,7 @@ typedef union {
 #endif
 #define dval(x) (x)->d
 
+#ifndef USE_LONG_LONG
 /* The following definition of Storeinc is appropriate for MIPS processors.
  * An alternative that might be better on some machines is
  *  *p++ = high << 16 | low & 0xffff;
@@ -81,6 +87,8 @@ static ALWAYS_INLINE uint32_t* storeInc(uint32_t* p, uint16_t high, uint16_t low
 #endif
     return p + 1;
 }
+
+#endif // USE_LONG_LONG
 
 #define Exp_shift  20
 #define Exp_shift1 20
@@ -112,12 +120,6 @@ static ALWAYS_INLINE uint32_t* storeInc(uint32_t* p, uint16_t high, uint16_t low
 
 #define Big0 (Frac_mask1 | Exp_msk1 * (DBL_MAX_EXP + Bias - 1))
 #define Big1 0xffffffff
-
-#if CPU(PPC64) || CPU(X86_64)
-// FIXME: should we enable this on all 64-bit CPUs?
-// 64-bit emulation provided by the compiler is likely to be slower than dtoa own code on 32-bit hardware.
-#define USE_LONG_LONG
-#endif
 
 struct BigInt {
     BigInt() : sign(0) { }
@@ -597,13 +599,7 @@ static const double tens[] = {
 };
 
 static const double bigtens[] = { 1e16, 1e32, 1e64, 1e128, 1e256 };
-static const double tinytens[] = { 1e-16, 1e-32, 1e-64, 1e-128,
-    9007199254740992. * 9007199254740992.e-256
-    /* = 2^106 * 1e-256 */
-};
 
-/* The factor of 2^53 in tinytens[4] helps us avoid setting the underflow */
-/* flag unnecessarily.  It leads to a song and dance at the end of strtod. */
 #define Scale_Bit 0x10
 #define n_bigtens 5
 
@@ -742,7 +738,7 @@ void dtoa(DtoaBuffer result, double dd, int ndigits, bool& signOut, int& exponen
     // roundingNone only allowed (only sensible?) with leftright set.
     ASSERT(!roundingNone || leftright);
 
-    ASSERT(isfinite(dd));
+    ASSERT(std::isfinite(dd));
 
     int bbits, b2, b5, be, dig, i, ieps, ilim = 0, ilim0, ilim1 = 0,
         j, j1, k, k0, k_check, m2, m5, s2, s5,

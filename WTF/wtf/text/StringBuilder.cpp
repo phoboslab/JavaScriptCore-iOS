@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,11 +27,17 @@
 #include "config.h"
 #include "StringBuilder.h"
 
+#include "IntegerToStringConversion.h"
 #include "WTFString.h"
+#include <wtf/dtoa.h>
 
 namespace WTF {
 
-static const unsigned minimumCapacity = 16;
+static size_t expandedCapacity(size_t capacity, size_t newLength)
+{
+    static const size_t minimumCapacity = 16;
+    return std::max(capacity, std::max(minimumCapacity, newLength * 2));
+}
 
 void StringBuilder::reifyString() const
 {
@@ -123,7 +129,7 @@ void StringBuilder::allocateBufferUpConvert(const LChar* currentCharacters, unsi
     ASSERT(m_is8Bit);
     // Copy the existing data into a new buffer, set result to point to the end of the existing data.
     RefPtr<StringImpl> buffer = StringImpl::createUninitialized(requiredLength, m_bufferCharacters16);
-    for (unsigned i = 0; i < m_length; i++)
+    for (unsigned i = 0; i < m_length; ++i)
         m_bufferCharacters16[i] = currentCharacters[i];
     
     m_is8Bit = false;
@@ -223,10 +229,10 @@ CharType* StringBuilder::appendUninitializedSlow(unsigned requiredLength)
         // If the buffer is valid it must be at least as long as the current builder contents!
         ASSERT(m_buffer->length() >= m_length);
         
-        reallocateBuffer<CharType>(std::max(requiredLength, std::max(minimumCapacity, m_buffer->length() * 2)));
+        reallocateBuffer<CharType>(expandedCapacity(capacity(), requiredLength));
     } else {
         ASSERT(m_string.length() == m_length);
-        allocateBuffer(m_length ? m_string.getCharacters<CharType>() : 0, std::max(requiredLength, std::max(minimumCapacity, m_length * 2)));
+        allocateBuffer(m_length ? m_string.getCharacters<CharType>() : 0, expandedCapacity(capacity(), requiredLength));
     }
     
     CharType* result = getBufferCharacters<CharType>() + m_length;
@@ -242,6 +248,13 @@ void StringBuilder::append(const UChar* characters, unsigned length)
     ASSERT(characters);
 
     if (m_is8Bit) {
+        if (length == 1 && !(*characters & ~0xff)) {
+            // Append as 8 bit character
+            LChar lChar = static_cast<LChar>(*characters);
+            append(&lChar, 1);
+            return;
+        }
+
         // Calculate the new size of the builder after appending.
         unsigned requiredLength = length + m_length;
         if (requiredLength < length)
@@ -251,10 +264,10 @@ void StringBuilder::append(const UChar* characters, unsigned length)
             // If the buffer is valid it must be at least as long as the current builder contents!
             ASSERT(m_buffer->length() >= m_length);
             
-            allocateBufferUpConvert(m_buffer->characters8(), requiredLength);
+            allocateBufferUpConvert(m_buffer->characters8(), expandedCapacity(capacity(), requiredLength));
         } else {
             ASSERT(m_string.length() == m_length);
-            allocateBufferUpConvert(m_string.isNull() ? 0 : m_string.characters8(), std::max(requiredLength, std::max(minimumCapacity, m_length * 2)));
+            allocateBufferUpConvert(m_string.isNull() ? 0 : m_string.characters8(), expandedCapacity(capacity(), requiredLength));
         }
 
         memcpy(m_bufferCharacters16 + m_length, characters, static_cast<size_t>(length) * sizeof(UChar));        
@@ -286,6 +299,54 @@ void StringBuilder::append(const LChar* characters, unsigned length)
     }
 }
 
+void StringBuilder::appendNumber(int number)
+{
+    numberToStringSigned<StringBuilder>(number, this);
+}
+
+void StringBuilder::appendNumber(unsigned int number)
+{
+    numberToStringUnsigned<StringBuilder>(number, this);
+}
+
+void StringBuilder::appendNumber(long number)
+{
+    numberToStringSigned<StringBuilder>(number, this);
+}
+
+void StringBuilder::appendNumber(unsigned long number)
+{
+    numberToStringUnsigned<StringBuilder>(number, this);
+}
+
+void StringBuilder::appendNumber(long long number)
+{
+    numberToStringSigned<StringBuilder>(number, this);
+}
+
+void StringBuilder::appendNumber(unsigned long long number)
+{
+    numberToStringUnsigned<StringBuilder>(number, this);
+}
+
+void StringBuilder::appendNumber(double number, unsigned precision, TrailingZerosTruncatingPolicy trailingZerosTruncatingPolicy)
+{
+    NumberToStringBuffer buffer;
+    append(numberToFixedPrecisionString(number, precision, buffer, trailingZerosTruncatingPolicy == TruncateTrailingZeros));
+}
+
+void StringBuilder::appendECMAScriptNumber(double number)
+{
+    NumberToStringBuffer buffer;
+    append(numberToString(number, buffer));
+}
+
+void StringBuilder::appendFixedWidthNumber(double number, unsigned decimalPlaces)
+{
+    NumberToStringBuffer buffer;
+    append(numberToFixedWidthString(number, decimalPlaces, buffer));
+}
+
 bool StringBuilder::canShrink() const
 {
     // Only shrink the buffer if it's less than 80% full. Need to tune this heuristic!
@@ -299,8 +360,7 @@ void StringBuilder::shrinkToFit()
             reallocateBuffer<LChar>(m_length);
         else
             reallocateBuffer<UChar>(m_length);
-        m_string = m_buffer;
-        m_buffer = 0;
+        m_string = m_buffer.release();
     }
 }
 

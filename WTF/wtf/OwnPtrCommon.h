@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile, Inc.
  * Copyright (C) 2010 Company 100 Inc.
  *
@@ -28,22 +28,20 @@
 #ifndef WTF_OwnPtrCommon_h
 #define WTF_OwnPtrCommon_h
 
-#if OS(WINDOWS)
-typedef struct HBITMAP__* HBITMAP;
-typedef struct HBRUSH__* HBRUSH;
-typedef struct HDC__* HDC;
-typedef struct HFONT__* HFONT;
-typedef struct HPALETTE__* HPALETTE;
-typedef struct HPEN__* HPEN;
-typedef struct HRGN__* HRGN;
-#endif
-
 #if PLATFORM(EFL)
 typedef struct _Ecore_Evas Ecore_Evas;
+typedef struct _Ecore_IMF_Context Ecore_IMF_Context;
 typedef struct _Ecore_Pipe Ecore_Pipe;
-typedef struct _Ecore_Timer Ecore_Timer;
+typedef struct _Eina_Hash Eina_Hash;
 typedef struct _Eina_Module Eina_Module;
+#if USE(EO)
+typedef struct _Eo_Opaque Evas_Object;
+#else
 typedef struct _Evas_Object Evas_Object;
+#endif
+#if USE(ACCELERATED_COMPOSITING)
+typedef struct _Evas_GL Evas_GL;
+#endif
 #endif
 
 namespace WTF {
@@ -55,22 +53,16 @@ namespace WTF {
             delete ptr;
     }
 
-#if OS(WINDOWS)
-    void deleteOwnedPtr(HBITMAP);
-    void deleteOwnedPtr(HBRUSH);
-    void deleteOwnedPtr(HDC);
-    void deleteOwnedPtr(HFONT);
-    void deleteOwnedPtr(HPALETTE);
-    void deleteOwnedPtr(HPEN);
-    void deleteOwnedPtr(HRGN);
-#endif
-
 #if PLATFORM(EFL)
-    void deleteOwnedPtr(Ecore_Evas*);
-    void deleteOwnedPtr(Ecore_Pipe*);
-    void deleteOwnedPtr(Ecore_Timer*);
-    void deleteOwnedPtr(Eina_Module*);
-    void deleteOwnedPtr(Evas_Object*);
+    WTF_EXPORT_PRIVATE void deleteOwnedPtr(Ecore_Evas*);
+    WTF_EXPORT_PRIVATE void deleteOwnedPtr(Ecore_IMF_Context*);
+    WTF_EXPORT_PRIVATE void deleteOwnedPtr(Ecore_Pipe*);
+    WTF_EXPORT_PRIVATE void deleteOwnedPtr(Eina_Hash*);
+    WTF_EXPORT_PRIVATE void deleteOwnedPtr(Eina_Module*);
+    WTF_EXPORT_PRIVATE void deleteOwnedPtr(Evas_Object*);
+#if USE(ACCELERATED_COMPOSITING)
+    WTF_EXPORT_PRIVATE void deleteOwnedPtr(Evas_GL*);
+#endif
 #endif
 
 } // namespace WTF

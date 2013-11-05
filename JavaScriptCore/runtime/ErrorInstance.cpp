@@ -21,16 +21,30 @@
 #include "config.h"
 #include "ErrorInstance.h"
 
+#include "JSScope.h"
+#include "Operations.h"
+
 namespace JSC {
 
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(ErrorInstance);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(ErrorInstance);
 
 const ClassInfo ErrorInstance::s_info = { "Error", &JSNonFinalObject::s_info, 0, 0, CREATE_METHOD_TABLE(ErrorInstance) };
 
-ErrorInstance::ErrorInstance(JSGlobalData& globalData, Structure* structure)
-    : JSNonFinalObject(globalData, structure)
+ErrorInstance::ErrorInstance(VM& vm, Structure* structure)
+    : JSNonFinalObject(vm, structure)
     , m_appendSourceToMessage(false)
 {
 }
 
+void ErrorInstance::finishCreation(VM& vm, const String& message, Vector<StackFrame> stackTrace)
+{
+    Base::finishCreation(vm);
+    ASSERT(inherits(info()));
+    if (!message.isNull())
+        putDirect(vm, vm.propertyNames->message, jsString(&vm, message), DontEnum);
+    
+    if (!stackTrace.isEmpty())
+        putDirect(vm, vm.propertyNames->stack, vm.interpreter->stackTraceAsString(vm.topCallFrame, stackTrace), DontEnum);
+}
+    
 } // namespace JSC

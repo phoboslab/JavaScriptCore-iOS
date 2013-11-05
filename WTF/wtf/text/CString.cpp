@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2008, 2009, 2010, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,9 +27,20 @@
 #include "config.h"
 #include "CString.h"
 
-using namespace std;
+#include <string.h>
+#include <wtf/StringHasher.h>
 
 namespace WTF {
+
+PassRefPtr<CStringBuffer> CStringBuffer::createUninitialized(size_t length)
+{
+    RELEASE_ASSERT(length < (std::numeric_limits<unsigned>::max() - sizeof(CStringBuffer)));
+
+    // The +1 is for the terminating null character.
+    size_t size = sizeof(CStringBuffer) + length + 1;
+    CStringBuffer* stringBuffer = static_cast<CStringBuffer*>(fastMalloc(size));
+    return adoptRef(new (NotNull, stringBuffer) CStringBuffer(length));
+}
 
 CString::CString(const char* str)
 {
@@ -41,21 +52,19 @@ CString::CString(const char* str)
 
 CString::CString(const char* str, size_t length)
 {
+    if (!str) {
+        ASSERT(!length);
+        return;
+    }
+
     init(str, length);
 }
 
 void CString::init(const char* str, size_t length)
 {
-    if (!str)
-        return;
+    ASSERT(str);
 
-    // We need to be sure we can add 1 to length without overflowing.
-    // Since the passed-in length is the length of an actual existing
-    // string, and we know the string doesn't occupy the entire address
-    // space, we can assert here and there's no need for a runtime check.
-    ASSERT(length < numeric_limits<size_t>::max());
-
-    m_buffer = CStringBuffer::create(length + 1);
+    m_buffer = CStringBuffer::createUninitialized(length);
     memcpy(m_buffer->mutableData(), str, length); 
     m_buffer->mutableData()[length] = '\0';
 }
@@ -70,11 +79,8 @@ char* CString::mutableData()
     
 CString CString::newUninitialized(size_t length, char*& characterBuffer)
 {
-    if (length >= numeric_limits<size_t>::max())
-        CRASH();
-
     CString result;
-    result.m_buffer = CStringBuffer::create(length + 1);
+    result.m_buffer = CStringBuffer::createUninitialized(length);
     char* bytes = result.m_buffer->mutableData();
     bytes[length] = '\0';
     characterBuffer = bytes;
@@ -88,8 +94,13 @@ void CString::copyBufferIfNeeded()
 
     RefPtr<CStringBuffer> buffer = m_buffer.release();
     size_t length = buffer->length();
-    m_buffer = CStringBuffer::create(length);
-    memcpy(m_buffer->mutableData(), buffer->data(), length);
+    m_buffer = CStringBuffer::createUninitialized(length);
+    memcpy(m_buffer->mutableData(), buffer->data(), length + 1);
+}
+
+bool CString::isSafeToSendToAnotherThread() const
+{
+    return !m_buffer || m_buffer->hasOneRef();
 }
 
 bool operator==(const CString& a, const CString& b)
@@ -98,7 +109,44 @@ bool operator==(const CString& a, const CString& b)
         return false;
     if (a.length() != b.length())
         return false;
-    return !strncmp(a.data(), b.data(), min(a.length(), b.length()));
+    return !memcmp(a.data(), b.data(), a.length());
+}
+
+bool operator==(const CString& a, const char* b)
+{
+    if (a.isNull() != !b)
+        return false;
+    if (!b)
+        return true;
+    return !strcmp(a.data(), b);
+}
+
+unsigned CString::hash() const
+{
+    if (isNull())
+        return 0;
+    StringHasher hasher;
+    for (const char* ptr = data(); *ptr; ++ptr)
+        hasher.addCharacter(*ptr);
+    return hasher.hash();
+}
+
+bool operator<(const CString& a, const CString& b)
+{
+    if (a.isNull())
+        return !b.isNull();
+    if (b.isNull())
+        return false;
+    return strcmp(a.data(), b.data()) < 0;
+}
+
+bool CStringHash::equal(const CString& a, const CString& b)
+{
+    if (a.isHashTableDeletedValue())
+        return b.isHashTableDeletedValue();
+    if (b.isHashTableDeletedValue())
+        return false;
+    return a == b;
 }
 
 } // namespace WTF

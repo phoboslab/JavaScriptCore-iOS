@@ -28,18 +28,14 @@
 // Define platform neutral 8 bit character type (L is for Latin-1).
 typedef unsigned char LChar;
 
-#if USE(QT4_UNICODE)
-#include "qt4/UnicodeQt4.h"
-#elif USE(ICU_UNICODE)
+#if USE(ICU_UNICODE)
 #include <wtf/unicode/icu/UnicodeIcu.h>
-#elif USE(GLIB_UNICODE)
-#include <wtf/unicode/glib/UnicodeGLib.h>
-#elif USE(WINCE_UNICODE)
-#include <wtf/unicode/wince/UnicodeWinCE.h>
+#elif USE(WCHAR_UNICODE)
+#include <wtf/unicode/wchar/UnicodeWchar.h>
 #else
 #error "Unknown Unicode implementation"
 #endif
 
-COMPILE_ASSERT(sizeof(UChar) == 2, UCharIsTwoBytes);
+static_assert(sizeof(UChar) == 2, "UChar must be two bytes!");
 
 #endif // WTF_UNICODE_H

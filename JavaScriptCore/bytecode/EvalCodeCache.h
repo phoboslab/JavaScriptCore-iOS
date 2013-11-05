@@ -31,10 +31,7 @@
 
 #include "Executable.h"
 #include "JSGlobalObject.h"
-#include "Nodes.h"
-#include "Parser.h"
 #include "SourceCode.h"
-#include "UString.h"
 #include <wtf/HashMap.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/StringHash.h>
@@ -45,33 +42,22 @@ namespace JSC {
 
     class EvalCodeCache {
     public:
-        EvalExecutable* tryGet(bool inStrictContext, const UString& evalSource, ScopeChainNode* scopeChain)
+        EvalExecutable* tryGet(bool inStrictContext, const String& evalSource, JSScope* scope)
         {
-            if (!inStrictContext && evalSource.length() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject())
+            if (!inStrictContext && evalSource.length() < maxCacheableSourceLength && scope->begin()->isVariableObject())
                 return m_cacheMap.get(evalSource.impl()).get();
             return 0;
         }
         
-        EvalExecutable* getSlow(ExecState* exec, ScriptExecutable* owner, bool inStrictContext, const UString& evalSource, ScopeChainNode* scopeChain, JSValue& exceptionValue)
+        EvalExecutable* getSlow(ExecState* exec, ScriptExecutable* owner, bool inStrictContext, const String& evalSource, JSScope* scope)
         {
             EvalExecutable* evalExecutable = EvalExecutable::create(exec, makeSource(evalSource), inStrictContext);
-            exceptionValue = evalExecutable->compile(exec, scopeChain);
-            if (exceptionValue)
-                return 0;
-            
-            if (!inStrictContext && evalSource.length() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject() && m_cacheMap.size() < maxCacheEntries)
-                m_cacheMap.set(evalSource.impl(), WriteBarrier<EvalExecutable>(exec->globalData(), owner, evalExecutable));
-            
-            return evalExecutable;
-        }
-        
-        EvalExecutable* get(ExecState* exec, ScriptExecutable* owner, bool inStrictContext, const UString& evalSource, ScopeChainNode* scopeChain, JSValue& exceptionValue)
-        {
-            EvalExecutable* evalExecutable = tryGet(inStrictContext, evalSource, scopeChain);
-
             if (!evalExecutable)
-                evalExecutable = getSlow(exec, owner, inStrictContext, evalSource, scopeChain, exceptionValue);
+                return 0;
 
+            if (!inStrictContext && evalSource.length() < maxCacheableSourceLength && scope->begin()->isVariableObject() && m_cacheMap.size() < maxCacheEntries)
+                m_cacheMap.set(evalSource.impl(), WriteBarrier<EvalExecutable>(exec->vm(), owner, evalExecutable));
+            
             return evalExecutable;
         }
 
@@ -88,7 +74,7 @@ namespace JSC {
         static const unsigned maxCacheableSourceLength = 256;
         static const int maxCacheEntries = 64;
 
-        typedef HashMap<RefPtr<StringImpl>, WriteBarrier<EvalExecutable> > EvalCacheMap;
+        typedef HashMap<RefPtr<StringImpl>, WriteBarrier<EvalExecutable>> EvalCacheMap;
         EvalCacheMap m_cacheMap;
     };
 

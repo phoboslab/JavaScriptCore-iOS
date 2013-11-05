@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2012 Apple Inc. All rights reserved
+ * Copyright (C) 2006, 2007, 2008, 2012, 2013 Apple Inc. All rights reserved
  * Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -43,40 +43,23 @@ namespace WTF {
 
     struct StringHash {
         static unsigned hash(StringImpl* key) { return key->hash(); }
-        static bool equal(const StringImpl* a, const StringImpl* b)
+        static inline bool equal(const StringImpl* a, const StringImpl* b)
         {
-            if (a == b)
-                return true;
-            if (!a || !b)
-                return false;
-
-            unsigned aLength = a->length();
-            unsigned bLength = b->length();
-            if (aLength != bLength)
-                return false;
-
-            if (a->is8Bit()) {
-                if (b->is8Bit()) {
-                    // Both a & b are 8 bit.
-                    return WTF::equal(a->characters8(), b->characters8(), aLength);
-                }
-
-                // We know that a is 8 bit & b is 16 bit.
-                return WTF::equal(a->characters8(), b->characters16(), aLength);
-            }
-
-            if (b->is8Bit()) {
-                // We know that a is 8 bit and b is 16 bit.
-                return WTF::equal(a->characters16(), b->characters8(), aLength);
-            }
-
-            return WTF::equal(a->characters16(), b->characters16(), aLength);
+            return equalNonNull(a, b);
         }
 
         static unsigned hash(const RefPtr<StringImpl>& key) { return key->hash(); }
         static bool equal(const RefPtr<StringImpl>& a, const RefPtr<StringImpl>& b)
         {
             return equal(a.get(), b.get());
+        }
+        static bool equal(const RefPtr<StringImpl>& a, const StringImpl* b)
+        {
+            return equal(a.get(), b);
+        }
+        static bool equal(const StringImpl* a, const RefPtr<StringImpl>& b)
+        {
+            return equal(a, b.get());
         }
 
         static unsigned hash(const String& key) { return key.impl()->hash(); }
@@ -90,26 +73,31 @@ namespace WTF {
 
     class CaseFoldingHash {
     public:
-        template<typename T> static inline UChar foldCase(T ch)
+        template<typename T> static inline UChar foldCase(T character)
         {
-            return WTF::Unicode::foldCase(ch);
+            return u_foldCase(character, U_FOLD_CASE_DEFAULT);
         }
 
         static unsigned hash(const UChar* data, unsigned length)
         {
-            return StringHasher::computeHashAndMaskTop8Bits<UChar, foldCase<UChar> >(data, length);
+            return StringHasher::computeHashAndMaskTop8Bits<UChar, foldCase<UChar>>(data, length);
         }
 
-        static unsigned hash(StringImpl* str)
+        static unsigned hash(StringImpl& string)
         {
-            if (str->is8Bit())
-                return hash(str->characters8(), str->length());
-            return hash(str->characters16(), str->length());
+            if (string.is8Bit())
+                return hash(string.characters8(), string.length());
+            return hash(string.characters16(), string.length());
+        }
+        static unsigned hash(StringImpl* string)
+        {
+            ASSERT(string);
+            return hash(*string);
         }
 
         static unsigned hash(const LChar* data, unsigned length)
         {
-            return StringHasher::computeHashAndMaskTop8Bits<LChar, foldCase<LChar> >(data, length);
+            return StringHasher::computeHashAndMaskTop8Bits<LChar, foldCase<LChar>>(data, length);
         }
 
         static inline unsigned hash(const char* data, unsigned length)
@@ -117,21 +105,14 @@ namespace WTF {
             return CaseFoldingHash::hash(reinterpret_cast<const LChar*>(data), length);
         }
         
-        static bool equal(const StringImpl* a, const StringImpl* b)
+        static inline bool equal(const StringImpl* a, const StringImpl* b)
         {
-            if (a == b)
-                return true;
-            if (!a || !b)
-                return false;
-            unsigned length = a->length();
-            if (length != b->length())
-                return false;
-            return WTF::Unicode::umemcasecmp(a->characters(), b->characters(), length) == 0;
+            return equalIgnoringCaseNonNull(a, b);
         }
 
         static unsigned hash(const RefPtr<StringImpl>& key) 
         {
-            return hash(key.get());
+            return hash(*key);
         }
 
         static bool equal(const RefPtr<StringImpl>& a, const RefPtr<StringImpl>& b)
@@ -153,7 +134,9 @@ namespace WTF {
         }
         static bool equal(const AtomicString& a, const AtomicString& b)
         {
-            return (a == b) || equal(a.impl(), b.impl());
+            // FIXME: Is the "a == b" here a helpful optimization?
+            // It makes all cases where the strings are not identical slightly slower.
+            return a == b || equal(a.impl(), b.impl());
         }
 
         static const bool safeToCompareToEmptyOrDeleted = false;

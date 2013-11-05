@@ -24,34 +24,34 @@
 #ifndef InternalFunction_h
 #define InternalFunction_h
 
-#include "JSObject.h"
 #include "Identifier.h"
+#include "JSDestructibleObject.h"
 
 namespace JSC {
 
     class FunctionPrototype;
 
-    class InternalFunction : public JSNonFinalObject {
+    class InternalFunction : public JSDestructibleObject {
     public:
-        typedef JSNonFinalObject Base;
+        typedef JSDestructibleObject Base;
 
-        static JS_EXPORTDATA const ClassInfo s_info;
+        DECLARE_EXPORT_INFO;
 
-        JS_EXPORT_PRIVATE const UString& name(ExecState*);
-        const UString displayName(ExecState*);
-        const UString calculatedDisplayName(ExecState*);
+        JS_EXPORT_PRIVATE const String& name(ExecState*);
+        const String displayName(ExecState*);
+        const String calculatedDisplayName(ExecState*);
 
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue proto) 
+        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue proto) 
         { 
-            return Structure::create(globalData, globalObject, proto, TypeInfo(ObjectType, StructureFlags), &s_info); 
+            return Structure::create(vm, globalObject, proto, TypeInfo(ObjectType, StructureFlags), info()); 
         }
 
     protected:
         static const unsigned StructureFlags = ImplementsHasInstance | JSObject::StructureFlags;
 
-        JS_EXPORT_PRIVATE InternalFunction(JSGlobalObject*, Structure*);
+        JS_EXPORT_PRIVATE InternalFunction(VM&, Structure*);
 
-        JS_EXPORT_PRIVATE void finishCreation(JSGlobalData&, const Identifier& name);
+        JS_EXPORT_PRIVATE void finishCreation(VM&, const String& name);
 
         static CallType getCallData(JSCell*, CallData&);
     };
@@ -60,7 +60,7 @@ namespace JSC {
 
     inline InternalFunction* asInternalFunction(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&InternalFunction::s_info));
+        ASSERT(asObject(value)->inherits(InternalFunction::info()));
         return static_cast<InternalFunction*>(asObject(value));
     }
 

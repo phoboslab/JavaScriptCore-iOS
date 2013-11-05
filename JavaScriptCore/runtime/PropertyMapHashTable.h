@@ -21,11 +21,15 @@
 #ifndef PropertyMapHashTable_h
 #define PropertyMapHashTable_h
 
-#include "UString.h"
+#include "PropertyOffset.h"
+#include "Structure.h"
 #include "WriteBarrier.h"
+#include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/HashTable.h>
+#include <wtf/MathExtras.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringImpl.h>
 
 
 #ifndef NDEBUG
@@ -43,15 +47,13 @@ extern int numRemoves;
 
 #endif
 
-#define PROPERTY_MAP_DELETED_ENTRY_KEY ((StringImpl*)1) 
+#define PROPERTY_MAP_DELETED_ENTRY_KEY ((StringImpl*)1)
 
 namespace JSC {
 
 inline bool isPowerOf2(unsigned v)
 {
-    // Taken from http://www.cs.utk.edu/~vose/c-stuff/bithacks.html
-    
-    return !(v & (v - 1)) && v;
+    return hasOneBitSet(v);
 }
 
 inline unsigned nextPowerOf2(unsigned v)
@@ -72,21 +74,20 @@ inline unsigned nextPowerOf2(unsigned v)
 
 struct PropertyMapEntry {
     StringImpl* key;
-    unsigned offset;
+    PropertyOffset offset;
     unsigned attributes;
     WriteBarrier<JSCell> specificValue;
 
-    PropertyMapEntry(JSGlobalData& globalData, JSCell* owner, StringImpl* key, unsigned offset, unsigned attributes, JSCell* specificValue)
+    PropertyMapEntry(VM& vm, JSCell* owner, StringImpl* key, PropertyOffset offset, unsigned attributes, JSCell* specificValue)
         : key(key)
         , offset(offset)
         , attributes(attributes)
-        , specificValue(globalData, owner, specificValue, WriteBarrier<JSCell>::MayBeNull)
+        , specificValue(vm, owner, specificValue, WriteBarrier<JSCell>::MayBeNull)
     {
     }
 };
 
-class PropertyTable {
-    WTF_MAKE_FAST_ALLOCATED;
+class PropertyTable : public JSCell {
 
     // This is the implementation for 'iterator' and 'const_iterator',
     // used for iterating over the table in insertion order.
@@ -129,6 +130,19 @@ class PropertyTable {
     };
 
 public:
+    static const bool needsDestruction = true;
+    static const bool hasImmortalStructure = true;
+    static void destroy(JSCell*);
+
+    DECLARE_EXPORT_INFO;
+
+    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
+    {
+        return Structure::create(vm, globalObject, prototype, TypeInfo(CompoundType, OverridesVisitChildren), info());
+    }
+
+    static void visitChildren(JSCell*, SlotVisitor&);
+
     typedef StringImpl* KeyType;
     typedef PropertyMapEntry ValueType;
 
@@ -142,9 +156,9 @@ public:
     typedef std::pair<ValueType*, unsigned> find_iterator;
 
     // Constructor is passed an initial capacity, a PropertyTable to copy, or both.
-    explicit PropertyTable(unsigned initialCapacity);
-    PropertyTable(JSGlobalData&, JSCell*, const PropertyTable&);
-    PropertyTable(JSGlobalData&, JSCell*, unsigned initialCapacity, const PropertyTable&);
+    static PropertyTable* create(VM&, unsigned initialCapacity);
+    static PropertyTable* clone(VM&, JSCell* owner, const PropertyTable&);
+    static PropertyTable* clone(VM&, JSCell* owner, unsigned initialCapacity, const PropertyTable&);
     ~PropertyTable();
 
     // Ordered iteration methods.
@@ -157,7 +171,8 @@ public:
     find_iterator find(const KeyType&);
     find_iterator findWithString(const KeyType&);
     // Add a value to the table
-    std::pair<find_iterator, bool> add(const ValueType& entry);
+    enum EffectOnPropertyOffset { PropertyOffsetMayChange, PropertyOffsetMustNotChange };
+    std::pair<find_iterator, bool> add(const ValueType& entry, PropertyOffset&, EffectOnPropertyOffset);
     // Remove a value from the table.
     void remove(const find_iterator& iter);
     void remove(const KeyType& key);
@@ -174,11 +189,13 @@ public:
     // Used to maintain a list of unused entries in the property storage.
     void clearDeletedOffsets();
     bool hasDeletedOffset();
-    unsigned getDeletedOffset();
-    void addDeletedOffset(unsigned offset);
+    PropertyOffset getDeletedOffset();
+    void addDeletedOffset(PropertyOffset);
+    
+    PropertyOffset nextOffset(PropertyOffset inlineCapacity);
 
     // Copy this PropertyTable, ensuring the copy has at least the capacity provided.
-    PassOwnPtr<PropertyTable> copy(JSGlobalData&, JSCell* owner, unsigned newCapacity);
+    PropertyTable* copy(VM&, JSCell* owner, unsigned newCapacity);
 
 #ifndef NDEBUG
     size_t sizeInMemory();
@@ -186,6 +203,10 @@ public:
 #endif
 
 private:
+    PropertyTable(VM&, unsigned initialCapacity);
+    PropertyTable(VM&, JSCell*, const PropertyTable&);
+    PropertyTable(VM&, JSCell*, unsigned initialCapacity, const PropertyTable&);
+
     PropertyTable(const PropertyTable&);
     // Used to insert a value known not to be in the table, and where we know capacity to be available.
     void reinsert(const ValueType& entry);
@@ -230,77 +251,11 @@ private:
     unsigned* m_index;
     unsigned m_keyCount;
     unsigned m_deletedCount;
-    OwnPtr< Vector<unsigned> > m_deletedOffsets;
+    OwnPtr< Vector<PropertyOffset>> m_deletedOffsets;
 
-    static const unsigned MinimumTableSize = 16;
+    static const unsigned MinimumTableSize = 8;
     static const unsigned EmptyEntryIndex = 0;
 };
-
-inline PropertyTable::PropertyTable(unsigned initialCapacity)
-    : m_indexSize(sizeForCapacity(initialCapacity))
-    , m_indexMask(m_indexSize - 1)
-    , m_index(static_cast<unsigned*>(fastZeroedMalloc(dataSize())))
-    , m_keyCount(0)
-    , m_deletedCount(0)
-{
-    ASSERT(isPowerOf2(m_indexSize));
-}
-
-inline PropertyTable::PropertyTable(JSGlobalData&, JSCell* owner, const PropertyTable& other)
-    : m_indexSize(other.m_indexSize)
-    , m_indexMask(other.m_indexMask)
-    , m_index(static_cast<unsigned*>(fastMalloc(dataSize())))
-    , m_keyCount(other.m_keyCount)
-    , m_deletedCount(other.m_deletedCount)
-{
-    ASSERT(isPowerOf2(m_indexSize));
-
-    memcpy(m_index, other.m_index, dataSize());
-
-    iterator end = this->end();
-    for (iterator iter = begin(); iter != end; ++iter) {
-        iter->key->ref();
-        Heap::writeBarrier(owner, iter->specificValue.get());
-    }
-
-    // Copy the m_deletedOffsets vector.
-    Vector<unsigned>* otherDeletedOffsets = other.m_deletedOffsets.get();
-    if (otherDeletedOffsets)
-        m_deletedOffsets = adoptPtr(new Vector<unsigned>(*otherDeletedOffsets));
-}
-
-inline PropertyTable::PropertyTable(JSGlobalData&, JSCell* owner, unsigned initialCapacity, const PropertyTable& other)
-    : m_indexSize(sizeForCapacity(initialCapacity))
-    , m_indexMask(m_indexSize - 1)
-    , m_index(static_cast<unsigned*>(fastZeroedMalloc(dataSize())))
-    , m_keyCount(0)
-    , m_deletedCount(0)
-{
-    ASSERT(isPowerOf2(m_indexSize));
-    ASSERT(initialCapacity >= other.m_keyCount);
-
-    const_iterator end = other.end();
-    for (const_iterator iter = other.begin(); iter != end; ++iter) {
-        ASSERT(canInsert());
-        reinsert(*iter);
-        iter->key->ref();
-        Heap::writeBarrier(owner, iter->specificValue.get());
-    }
-
-    // Copy the m_deletedOffsets vector.
-    Vector<unsigned>* otherDeletedOffsets = other.m_deletedOffsets.get();
-    if (otherDeletedOffsets)
-        m_deletedOffsets = adoptPtr(new Vector<unsigned>(*otherDeletedOffsets));
-}
-
-inline PropertyTable::~PropertyTable()
-{
-    iterator end = this->end();
-    for (iterator iter = begin(); iter != end; ++iter)
-        iter->key->deref();
-
-    fastFree(m_index);
-}
 
 inline PropertyTable::iterator PropertyTable::begin()
 {
@@ -325,7 +280,7 @@ inline PropertyTable::const_iterator PropertyTable::end() const
 inline PropertyTable::find_iterator PropertyTable::find(const KeyType& key)
 {
     ASSERT(key);
-    ASSERT(key->isIdentifier());
+    ASSERT(key->isIdentifier() || key->isEmptyUnique());
     unsigned hash = key->existingHash();
     unsigned step = 0;
 
@@ -369,7 +324,8 @@ inline PropertyTable::find_iterator PropertyTable::findWithString(const KeyType&
         unsigned entryIndex = m_index[hash & m_indexMask];
         if (entryIndex == EmptyEntryIndex)
             return std::make_pair((ValueType*)0, hash & m_indexMask);
-        if (equal(key, table()[entryIndex - 1].key))
+        const KeyType& keyInMap = table()[entryIndex - 1].key;
+        if (equal(key, keyInMap) && keyInMap->isIdentifier())
             return std::make_pair(&table()[entryIndex - 1], hash & m_indexMask);
 
 #if DUMP_PROPERTYMAP_STATS
@@ -386,12 +342,14 @@ inline PropertyTable::find_iterator PropertyTable::findWithString(const KeyType&
     }
 }
 
-inline std::pair<PropertyTable::find_iterator, bool> PropertyTable::add(const ValueType& entry)
+inline std::pair<PropertyTable::find_iterator, bool> PropertyTable::add(const ValueType& entry, PropertyOffset& offset, EffectOnPropertyOffset offsetEffect)
 {
     // Look for a value with a matching key already in the array.
     find_iterator iter = find(entry.key);
-    if (iter.first)
+    if (iter.first) {
+        RELEASE_ASSERT(iter.first->offset <= offset);
         return std::make_pair(iter, false);
+    }
 
     // Ref the key
     entry.key->ref();
@@ -410,6 +368,12 @@ inline std::pair<PropertyTable::find_iterator, bool> PropertyTable::add(const Va
     *iter.first = entry;
 
     ++m_keyCount;
+    
+    if (offsetEffect == PropertyOffsetMayChange)
+        offset = std::max(offset, entry.offset);
+    else
+        RELEASE_ASSERT(offset >= entry.offset);
+    
     return std::make_pair(iter, true);
 }
 
@@ -468,29 +432,37 @@ inline bool PropertyTable::hasDeletedOffset()
     return m_deletedOffsets && !m_deletedOffsets->isEmpty();
 }
 
-inline unsigned PropertyTable::getDeletedOffset()
+inline PropertyOffset PropertyTable::getDeletedOffset()
 {
-    unsigned offset = m_deletedOffsets->last();
+    PropertyOffset offset = m_deletedOffsets->last();
     m_deletedOffsets->removeLast();
     return offset;
 }
 
-inline void PropertyTable::addDeletedOffset(unsigned offset)
+inline void PropertyTable::addDeletedOffset(PropertyOffset offset)
 {
     if (!m_deletedOffsets)
-        m_deletedOffsets = adoptPtr(new Vector<unsigned>);
+        m_deletedOffsets = adoptPtr(new Vector<PropertyOffset>);
     m_deletedOffsets->append(offset);
 }
 
-inline PassOwnPtr<PropertyTable> PropertyTable::copy(JSGlobalData& globalData, JSCell* owner, unsigned newCapacity)
+inline PropertyOffset PropertyTable::nextOffset(PropertyOffset inlineCapacity)
+{
+    if (hasDeletedOffset())
+        return getDeletedOffset();
+
+    return offsetForPropertyNumber(size(), inlineCapacity);
+}
+
+inline PropertyTable* PropertyTable::copy(VM& vm, JSCell* owner, unsigned newCapacity)
 {
     ASSERT(newCapacity >= m_keyCount);
 
     // Fast case; if the new table will be the same m_indexSize as this one, we can memcpy it,
     // save rehashing all keys.
     if (sizeForCapacity(newCapacity) == m_indexSize)
-        return adoptPtr(new PropertyTable(globalData, owner, *this));
-    return adoptPtr(new PropertyTable(globalData, owner, newCapacity, *this));
+        return PropertyTable::clone(vm, owner, *this);
+    return PropertyTable::clone(vm, owner, newCapacity, *this);
 }
 
 #ifndef NDEBUG
@@ -498,7 +470,7 @@ inline size_t PropertyTable::sizeInMemory()
 {
     size_t result = sizeof(PropertyTable) + dataSize();
     if (m_deletedOffsets)
-        result += (m_deletedOffsets->capacity() * sizeof(unsigned));
+        result += (m_deletedOffsets->capacity() * sizeof(PropertyOffset));
     return result;
 }
 #endif
@@ -576,7 +548,7 @@ inline size_t PropertyTable::dataSize()
 
 inline unsigned PropertyTable::sizeForCapacity(unsigned capacity)
 {
-    if (capacity < 8)
+    if (capacity < MinimumTableSize / 2)
         return MinimumTableSize;
     return nextPowerOf2(capacity + 1) * 2;
 }

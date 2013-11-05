@@ -49,7 +49,7 @@
 defined(__ARMEL__) || \
 defined(_MIPS_ARCH_MIPS32R2)
 #define DOUBLE_CONVERSION_CORRECT_DOUBLE_OPERATIONS 1
-#elif CPU(MIPS) || CPU(PPC) || CPU(PPC64) || OS(WINCE) || CPU(SH4) || CPU(S390) || CPU(S390X) || CPU(IA64) || CPU(SPARC) || CPU(ALPHA)
+#elif CPU(MIPS) || CPU(PPC) || CPU(PPC64) || OS(WINCE) || CPU(SH4) || CPU(S390) || CPU(S390X) || CPU(IA64) || CPU(SPARC) || CPU(ALPHA) || CPU(ARM64)
 #define DOUBLE_CONVERSION_CORRECT_DOUBLE_OPERATIONS 1
 #elif defined(_M_IX86) || defined(__i386__)
 #if defined(_WIN32)
@@ -58,6 +58,8 @@ defined(_MIPS_ARCH_MIPS32R2)
 #else
 #undef DOUBLE_CONVERSION_CORRECT_DOUBLE_OPERATIONS
 #endif  // _WIN32
+#elif defined(WINCE) || defined(_WIN32_WCE)
+#define DOUBLE_CONVERSION_CORRECT_DOUBLE_OPERATIONS 1
 #else
 #error Target architecture was not detected as supported by Double-Conversion.
 #endif
@@ -136,23 +138,24 @@ namespace double_conversion {
         ASSERT(length == static_cast<size_t>(static_cast<int>(length)));
         return static_cast<int>(length);
     }
-    
-    // This is a simplified version of V8's Vector class.
+
+    // BufferReference abstract a memory buffer. It provides a pointer
+    // to the beginning of the buffer, and the available length. 
     template <typename T>
-    class Vector {
+    class BufferReference {
     public:
-        Vector() : start_(NULL), length_(0) {}
-        Vector(T* data, int length) : start_(data), length_(length) {
+        BufferReference() : start_(NULL), length_(0) {}
+        BufferReference(T* data, int length) : start_(data), length_(length) {
             ASSERT(length == 0 || (length > 0 && data != NULL));
         }
         
         // Returns a vector using the same backing storage as this one,
         // spanning from and including 'from', to but not including 'to'.
-        Vector<T> SubVector(int from, int to) {
+        BufferReference<T> SubBufferReference(int from, int to) {
             ASSERT(to <= length_);
-            ASSERT(from < to);
+            ASSERT_WITH_SECURITY_IMPLICATION(from < to);
             ASSERT(0 <= from);
-            return Vector<T>(start() + from, to - from);
+            return BufferReference<T>(start() + from, to - from);
         }
         
         // Returns the length of the vector.
@@ -202,7 +205,7 @@ namespace double_conversion {
         void SetPosition(int position)
         {
             ASSERT(!is_finalized());
-            ASSERT(position < size());
+            ASSERT_WITH_SECURITY_IMPLICATION(position < size());
             position_ = position;
         }
         
@@ -228,7 +231,7 @@ namespace double_conversion {
         // builder. The input string must have enough characters.
         void AddSubstring(const char* s, int n) {
             ASSERT(!is_finalized() && position_ + n < buffer_.length());
-            ASSERT(static_cast<size_t>(n) <= strlen(s));
+            ASSERT_WITH_SECURITY_IMPLICATION(static_cast<size_t>(n) <= strlen(s));
             memcpy(&buffer_[position_], s, n * kCharSize);
             position_ += n;
         }
@@ -255,7 +258,7 @@ namespace double_conversion {
         }
         
     private:
-        Vector<char> buffer_;
+        BufferReference<char> buffer_;
         int position_;
         
         bool is_finalized() const { return position_ < 0; }

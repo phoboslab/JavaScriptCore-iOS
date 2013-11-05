@@ -21,10 +21,11 @@
 #ifndef WTF_FastMalloc_h
 #define WTF_FastMalloc_h
 
+#include <new>
+#include <stdlib.h>
 #include <wtf/Platform.h>
 #include <wtf/PossiblyNull.h>
-#include <stdlib.h>
-#include <new>
+#include <wtf/StdLibExtras.h>
 
 namespace WTF {
 
@@ -35,6 +36,7 @@ namespace WTF {
     WTF_EXPORT_PRIVATE void* fastRealloc(void*, size_t);
     WTF_EXPORT_PRIVATE char* fastStrDup(const char*);
     WTF_EXPORT_PRIVATE size_t fastMallocSize(const void*);
+    WTF_EXPORT_PRIVATE size_t fastMallocGoodSize(size_t);
 
     struct TryMallocReturnValue {
         TryMallocReturnValue(void* data)
@@ -76,8 +78,8 @@ namespace WTF {
     WTF_EXPORT_PRIVATE void fastFree(void*);
 
 #ifndef NDEBUG    
-    void fastMallocForbid();
-    void fastMallocAllow();
+    WTF_EXPORT_PRIVATE void fastMallocForbid();
+    WTF_EXPORT_PRIVATE void fastMallocAllow();
 #endif
 
     WTF_EXPORT_PRIVATE void releaseFastMallocFreeMemory();
@@ -98,8 +100,6 @@ namespace WTF {
             AllocTypeMalloc = 0x375d6750,   // Encompasses fastMalloc, fastZeroedMalloc, fastCalloc, fastRealloc.
             AllocTypeClassNew,              // Encompasses class operator new from FastAllocBase.
             AllocTypeClassNewArray,         // Encompasses class operator new[] from FastAllocBase.
-            AllocTypeFastNew,               // Encompasses fastNew.
-            AllocTypeFastNewArray,          // Encompasses fastNewArray.
             AllocTypeNew,                   // Encompasses global operator new.
             AllocTypeNewArray               // Encompasses global operator new[].
         };
@@ -223,6 +223,7 @@ namespace WTF {
 using WTF::fastCalloc;
 using WTF::fastFree;
 using WTF::fastMalloc;
+using WTF::fastMallocGoodSize;
 using WTF::fastMallocSize;
 using WTF::fastRealloc;
 using WTF::fastStrDup;
@@ -274,8 +275,45 @@ WTF_PRIVATE_INLINE void operator delete[](void* p, const std::nothrow_t&) throw(
 #pragma warning(pop)
 #endif
 
-#endif
+#endif // ENABLE(GLOBAL_FASTMALLOC_NEW)
+#endif // !defined(_CRTDBG_MAP_ALLOC) && !(defined(USE_SYSTEM_MALLOC) && USE_SYSTEM_MALLOC)
 
-#endif
+#define WTF_MAKE_FAST_ALLOCATED \
+public: \
+    void* operator new(size_t, void* p) { return p; } \
+    void* operator new[](size_t, void* p) { return p; } \
+    \
+    void* operator new(size_t size) \
+    { \
+        void* p = ::WTF::fastMalloc(size); \
+        ::WTF::fastMallocMatchValidateMalloc(p, ::WTF::Internal::AllocTypeClassNew); \
+        return p; \
+    } \
+    \
+    void operator delete(void* p) \
+    { \
+        ::WTF::fastMallocMatchValidateFree(p, ::WTF::Internal::AllocTypeClassNew); \
+        ::WTF::fastFree(p); \
+    } \
+    \
+    void* operator new[](size_t size) \
+    { \
+        void* p = ::WTF::fastMalloc(size); \
+        ::WTF::fastMallocMatchValidateMalloc(p, ::WTF::Internal::AllocTypeClassNewArray); \
+        return p; \
+    } \
+    \
+    void operator delete[](void* p) \
+    { \
+        ::WTF::fastMallocMatchValidateFree(p, ::WTF::Internal::AllocTypeClassNewArray); \
+        ::WTF::fastFree(p); \
+    } \
+    void* operator new(size_t, NotNullTag, void* location) \
+    { \
+        ASSERT(location); \
+        return location; \
+    } \
+private: \
+typedef int __thisIsHereToForceASemicolonAfterThisMacro
 
 #endif /* WTF_FastMalloc_h */

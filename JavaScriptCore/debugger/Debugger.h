@@ -26,39 +26,61 @@
 
 namespace JSC {
 
-    class DebuggerCallFrame;
-    class ExecState;
-    class JSGlobalData;
-    class JSGlobalObject;
-    class JSValue;
-    class SourceProvider;
-    class UString;
+class DebuggerCallFrame;
+class ExecState;
+class VM;
+class JSGlobalObject;
+class JSValue;
+class SourceProvider;
 
-    class JS_EXPORT_PRIVATE Debugger {
-    public:
-        virtual ~Debugger();
+typedef ExecState CallFrame;
 
-        void attach(JSGlobalObject*);
-        virtual void detach(JSGlobalObject*);
+class JS_EXPORT_PRIVATE Debugger {
+public:
+    Debugger();
+    virtual ~Debugger();
 
-        virtual void sourceParsed(ExecState*, SourceProvider*, int errorLineNumber, const UString& errorMessage) = 0;
-        virtual void exception(const DebuggerCallFrame&, intptr_t sourceID, int lineNumber, bool hasHandler) = 0;
-        virtual void atStatement(const DebuggerCallFrame&, intptr_t sourceID, int lineNumber) = 0;
-        virtual void callEvent(const DebuggerCallFrame&, intptr_t sourceID, int lineNumber) = 0;
-        virtual void returnEvent(const DebuggerCallFrame&, intptr_t sourceID, int lineNumber) = 0;
+    bool needsOpDebugCallbacks() const { return m_needsOpDebugCallbacks; }
+    static ptrdiff_t needsOpDebugCallbacksOffset() { return OBJECT_OFFSETOF(Debugger, m_needsOpDebugCallbacks); }
 
-        virtual void willExecuteProgram(const DebuggerCallFrame&, intptr_t sourceID, int lineNumber) = 0;
-        virtual void didExecuteProgram(const DebuggerCallFrame&, intptr_t sourceID, int lineNumber) = 0;
-        virtual void didReachBreakpoint(const DebuggerCallFrame&, intptr_t sourceID, int lineNumber) = 0;
+    bool shouldPause() const { return m_shouldPause; }
+    void setShouldPause(bool);
 
-        void recompileAllJSFunctions(JSGlobalData*);
+    bool needsExceptionCallbacks() const { return m_needsExceptionCallbacks; }
+    void setNeedsExceptionCallbacks(bool);
 
-    private:
-        HashSet<JSGlobalObject*> m_globalObjects;
-    };
+    void incNumberOfBreakpoints() { updateNumberOfBreakpoints(m_numberOfBreakpoints + 1); }
+    void decNumberOfBreakpoints()  { updateNumberOfBreakpoints(m_numberOfBreakpoints - 1); }
+    void updateNumberOfBreakpoints(int);
 
-    // This function exists only for backwards compatibility with existing WebScriptDebugger clients.
-    JS_EXPORT_PRIVATE JSValue evaluateInGlobalCallFrame(const UString&, JSValue& exception, JSGlobalObject*);
+    void attach(JSGlobalObject*);
+    virtual void detach(JSGlobalObject*);
+
+    virtual void sourceParsed(ExecState*, SourceProvider*, int errorLineNumber, const WTF::String& errorMessage) = 0;
+
+    virtual void exception(CallFrame*, JSValue exceptionValue, bool hasHandler) = 0;
+    virtual void atStatement(CallFrame*) = 0;
+    virtual void callEvent(CallFrame*) = 0;
+    virtual void returnEvent(CallFrame*) = 0;
+
+    virtual void willExecuteProgram(CallFrame*) = 0;
+    virtual void didExecuteProgram(CallFrame*) = 0;
+    virtual void didReachBreakpoint(CallFrame*) = 0;
+
+    void recompileAllJSFunctions(VM*);
+
+private:
+    void updateNeedForOpDebugCallbacks();
+
+    HashSet<JSGlobalObject*> m_globalObjects;
+
+    bool m_needsExceptionCallbacks;
+    bool m_needsOpDebugCallbacks;
+    bool m_shouldPause;
+    int m_numberOfBreakpoints;
+
+    friend class LLIntOffsetsExtractor;
+};
 
 } // namespace JSC
 

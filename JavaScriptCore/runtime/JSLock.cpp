@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2008, 2012 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,7 +25,7 @@
 #include "CallFrame.h"
 #include "JSGlobalObject.h"
 #include "JSObject.h"
-#include "ScopeChain.h"
+#include "Operations.h"
 
 #if USE(PTHREADS)
 #include <pthread.h>
@@ -33,54 +33,74 @@
 
 namespace JSC {
 
-// JSLock is only needed to support an obsolete execution model where JavaScriptCore
-// automatically protected against concurrent access from multiple threads.
-// So it's safe to disable it on non-mac platforms where we don't have native pthreads.
-#if (OS(DARWIN) || USE(PTHREADS))
-
-static pthread_mutex_t sharedInstanceLock = PTHREAD_MUTEX_INITIALIZER;
+Mutex* GlobalJSLock::s_sharedInstanceLock = 0;
 
 GlobalJSLock::GlobalJSLock()
 {
-    pthread_mutex_lock(&sharedInstanceLock);
+    s_sharedInstanceLock->lock();
 }
 
 GlobalJSLock::~GlobalJSLock()
 {
-    pthread_mutex_unlock(&sharedInstanceLock);
+    s_sharedInstanceLock->unlock();
+}
+
+void GlobalJSLock::initialize()
+{
+    s_sharedInstanceLock = new Mutex();
 }
 
 JSLockHolder::JSLockHolder(ExecState* exec)
-    : m_globalData(&exec->globalData())
+    : m_vm(exec ? &exec->vm() : 0)
 {
-    m_globalData->apiLock().lock();
+    init();
 }
 
-JSLockHolder::JSLockHolder(JSGlobalData* globalData)
-    : m_globalData(globalData)
+JSLockHolder::JSLockHolder(VM* vm)
+    : m_vm(vm)
 {
-    m_globalData->apiLock().lock();
+    init();
 }
 
-JSLockHolder::JSLockHolder(JSGlobalData& globalData)
-    : m_globalData(&globalData)
+JSLockHolder::JSLockHolder(VM& vm)
+    : m_vm(&vm)
 {
-    m_globalData->apiLock().lock();
+    init();
+}
+
+void JSLockHolder::init()
+{
+    if (m_vm)
+        m_vm->apiLock().lock();
 }
 
 JSLockHolder::~JSLockHolder()
 {
-    m_globalData->apiLock().unlock();
+    if (!m_vm)
+        return;
+
+    RefPtr<JSLock> apiLock(&m_vm->apiLock());
+    m_vm.clear();
+    apiLock->unlock();
 }
 
-JSLock::JSLock()
-    : m_lockCount(0)
+JSLock::JSLock(VM* vm)
+    : m_ownerThread(0)
+    , m_lockCount(0)
+    , m_lockDropDepth(0)
+    , m_vm(vm)
 {
     m_spinLock.Init();
 }
 
 JSLock::~JSLock()
 {
+}
+
+void JSLock::willDestroyVM(VM* vm)
+{
+    ASSERT_UNUSED(vm, m_vm == vm);
+    m_vm = 0;
 }
 
 void JSLock::lock()
@@ -106,9 +126,9 @@ void JSLock::lock()
 
 void JSLock::unlock()
 {
+    SpinLockHolder holder(&m_spinLock);
     ASSERT(currentThreadIsHoldingLock());
 
-    SpinLockHolder holder(&m_spinLock);
     m_lockCount--;
 
     if (!m_lockCount)
@@ -117,12 +137,12 @@ void JSLock::unlock()
 
 void JSLock::lock(ExecState* exec)
 {
-    exec->globalData().apiLock().lock();
+    exec->vm().apiLock().lock();
 }
 
 void JSLock::unlock(ExecState* exec)
 {
-    exec->globalData().apiLock().unlock();
+    exec->vm().apiLock().unlock();
 }
 
 bool JSLock::currentThreadIsHoldingLock()
@@ -140,13 +160,13 @@ bool JSLock::currentThreadIsHoldingLock()
 // context if the thread leaves JSC by making a call out to an external
 // function through a callback.
 //
-// All threads using the context share the same JS stack (the RegisterFile).
-// Whenever a thread calls into JSC it starts using the RegisterFile from the
+// All threads using the context share the same JS stack (the JSStack).
+// Whenever a thread calls into JSC it starts using the JSStack from the
 // previous 'high water mark' - the maximum point the stack has ever grown to
-// (returned by RegisterFile::end()).  So if a first thread calls out to a
+// (returned by JSStack::end()).  So if a first thread calls out to a
 // callback, and a second thread enters JSC, then also exits by calling out
 // to a callback, we can be left with stackframes from both threads in the
-// RegisterFile.  As such, a problem may occur should the first thread's
+// JSStack.  As such, a problem may occur should the first thread's
 // callback complete first, and attempt to return to JSC.  Were we to allow
 // this to happen, and were its stack to grow further, then it may potentially
 // write over the second thread's call frames.
@@ -172,17 +192,15 @@ bool JSLock::currentThreadIsHoldingLock()
 //
 
 // This function returns the number of locks that were dropped.
-unsigned JSLock::dropAllLocks()
+unsigned JSLock::dropAllLocks(SpinLock& spinLock)
 {
-    unsigned lockCount;
-    {
-        // Check if this thread is currently holding the lock.
-        // FIXME: Maybe we want to require this, guard with an ASSERT?
-        SpinLockHolder holder(&m_spinLock);
-        lockCount = m_lockCount;
-        if (!lockCount || m_ownerThread != WTF::currentThread())
-            return 0;
-    }
+#if PLATFORM(IOS)
+    ASSERT_UNUSED(spinLock, spinLock.IsHeld());
+    // Check if this thread is currently holding the lock.
+    // FIXME: Maybe we want to require this, guard with an ASSERT?
+    unsigned lockCount = m_lockCount;
+    if (!lockCount || m_ownerThread != WTF::currentThread())
+        return 0;
 
     // Don't drop the locks if they've already been dropped once.
     // (If the prior drop came from another thread, and it resumed first,
@@ -191,174 +209,118 @@ unsigned JSLock::dropAllLocks()
         return 0;
 
     // m_lockDropDepth is only incremented if any locks were dropped.
-    m_lockDropDepth++;
+    ++m_lockDropDepth;
     m_lockCount = 0;
     m_lock.unlock();
     return lockCount;
+#else
+    if (m_lockDropDepth++)
+        return 0;
+
+    return dropAllLocksUnconditionally(spinLock);
+#endif
 }
 
-unsigned JSLock::dropAllLocksUnconditionally()
+unsigned JSLock::dropAllLocksUnconditionally(SpinLock& spinLock)
 {
-    unsigned lockCount;
-    {
-        // Check if this thread is currently holding the lock.
-        // FIXME: Maybe we want to require this, guard with an ASSERT?
-        SpinLockHolder holder(&m_spinLock);
-        lockCount = m_lockCount;
-        if (!lockCount || m_ownerThread != WTF::currentThread())
-            return 0;
-    }
+#if PLATFORM(IOS)
+    ASSERT_UNUSED(spinLock, spinLock.IsHeld());
+    // Check if this thread is currently holding the lock.
+    // FIXME: Maybe we want to require this, guard with an ASSERT?
+    unsigned lockCount = m_lockCount;
+    if (!lockCount || m_ownerThread != WTF::currentThread())
+        return 0;
 
     // m_lockDropDepth is only incremented if any locks were dropped.
-    m_lockDropDepth++;
+    ++m_lockDropDepth;
     m_lockCount = 0;
     m_lock.unlock();
     return lockCount;
+#else
+    UNUSED_PARAM(spinLock);
+    unsigned lockCount = m_lockCount;
+    for (unsigned i = 0; i < lockCount; ++i)
+        unlock();
+
+    return lockCount;
+#endif
 }
 
-void JSLock::grabAllLocks(unsigned lockCount)
+void JSLock::grabAllLocks(unsigned lockCount, SpinLock& spinLock)
 {
+#if PLATFORM(IOS)
+    ASSERT(spinLock.IsHeld());
     // If no locks were dropped, nothing to do!
     if (!lockCount)
         return;
 
     ThreadIdentifier currentThread = WTF::currentThread();
-    {
-        // Check if this thread is currently holding the lock.
-        // FIXME: Maybe we want to prohibit this, guard against with an ASSERT?
-        SpinLockHolder holder(&m_spinLock);
-        if (m_ownerThread == currentThread && m_lockCount) {
-            m_lockCount += lockCount;
-            m_lockDropDepth--;
-            return;
-        }
+    // Check if this thread is currently holding the lock.
+    // FIXME: Maybe we want to prohibit this, guard against with an ASSERT?
+    if (m_ownerThread == currentThread && m_lockCount) {
+        m_lockCount += lockCount;
+        --m_lockDropDepth;
+        return;
     }
 
+    spinLock.Unlock();
     m_lock.lock();
+    spinLock.Lock();
 
-    {
-        SpinLockHolder holder(&m_spinLock);
-        m_ownerThread = currentThread;
-        ASSERT(!m_lockCount);
-        m_lockCount = lockCount;
-        m_lockDropDepth--;
-    }
+    m_ownerThread = currentThread;
+    ASSERT(!m_lockCount);
+    m_lockCount = lockCount;
+    --m_lockDropDepth;
+#else
+    UNUSED_PARAM(spinLock);
+    for (unsigned i = 0; i < lockCount; ++i)
+        lock();
+
+    --m_lockDropDepth;
+#endif
 }
 
 JSLock::DropAllLocks::DropAllLocks(ExecState* exec, AlwaysDropLocksTag alwaysDropLocks)
     : m_lockCount(0)
-    , m_globalData(&exec->globalData())
+    , m_vm(exec ? &exec->vm() : nullptr)
 {
+    if (!m_vm)
+        return;
+    SpinLock& spinLock = m_vm->apiLock().m_spinLock;
+#if PLATFORM(IOS)
+    SpinLockHolder holder(&spinLock);
+#endif
     if (alwaysDropLocks)
-        m_lockCount = m_globalData->apiLock().dropAllLocksUnconditionally();
+        m_lockCount = m_vm->apiLock().dropAllLocksUnconditionally(spinLock);
     else
-        m_lockCount = m_globalData->apiLock().dropAllLocks();
+        m_lockCount = m_vm->apiLock().dropAllLocks(spinLock);
 }
 
-JSLock::DropAllLocks::DropAllLocks(JSGlobalData* globalData, AlwaysDropLocksTag alwaysDropLocks)
+JSLock::DropAllLocks::DropAllLocks(VM* vm, AlwaysDropLocksTag alwaysDropLocks)
     : m_lockCount(0)
-    , m_globalData(globalData)
+    , m_vm(vm)
 {
+    if (!m_vm)
+        return;
+    SpinLock& spinLock = m_vm->apiLock().m_spinLock;
+#if PLATFORM(IOS)
+    SpinLockHolder holder(&spinLock);
+#endif
     if (alwaysDropLocks)
-        m_lockCount = m_globalData->apiLock().dropAllLocksUnconditionally();
+        m_lockCount = m_vm->apiLock().dropAllLocksUnconditionally(spinLock);
     else
-        m_lockCount = m_globalData->apiLock().dropAllLocks();
+        m_lockCount = m_vm->apiLock().dropAllLocks(spinLock);
 }
 
 JSLock::DropAllLocks::~DropAllLocks()
 {
-    m_globalData->apiLock().grabAllLocks(m_lockCount);
+    if (!m_vm)
+        return;
+    SpinLock& spinLock = m_vm->apiLock().m_spinLock;
+#if PLATFORM(IOS)
+    SpinLockHolder holder(&spinLock);
+#endif
+    m_vm->apiLock().grabAllLocks(m_lockCount, spinLock);
 }
-
-#else // (OS(DARWIN) || USE(PTHREADS))
-
-GlobalJSLock::GlobalJSLock()
-{
-}
-
-GlobalJSLock::~GlobalJSLock()
-{
-}
-
-JSLockHolder::JSLockHolder(JSGlobalData*)
-{
-}
-
-JSLockHolder::JSLockHolder(JSGlobalData&)
-{
-}
-
-JSLockHolder::JSLockHolder(ExecState*)
-{
-}
-
-JSLockHolder::~JSLockHolder()
-{
-}
-
-JSLock::JSLock()
-{
-}
-
-JSLock::~JSLock()
-{
-}
-
-bool JSLock::currentThreadIsHoldingLock()
-{
-    return true;
-}
-
-void JSLock::lock()
-{
-}
-
-void JSLock::unlock()
-{
-}
-
-void JSLock::lock(ExecState*)
-{
-}
-
-void JSLock::unlock(ExecState*)
-{
-}
-
-void JSLock::lock(JSGlobalData&)
-{
-}
-
-void JSLock::unlock(JSGlobalData&)
-{
-}
-
-unsigned JSLock::dropAllLocks()
-{
-    return 0;
-}
-
-unsigned JSLock::dropAllLocksUnconditionally()
-{
-    return 0;
-}
-
-void JSLock::grabAllLocks(unsigned)
-{
-}
-
-JSLock::DropAllLocks::DropAllLocks(ExecState*, AlwaysDropLocksTag)
-{
-}
-
-JSLock::DropAllLocks::DropAllLocks(JSGlobalData*, AlwaysDropLocksTag)
-{
-}
-
-JSLock::DropAllLocks::~DropAllLocks()
-{
-}
-
-#endif // (OS(DARWIN) || USE(PTHREADS))
 
 } // namespace JSC

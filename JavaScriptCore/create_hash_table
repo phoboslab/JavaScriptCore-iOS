@@ -271,21 +271,7 @@ sub output() {
         }
 
         my $intrinsic = "NoIntrinsic";
-        $intrinsic = "CharCodeAtIntrinsic" if ($key eq "charCodeAt");
-        $intrinsic = "CharAtIntrinsic" if ($key eq "charAt");
         $intrinsic = "FromCharCodeIntrinsic" if ($key eq "fromCharCode");
-        if ($name eq "mathTable") {
-            $intrinsic = "MinIntrinsic" if ($key eq "min");
-            $intrinsic = "MaxIntrinsic" if ($key eq "max");
-            $intrinsic = "SqrtIntrinsic" if ($key eq "sqrt");
-            $intrinsic = "PowIntrinsic" if ($key eq "pow");
-            $intrinsic = "AbsIntrinsic" if ($key eq "abs");
-            $intrinsic = "FloorIntrinsic" if ($key eq "floor");
-            $intrinsic = "CeilIntrinsic" if ($key eq "ceil");
-            $intrinsic = "RoundIntrinsic" if ($key eq "round");
-            $intrinsic = "ExpIntrinsic" if ($key eq "exp");
-            $intrinsic = "LogIntrinsic" if ($key eq "log");
-        }
         if ($name eq "arrayPrototypeTable") {
             $intrinsic = "ArrayPushIntrinsic" if ($key eq "push");
             $intrinsic = "ArrayPopIntrinsic" if ($key eq "pop");
@@ -295,10 +281,10 @@ sub output() {
             $intrinsic = "RegExpTestIntrinsic" if ($key eq "test");
         }
 
-        print "   { \"$key\", $attrs[$i], (intptr_t)" . $castStr . "($firstValue), (intptr_t)$secondValue, $intrinsic },\n";
+        print "   { \"$key\", $attrs[$i], $intrinsic, (intptr_t)" . $castStr . "($firstValue), (intptr_t)$secondValue },\n";
         $i++;
     }
-    print "   { 0, 0, 0, 0, NoIntrinsic }\n";
+    print "   { 0, 0, NoIntrinsic, 0, 0 }\n";
     print "};\n\n";
     print "extern const struct HashTable $name =\n";
     print "    \{ $compactSize, $compactHashSizeMask, $nameEntries, 0 \};\n";

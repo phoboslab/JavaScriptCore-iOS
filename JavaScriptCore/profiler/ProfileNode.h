@@ -40,7 +40,6 @@ namespace JSC {
     class ExecState;
     class ProfileNode;
 
-    typedef Vector<RefPtr<ProfileNode> >::const_iterator StackIterator;
     typedef HashCountedSet<StringImpl*> FunctionCallHashCount;
 
     class ProfileNode : public RefCounted<ProfileNode> {
@@ -64,8 +63,9 @@ namespace JSC {
         // CallIdentifier members
         ExecState* callerCallFrame() const { return m_callerCallFrame; }
         const CallIdentifier& callIdentifier() const { return m_callIdentifier; }
-        const UString& functionName() const { return m_callIdentifier.m_name; }
-        const UString& url() const { return m_callIdentifier.m_url; }
+        unsigned long callUID() const { return m_callIdentifier.hash(); };
+        const String& functionName() const { return m_callIdentifier.m_name; }
+        const String& url() const { return m_callIdentifier.m_url; }
         unsigned lineNumber() const { return m_callIdentifier.m_lineNumber; }
 
         // Relationships
@@ -97,7 +97,7 @@ namespace JSC {
         void setNumberOfCalls(unsigned number) { m_numberOfCalls = number; }
 
         // Children members
-        const Vector<RefPtr<ProfileNode> >& children() const { return m_children; }
+        const Vector<RefPtr<ProfileNode>>& children() const { return m_children; }
         ProfileNode* firstChild() const { return m_children.size() ? m_children.first().get() : 0; }
         ProfileNode* lastChild() const { return m_children.size() ? m_children.last().get() : 0; }
         ProfileNode* findChild(ProfileNode*) const;
@@ -130,6 +130,8 @@ namespace JSC {
 #endif
 
     private:
+        typedef Vector<RefPtr<ProfileNode>>::const_iterator StackIterator;
+
         ProfileNode(ExecState* callerCallFrame, const CallIdentifier&, ProfileNode* headNode, ProfileNode* parentNode);
         ProfileNode(ExecState* callerCallFrame, ProfileNode* headNode, ProfileNode* nodeToCopy);
 
@@ -146,8 +148,8 @@ namespace JSC {
         static inline bool selfTimeAscendingComparator(const RefPtr<ProfileNode>& a, const RefPtr<ProfileNode>& b) { return a->selfTime() < b->selfTime(); }
         static inline bool callsDescendingComparator(const RefPtr<ProfileNode>& a, const RefPtr<ProfileNode>& b) { return a->numberOfCalls() > b->numberOfCalls(); }
         static inline bool callsAscendingComparator(const RefPtr<ProfileNode>& a, const RefPtr<ProfileNode>& b) { return a->numberOfCalls() < b->numberOfCalls(); }
-        static inline bool functionNameDescendingComparator(const RefPtr<ProfileNode>& a, const RefPtr<ProfileNode>& b) { return a->functionName() > b->functionName(); }
-        static inline bool functionNameAscendingComparator(const RefPtr<ProfileNode>& a, const RefPtr<ProfileNode>& b) { return a->functionName() < b->functionName(); }
+        static inline bool functionNameDescendingComparator(const RefPtr<ProfileNode>& a, const RefPtr<ProfileNode>& b) { return codePointCompareLessThan(b->functionName(), a->functionName()); }
+        static inline bool functionNameAscendingComparator(const RefPtr<ProfileNode>& a, const RefPtr<ProfileNode>& b) { return codePointCompareLessThan(a->functionName(), b->functionName()); }
 
         ExecState* m_callerCallFrame;
         CallIdentifier m_callIdentifier;
@@ -164,7 +166,7 @@ namespace JSC {
 
         bool m_visible;
 
-        Vector<RefPtr<ProfileNode> > m_children;
+        Vector<RefPtr<ProfileNode>> m_children;
     };
 
 } // namespace JSC

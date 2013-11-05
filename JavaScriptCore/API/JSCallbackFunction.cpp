@@ -26,65 +26,47 @@
 #include "config.h"
 #include "JSCallbackFunction.h"
 
-#include "APIShims.h"
+#include "APICallbackFunction.h"
 #include "APICast.h"
+#include "APIShims.h"
 #include "CodeBlock.h"
+#include "Error.h"
 #include "ExceptionHelpers.h"
-#include "JSFunction.h"
 #include "FunctionPrototype.h"
-#include <runtime/JSGlobalObject.h>
-#include <runtime/JSLock.h>
+#include "JSFunction.h"
+#include "JSGlobalObject.h"
+#include "JSLock.h"
+#include "Operations.h"
 #include <wtf/Vector.h>
 
 namespace JSC {
 
-ASSERT_CLASS_FITS_IN_CELL(JSCallbackFunction);
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSCallbackFunction);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSCallbackFunction);
 
 const ClassInfo JSCallbackFunction::s_info = { "CallbackFunction", &InternalFunction::s_info, 0, 0, CREATE_METHOD_TABLE(JSCallbackFunction) };
 
-JSCallbackFunction::JSCallbackFunction(JSGlobalObject* globalObject, JSObjectCallAsFunctionCallback callback)
-    : InternalFunction(globalObject, globalObject->callbackFunctionStructure())
+JSCallbackFunction::JSCallbackFunction(VM& vm, Structure* structure, JSObjectCallAsFunctionCallback callback)
+    : InternalFunction(vm, structure)
     , m_callback(callback)
 {
 }
 
-void JSCallbackFunction::finishCreation(JSGlobalData& globalData, const Identifier& name)
+void JSCallbackFunction::finishCreation(VM& vm, const String& name)
 {
-    Base::finishCreation(globalData, name);
-    ASSERT(inherits(&s_info));
+    Base::finishCreation(vm, name);
+    ASSERT(inherits(info()));
 }
 
-EncodedJSValue JSCallbackFunction::call(ExecState* exec)
+JSCallbackFunction* JSCallbackFunction::create(VM& vm, JSGlobalObject* globalObject, JSObjectCallAsFunctionCallback callback, const String& name)
 {
-    JSContextRef execRef = toRef(exec);
-    JSObjectRef functionRef = toRef(exec->callee());
-    JSObjectRef thisObjRef = toRef(exec->hostThisValue().toThisObject(exec));
-
-    int argumentCount = static_cast<int>(exec->argumentCount());
-    Vector<JSValueRef, 16> arguments(argumentCount);
-    for (int i = 0; i < argumentCount; i++)
-        arguments[i] = toRef(exec, exec->argument(i));
-
-    JSValueRef exception = 0;
-    JSValueRef result;
-    {
-        APICallbackShim callbackShim(exec);
-        result = jsCast<JSCallbackFunction*>(toJS(functionRef))->m_callback(execRef, functionRef, thisObjRef, argumentCount, arguments.data(), &exception);
-    }
-    if (exception)
-        throwError(exec, toJS(exec, exception));
-
-    // result must be a valid JSValue.
-    if (!result)
-        return JSValue::encode(jsUndefined());
-
-    return JSValue::encode(toJS(exec, result));
+    JSCallbackFunction* function = new (NotNull, allocateCell<JSCallbackFunction>(vm.heap)) JSCallbackFunction(vm, globalObject->callbackFunctionStructure(), callback);
+    function->finishCreation(vm, name);
+    return function;
 }
 
 CallType JSCallbackFunction::getCallData(JSCell*, CallData& callData)
 {
-    callData.native.function = call;
+    callData.native.function = APICallbackFunction::call<JSCallbackFunction>;
     return CallTypeHost;
 }
 

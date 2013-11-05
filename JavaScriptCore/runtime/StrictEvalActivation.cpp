@@ -26,24 +26,33 @@
 #include "config.h"
 #include "StrictEvalActivation.h"
 
+#include "JSGlobalObject.h"
+#include "Operations.h"
+
 namespace JSC {
 
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(StrictEvalActivation);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(StrictEvalActivation);
 
 const ClassInfo StrictEvalActivation::s_info = { "Object", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(StrictEvalActivation) };
 
 StrictEvalActivation::StrictEvalActivation(ExecState* exec)
-    : JSNonFinalObject(exec->globalData(), exec->globalData().strictEvalActivationStructure.get())
+    : Base(
+        exec->vm(),
+        exec->lexicalGlobalObject()->strictEvalActivationStructure(),
+        exec->scope()
+    )
 {
 }
 
-bool StrictEvalActivation::deleteProperty(JSCell*, ExecState*, const Identifier&)
+bool StrictEvalActivation::deleteProperty(JSCell*, ExecState*, PropertyName)
 {
     return false;
 }
 
-JSObject* StrictEvalActivation::toThisObject(JSCell*, ExecState* exec)
+JSValue StrictEvalActivation::toThis(JSCell*, ExecState* exec, ECMAMode ecmaMode)
 {
+    if (ecmaMode == StrictMode)
+        return jsUndefined();
     return exec->globalThisValue();
 }
 

@@ -23,8 +23,8 @@
 #ifndef JSAPIValueWrapper_h
 #define JSAPIValueWrapper_h
 
+#include "JSCJSValue.h"
 #include "JSCell.h"
-#include "JSValue.h"
 #include "CallFrame.h"
 #include "Structure.h"
 
@@ -37,31 +37,32 @@ namespace JSC {
 
         JSValue value() const { return m_value.get(); }
 
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
         {
-            return Structure::create(globalData, globalObject, prototype, TypeInfo(APIValueWrapperType, OverridesVisitChildren | OverridesGetPropertyNames), &s_info);
+            return Structure::create(vm, globalObject, prototype, TypeInfo(APIValueWrapperType, OverridesVisitChildren | OverridesGetPropertyNames), info());
         }
         
-        static JS_EXPORTDATA const ClassInfo s_info;
+        DECLARE_EXPORT_INFO;
         
         static JSAPIValueWrapper* create(ExecState* exec, JSValue value) 
         {
-            JSAPIValueWrapper* wrapper = new (NotNull, allocateCell<JSAPIValueWrapper>(*exec->heap())) JSAPIValueWrapper(exec);
-            wrapper->finishCreation(exec, value);
+            VM& vm = exec->vm();
+            JSAPIValueWrapper* wrapper = new (NotNull, allocateCell<JSAPIValueWrapper>(vm.heap)) JSAPIValueWrapper(exec);
+            wrapper->finishCreation(vm, value);
             return wrapper;
         }
 
     protected:
-        void finishCreation(ExecState* exec, JSValue value)
+        void finishCreation(VM& vm, JSValue value)
         {
-            Base::finishCreation(exec->globalData());
-            m_value.set(exec->globalData(), this, value);
+            Base::finishCreation(vm);
+            m_value.set(vm, this, value);
             ASSERT(!value.isCell());
         }
 
     private:
         JSAPIValueWrapper(ExecState* exec)
-            : JSCell(exec->globalData(), exec->globalData().apiWrapperStructure.get())
+            : JSCell(exec->vm(), exec->vm().apiWrapperStructure.get())
         {
         }
 

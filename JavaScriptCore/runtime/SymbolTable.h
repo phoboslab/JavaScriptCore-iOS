@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,47 +29,95 @@
 #ifndef SymbolTable_h
 #define SymbolTable_h
 
+#include "ConcurrentJITLock.h"
 #include "JSObject.h"
-#include "UString.h"
-#include <wtf/AlwaysInline.h>
+#include "Watchpoint.h"
+#include <memory>
 #include <wtf/HashTraits.h>
+#include <wtf/text/StringImpl.h>
 
 namespace JSC {
 
-    static ALWAYS_INLINE int missingSymbolMarker() { return std::numeric_limits<int>::max(); }
+class Watchpoint;
+class WatchpointSet;
 
-    // The bit twiddling in this class assumes that every register index is a
-    // reasonably small positive or negative number, and therefore has its high
-    // four bits all set or all unset.
+struct SlowArgument {
+    enum Status {
+        Normal = 0,
+        Captured = 1,
+        Deleted = 2
+    };
 
-    struct SymbolTableEntry {
-        SymbolTableEntry()
-            : m_bits(0)
+    SlowArgument()
+        : status(Normal)
+        , index(0)
+    {
+    }
+
+    Status status;
+    int index; // If status is 'Deleted', index is bogus.
+};
+
+static ALWAYS_INLINE int missingSymbolMarker() { return std::numeric_limits<int>::max(); }
+
+// The bit twiddling in this class assumes that every register index is a
+// reasonably small positive or negative number, and therefore has its high
+// four bits all set or all unset.
+
+// In addition to implementing semantics-mandated variable attributes and
+// implementation-mandated variable indexing, this class also implements
+// watchpoints to be used for JIT optimizations. Because watchpoints are
+// meant to be relatively rare, this class optimizes heavily for the case
+// that they are not being used. To that end, this class uses the thin-fat
+// idiom: either it is thin, in which case it contains an in-place encoded
+// word that consists of attributes, the index, and a bit saying that it is
+// thin; or it is fat, in which case it contains a pointer to a malloc'd
+// data structure and a bit saying that it is fat. The malloc'd data
+// structure will be malloced a second time upon copy, to preserve the
+// property that in-place edits to SymbolTableEntry do not manifest in any
+// copies. However, the malloc'd FatEntry data structure contains a ref-
+// counted pointer to a shared WatchpointSet. Thus, in-place edits of the
+// WatchpointSet will manifest in all copies. Here's a picture:
+//
+// SymbolTableEntry --> FatEntry --> WatchpointSet
+//
+// If you make a copy of a SymbolTableEntry, you will have:
+//
+// original: SymbolTableEntry --> FatEntry --> WatchpointSet
+// copy:     SymbolTableEntry --> FatEntry -----^
+
+struct SymbolTableEntry {
+    // Use the SymbolTableEntry::Fast class, either via implicit cast or by calling
+    // getFast(), when you (1) only care about isNull(), getIndex(), and isReadOnly(),
+    // and (2) you are in a hot path where you need to minimize the number of times
+    // that you branch on isFat() when getting the bits().
+    class Fast {
+    public:
+        Fast()
+            : m_bits(SlimFlag)
         {
-        }
-
-        SymbolTableEntry(int index)
-        {
-            ASSERT(isValidIndex(index));
-            pack(index, false, false);
-        }
-
-        SymbolTableEntry(int index, unsigned attributes)
-        {
-            ASSERT(isValidIndex(index));
-            pack(index, attributes & ReadOnly, attributes & DontEnum);
         }
         
+        ALWAYS_INLINE Fast(const SymbolTableEntry& entry)
+            : m_bits(entry.bits())
+        {
+        }
+    
         bool isNull() const
         {
-            return !m_bits;
+            return !(m_bits & ~SlimFlag);
         }
 
         int getIndex() const
         {
-            return m_bits >> FlagBits;
+            return static_cast<int>(m_bits >> FlagBits);
         }
-
+    
+        bool isReadOnly() const
+        {
+            return m_bits & ReadOnlyFlag;
+        }
+        
         unsigned getAttributes() const
         {
             unsigned attributes = 0;
@@ -80,54 +128,384 @@ namespace JSC {
             return attributes;
         }
 
-        void setAttributes(unsigned attributes)
+        bool isFat() const
         {
-            pack(getIndex(), attributes & ReadOnly, attributes & DontEnum);
-        }
-
-        bool isReadOnly() const
-        {
-            return m_bits & ReadOnlyFlag;
-        }
-
-    private:
-        static const unsigned ReadOnlyFlag = 0x1;
-        static const unsigned DontEnumFlag = 0x2;
-        static const unsigned NotNullFlag = 0x4;
-        static const unsigned FlagBits = 3;
-
-        void pack(int index, bool readOnly, bool dontEnum)
-        {
-            m_bits = (index << FlagBits) | NotNullFlag;
-            if (readOnly)
-                m_bits |= ReadOnlyFlag;
-            if (dontEnum)
-                m_bits |= DontEnumFlag;
+            return !(m_bits & SlimFlag);
         }
         
-        bool isValidIndex(int index)
-        {
-            return ((index << FlagBits) >> FlagBits) == index;
-        }
-
-        int m_bits;
+    private:
+        friend struct SymbolTableEntry;
+        intptr_t m_bits;
     };
 
-    struct SymbolTableIndexHashTraits : HashTraits<SymbolTableEntry> {
-        static const bool emptyValueIsZero = true;
-        static const bool needsDestruction = false;
-    };
+    SymbolTableEntry()
+        : m_bits(SlimFlag)
+    {
+    }
 
-    typedef HashMap<RefPtr<StringImpl>, SymbolTableEntry, IdentifierRepHash, HashTraits<RefPtr<StringImpl> >, SymbolTableIndexHashTraits> SymbolTable;
+    SymbolTableEntry(int index)
+        : m_bits(SlimFlag)
+    {
+        ASSERT(isValidIndex(index));
+        pack(index, false, false);
+    }
 
-    class SharedSymbolTable : public SymbolTable, public RefCounted<SharedSymbolTable> {
+    SymbolTableEntry(int index, unsigned attributes)
+        : m_bits(SlimFlag)
+    {
+        ASSERT(isValidIndex(index));
+        pack(index, attributes & ReadOnly, attributes & DontEnum);
+    }
+    
+    ~SymbolTableEntry()
+    {
+        freeFatEntry();
+    }
+    
+    SymbolTableEntry(const SymbolTableEntry& other)
+        : m_bits(SlimFlag)
+    {
+        *this = other;
+    }
+    
+    SymbolTableEntry& operator=(const SymbolTableEntry& other)
+    {
+        if (UNLIKELY(other.isFat()))
+            return copySlow(other);
+        freeFatEntry();
+        m_bits = other.m_bits;
+        return *this;
+    }
+    
+    bool isNull() const
+    {
+        return !(bits() & ~SlimFlag);
+    }
+
+    int getIndex() const
+    {
+        return static_cast<int>(bits() >> FlagBits);
+    }
+    
+    ALWAYS_INLINE Fast getFast() const
+    {
+        return Fast(*this);
+    }
+    
+    ALWAYS_INLINE Fast getFast(bool& wasFat) const
+    {
+        Fast result;
+        wasFat = isFat();
+        if (wasFat)
+            result.m_bits = fatEntry()->m_bits | SlimFlag;
+        else
+            result.m_bits = m_bits;
+        return result;
+    }
+    
+    unsigned getAttributes() const
+    {
+        return getFast().getAttributes();
+    }
+
+    void setAttributes(unsigned attributes)
+    {
+        pack(getIndex(), attributes & ReadOnly, attributes & DontEnum);
+    }
+
+    bool isReadOnly() const
+    {
+        return bits() & ReadOnlyFlag;
+    }
+    
+    bool couldBeWatched();
+    
+    // Notify an opportunity to create a watchpoint for a variable. This is
+    // idempotent and fail-silent. It is idempotent in the sense that if
+    // a watchpoint set had already been created, then another one will not
+    // be created. Hence two calls to this method have the same effect as
+    // one call. It is also fail-silent, in the sense that if a watchpoint
+    // set had been created and had already been invalidated, then this will
+    // just return. This means that couldBeWatched() may return false even
+    // immediately after a call to attemptToWatch().
+    void attemptToWatch();
+    
+    bool* addressOfIsWatched();
+    
+    void addWatchpoint(Watchpoint*);
+    
+    WatchpointSet* watchpointSet()
+    {
+        return fatEntry()->m_watchpoints.get();
+    }
+    
+    ALWAYS_INLINE void notifyWrite()
+    {
+        if (LIKELY(!isFat()))
+            return;
+        notifyWriteSlow();
+    }
+    
+private:
+    static const intptr_t SlimFlag = 0x1;
+    static const intptr_t ReadOnlyFlag = 0x2;
+    static const intptr_t DontEnumFlag = 0x4;
+    static const intptr_t NotNullFlag = 0x8;
+    static const intptr_t FlagBits = 4;
+    
+    class FatEntry {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        static PassRefPtr<SharedSymbolTable> create() { return adoptRef(new SharedSymbolTable); }
-    private:
-        SharedSymbolTable() { turnOffVerifier(); }
+        FatEntry(intptr_t bits)
+            : m_bits(bits & ~SlimFlag)
+        {
+        }
+        
+        intptr_t m_bits; // always has FatFlag set and exactly matches what the bits would have been if this wasn't fat.
+        
+        RefPtr<WatchpointSet> m_watchpoints;
     };
     
+    SymbolTableEntry& copySlow(const SymbolTableEntry&);
+    JS_EXPORT_PRIVATE void notifyWriteSlow();
+    
+    bool isFat() const
+    {
+        return !(m_bits & SlimFlag);
+    }
+    
+    const FatEntry* fatEntry() const
+    {
+        ASSERT(isFat());
+        return bitwise_cast<const FatEntry*>(m_bits);
+    }
+    
+    FatEntry* fatEntry()
+    {
+        ASSERT(isFat());
+        return bitwise_cast<FatEntry*>(m_bits);
+    }
+    
+    FatEntry* inflate()
+    {
+        if (LIKELY(isFat()))
+            return fatEntry();
+        return inflateSlow();
+    }
+    
+    FatEntry* inflateSlow();
+    
+    ALWAYS_INLINE intptr_t bits() const
+    {
+        if (isFat())
+            return fatEntry()->m_bits;
+        return m_bits;
+    }
+    
+    ALWAYS_INLINE intptr_t& bits()
+    {
+        if (isFat())
+            return fatEntry()->m_bits;
+        return m_bits;
+    }
+    
+    void freeFatEntry()
+    {
+        if (LIKELY(!isFat()))
+            return;
+        freeFatEntrySlow();
+    }
+
+    JS_EXPORT_PRIVATE void freeFatEntrySlow();
+
+    void pack(int index, bool readOnly, bool dontEnum)
+    {
+        ASSERT(!isFat());
+        intptr_t& bitsRef = bits();
+        bitsRef = (static_cast<intptr_t>(index) << FlagBits) | NotNullFlag | SlimFlag;
+        if (readOnly)
+            bitsRef |= ReadOnlyFlag;
+        if (dontEnum)
+            bitsRef |= DontEnumFlag;
+    }
+    
+    bool isValidIndex(int index)
+    {
+        return ((static_cast<intptr_t>(index) << FlagBits) >> FlagBits) == static_cast<intptr_t>(index);
+    }
+
+    intptr_t m_bits;
+};
+
+struct SymbolTableIndexHashTraits : HashTraits<SymbolTableEntry> {
+    static const bool needsDestruction = true;
+};
+
+class SymbolTable {
+public:
+    typedef HashMap<RefPtr<StringImpl>, SymbolTableEntry, IdentifierRepHash, HashTraits<RefPtr<StringImpl>>, SymbolTableIndexHashTraits> Map;
+
+    JS_EXPORT_PRIVATE SymbolTable();
+    JS_EXPORT_PRIVATE ~SymbolTable();
+    
+    // You must hold the lock until after you're done with the iterator.
+    Map::iterator find(const ConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.find(key);
+    }
+    
+    Map::iterator find(const GCSafeConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.find(key);
+    }
+    
+    SymbolTableEntry get(const ConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.get(key);
+    }
+    
+    SymbolTableEntry get(StringImpl* key)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        return get(locker, key);
+    }
+    
+    SymbolTableEntry inlineGet(const ConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.inlineGet(key);
+    }
+    
+    SymbolTableEntry inlineGet(StringImpl* key)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        return inlineGet(locker, key);
+    }
+    
+    Map::iterator begin(const ConcurrentJITLocker&)
+    {
+        return m_map.begin();
+    }
+    
+    Map::iterator end(const ConcurrentJITLocker&)
+    {
+        return m_map.end();
+    }
+    
+    Map::iterator end(const GCSafeConcurrentJITLocker&)
+    {
+        return m_map.end();
+    }
+    
+    size_t size(const ConcurrentJITLocker&) const
+    {
+        return m_map.size();
+    }
+    
+    size_t size() const
+    {
+        ConcurrentJITLocker locker(m_lock);
+        return size(locker);
+    }
+    
+    Map::AddResult add(const ConcurrentJITLocker&, StringImpl* key, const SymbolTableEntry& entry)
+    {
+        return m_map.add(key, entry);
+    }
+    
+    void add(StringImpl* key, const SymbolTableEntry& entry)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        add(locker, key, entry);
+    }
+    
+    Map::AddResult set(const ConcurrentJITLocker&, StringImpl* key, const SymbolTableEntry& entry)
+    {
+        return m_map.set(key, entry);
+    }
+    
+    void set(StringImpl* key, const SymbolTableEntry& entry)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        set(locker, key, entry);
+    }
+    
+    bool contains(const ConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.contains(key);
+    }
+    
+    bool contains(StringImpl* key)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        return contains(locker, key);
+    }
+    
+private:
+    Map m_map;
+public:
+    mutable ConcurrentJITLock m_lock;
+};
+
+
+class SharedSymbolTable : public JSCell, public SymbolTable {
+public:
+    typedef JSCell Base;
+
+    static SharedSymbolTable* create(VM& vm)
+    {
+        SharedSymbolTable* sharedSymbolTable = new (NotNull, allocateCell<SharedSymbolTable>(vm.heap)) SharedSymbolTable(vm);
+        sharedSymbolTable->finishCreation(vm);
+        return sharedSymbolTable;
+    }
+    static const bool needsDestruction = true;
+    static const bool hasImmortalStructure = true;
+    static void destroy(JSCell*);
+
+    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
+    {
+        return Structure::create(vm, globalObject, prototype, TypeInfo(LeafType, StructureFlags), info());
+    }
+
+    bool usesNonStrictEval() { return m_usesNonStrictEval; }
+    void setUsesNonStrictEval(bool usesNonStrictEval) { m_usesNonStrictEval = usesNonStrictEval; }
+
+    int captureStart() { return m_captureStart; }
+    void setCaptureStart(int captureStart) { m_captureStart = captureStart; }
+
+    int captureEnd() { return m_captureEnd; }
+    void setCaptureEnd(int captureEnd) { m_captureEnd = captureEnd; }
+
+    int captureCount() { return -(m_captureEnd - m_captureStart); }
+
+    int parameterCount() { return m_parameterCountIncludingThis - 1; }
+    int parameterCountIncludingThis() { return m_parameterCountIncludingThis; }
+    void setParameterCountIncludingThis(int parameterCountIncludingThis) { m_parameterCountIncludingThis = parameterCountIncludingThis; }
+
+    // 0 if we don't capture any arguments; parameterCount() in length if we do.
+    const SlowArgument* slowArguments() { return m_slowArguments.get(); }
+    void setSlowArguments(std::unique_ptr<SlowArgument[]> slowArguments) { m_slowArguments = std::move(slowArguments); }
+
+    DECLARE_EXPORT_INFO;
+
+private:
+    SharedSymbolTable(VM& vm)
+        : JSCell(vm, vm.sharedSymbolTableStructure.get())
+        , m_parameterCountIncludingThis(0)
+        , m_usesNonStrictEval(false)
+        , m_captureStart(0)
+        , m_captureEnd(0)
+    {
+    }
+
+    int m_parameterCountIncludingThis;
+    bool m_usesNonStrictEval;
+
+    int m_captureStart;
+    int m_captureEnd;
+
+    std::unique_ptr<SlowArgument[]> m_slowArguments;
+};
+
 } // namespace JSC
 
 #endif // SymbolTable_h

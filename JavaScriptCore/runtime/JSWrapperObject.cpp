@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2006 Maks Orlovich
- *  Copyright (C) 2006, 2009 Apple, Inc.
+ *  Copyright (C) 2006, 2009, 2012 Apple, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -22,20 +22,21 @@
 #include "config.h"
 #include "JSWrapperObject.h"
 
+#include "Operations.h"
+
 namespace JSC {
 
-ASSERT_CLASS_FITS_IN_CELL(JSWrapperObject);
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSWrapperObject);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSWrapperObject);
 
 void JSWrapperObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     JSWrapperObject* thisObject = jsCast<JSWrapperObject*>(cell);
-    ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
     ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
+
     JSObject::visitChildren(thisObject, visitor);
-    if (thisObject->m_internalValue)
-        visitor.append(&thisObject->m_internalValue);
+    visitor.append(&thisObject->m_internalValue);
 }
 
 } // namespace JSC

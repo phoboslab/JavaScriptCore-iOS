@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,10 @@
 #ifndef ParserTokens_h
 #define ParserTokens_h
 
+#include "ParserModes.h"
+#include <limits.h>
+#include <stdint.h>
+
 namespace JSC {
 
 class Identifier;
@@ -36,6 +40,8 @@ enum {
     BinaryOpTokenPrecedenceShift = 8,
     BinaryOpTokenAllowsInPrecedenceAdditionalShift = 4,
     BinaryOpTokenPrecedenceMask = 15 << BinaryOpTokenPrecedenceShift,
+    ErrorTokenFlag = 1 << (BinaryOpTokenAllowsInPrecedenceAdditionalShift + BinaryOpTokenPrecedenceShift + 7),
+    UnterminatedErrorTokenFlag = ErrorTokenFlag << 1
 };
 
 #define BINARY_OP_PRECEDENCE(prec) (((prec) << BinaryOpTokenPrecedenceShift) | ((prec) << (BinaryOpTokenPrecedenceShift + BinaryOpTokenAllowsInPrecedenceAdditionalShift)))
@@ -83,7 +89,6 @@ enum JSTokenType {
     SEMICOLON,
     COLON,
     DOT,
-    ERRORTOK,
     EOFTOK,
     EQUAL,
     PLUSEQUAL,
@@ -97,6 +102,7 @@ enum JSTokenType {
     MODEQUAL,
     XOREQUAL,
     OREQUAL,
+    DOTDOTDOT,
     LastUntaggedToken,
 
     // Begin tagged tokens
@@ -131,32 +137,71 @@ enum JSTokenType {
     MINUS = 19 | BINARY_OP_PRECEDENCE(9) | UnaryOpTokenFlag,
     TIMES = 20 | BINARY_OP_PRECEDENCE(10),
     DIVIDE = 21 | BINARY_OP_PRECEDENCE(10),
-    MOD = 22 | BINARY_OP_PRECEDENCE(10)
+    MOD = 22 | BINARY_OP_PRECEDENCE(10),
+    ERRORTOK = 0 | ErrorTokenFlag,
+    UNTERMINATED_IDENTIFIER_ESCAPE_ERRORTOK = 0 | ErrorTokenFlag | UnterminatedErrorTokenFlag,
+    INVALID_IDENTIFIER_ESCAPE_ERRORTOK = 1 | ErrorTokenFlag,
+    UNTERMINATED_IDENTIFIER_UNICODE_ESCAPE_ERRORTOK = 2 | ErrorTokenFlag | UnterminatedErrorTokenFlag,
+    INVALID_IDENTIFIER_UNICODE_ESCAPE_ERRORTOK = 3 | ErrorTokenFlag,
+    UNTERMINATED_MULTILINE_COMMENT_ERRORTOK = 4 | ErrorTokenFlag | UnterminatedErrorTokenFlag,
+    UNTERMINATED_NUMERIC_LITERAL_ERRORTOK = 5 | ErrorTokenFlag | UnterminatedErrorTokenFlag,
+    INVALID_OCTAL_NUMBER_ERRORTOK = 6 | ErrorTokenFlag | UnterminatedErrorTokenFlag,
+    INVALID_NUMERIC_LITERAL_ERRORTOK = 7 | ErrorTokenFlag,
+    UNTERMINATED_STRING_LITERAL_ERRORTOK = 8 | ErrorTokenFlag | UnterminatedErrorTokenFlag,
+    INVALID_STRING_LITERAL_ERRORTOK = 9 | ErrorTokenFlag,
+};
+
+struct JSTextPosition {
+    JSTextPosition() : line(0), offset(0), lineStartOffset(0) { }
+    JSTextPosition(int _line, int _offset, int _lineStartOffset) : line(_line), offset(_offset), lineStartOffset(_lineStartOffset) { }
+    JSTextPosition(const JSTextPosition& other) : line(other.line), offset(other.offset), lineStartOffset(other.lineStartOffset) { }
+
+    JSTextPosition operator+(int adjustment) const { return JSTextPosition(line, offset + adjustment, lineStartOffset); }
+    JSTextPosition operator+(unsigned adjustment) const { return *this + static_cast<int>(adjustment); }
+    JSTextPosition operator-(int adjustment) const { return *this + (- adjustment); }
+    JSTextPosition operator-(unsigned adjustment) const { return *this + (- static_cast<int>(adjustment)); }
+
+    operator int() const { return offset; }
+
+    int line;
+    int offset;
+    int lineStartOffset;
 };
 
 union JSTokenData {
-    int intValue;
+    struct {
+        uint32_t line;
+        uint32_t offset;
+        uint32_t lineStartOffset;
+    };
     double doubleValue;
     const Identifier* ident;
 };
 
-struct JSTokenInfo {
-    JSTokenInfo() : line(0) { }
+struct JSTokenLocation {
+    JSTokenLocation() : line(0), lineStartOffset(0), startOffset(0) { }
+    JSTokenLocation(const JSTokenLocation& location)
+    {
+        line = location.line;
+        lineStartOffset = location.lineStartOffset;
+        startOffset = location.startOffset;
+        endOffset = location.endOffset;
+    }
+
     int line;
-    int startOffset;
-    int endOffset;
+    unsigned lineStartOffset;
+    unsigned startOffset;
+    unsigned endOffset;
 };
 
 struct JSToken {
     JSTokenType m_type;
     JSTokenData m_data;
-    JSTokenInfo m_info;
+    JSTokenLocation m_location;
+    JSTextPosition m_startPosition;
+    JSTextPosition m_endPosition;
 };
 
-enum JSParserStrictness { JSParseNormal, JSParseStrict };
-enum JSParserMode { JSParseProgramCode, JSParseFunctionCode };
-    
-}
-
+} // namespace JSC
 
 #endif // ParserTokens_h

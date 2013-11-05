@@ -36,10 +36,6 @@
 #include "Threading.h"
 #include <wtf/ThreadSpecific.h>
 
-#if PLATFORM(CHROMIUM)
-#error Chromium uses a different main thread implementation
-#endif
-
 namespace WTF {
 
 struct FunctionWithContext {
@@ -120,6 +116,7 @@ void initializeMainThread()
     pthread_once(&initializeMainThreadKeyOnce, initializeMainThreadOnce);
 }
 
+#if !USE(WEB_THREAD)
 static void initializeMainThreadToProcessMainThreadOnce()
 {
     mainThreadFunctionQueueMutex();
@@ -130,6 +127,20 @@ void initializeMainThreadToProcessMainThread()
 {
     pthread_once(&initializeMainThreadKeyOnce, initializeMainThreadToProcessMainThreadOnce);
 }
+#else
+static pthread_once_t initializeWebThreadKeyOnce = PTHREAD_ONCE_INIT;
+
+static void initializeWebThreadOnce()
+{
+    initializeWebThreadPlatform();
+}
+
+void initializeWebThread()
+{
+    pthread_once(&initializeWebThreadKeyOnce, initializeWebThreadOnce);
+}
+#endif // !USE(WEB_THREAD)
+
 #endif
 
 // 0.1 sec delays in UI is approximate threshold when they become noticeable. Have a limit that's half of that.
@@ -142,7 +153,7 @@ void dispatchFunctionsFromMainThread()
     if (callbacksPaused)
         return;
 
-    double startTime = currentTime();
+    double startTime = monotonicallyIncreasingTime();
 
     FunctionWithContext invocation;
     while (true) {
@@ -163,7 +174,7 @@ void dispatchFunctionsFromMainThread()
         // yield so the user input can be processed. Otherwise user may not be able to even close the window.
         // This code has effect only in case the scheduleDispatchFunctionsOnMainThread() is implemented in a way that
         // allows input events to be processed before we are back here.
-        if (currentTime() - startTime > maxRunLoopSuspensionTime) {
+        if (monotonicallyIncreasingTime() - startTime > maxRunLoopSuspensionTime) {
             scheduleDispatchFunctionsOnMainThread();
             break;
         }
@@ -221,14 +232,18 @@ void cancelCallOnMainThread(MainThreadFunction* function, void* context)
 
 static void callFunctionObject(void* context)
 {
-    Function<void ()>* function = static_cast<Function<void ()>*>(context);
+    auto function = std::unique_ptr<std::function<void ()>>(static_cast<std::function<void ()>*>(context));
     (*function)();
-    delete function;
+}
+
+void callOnMainThread(std::function<void ()> function)
+{
+    callOnMainThread(callFunctionObject, std::make_unique<std::function<void ()>>(std::move(function)).release());
 }
 
 void callOnMainThread(const Function<void ()>& function)
 {
-    callOnMainThread(callFunctionObject, new Function<void ()>(function));
+    callOnMainThread(std::function<void ()>(function));
 }
 
 void setMainThreadCallbacksPaused(bool paused)

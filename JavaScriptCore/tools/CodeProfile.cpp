@@ -74,7 +74,7 @@ static const char* symbolName(void* address)
 static bool truncateTrace(const char* symbolName)
 {
     return !strcmp(symbolName, "JSC::BytecodeGenerator::generate()")
-        || !strcmp(symbolName, "JSC::Parser<JSC::Lexer<unsigned char> >::parseInner()")
+        || !strcmp(symbolName, "JSC::Parser<JSC::Lexer<unsigned char>>::parseInner()")
         || !strcmp(symbolName, "WTF::fastMalloc(unsigned long)")
         || !strcmp(symbolName, "WTF::calculateUTCOffset()")
         || !strcmp(symbolName, "JSC::DFG::ByteCodeParser::parseCodeBlock()");
@@ -105,9 +105,9 @@ void CodeProfile::sample(void* pc, void** framePointer)
             type = RegExpCode;
         else {
             CodeBlock* codeBlock = static_cast<CodeBlock*>(ownerUID);
-            if (codeBlock->getJITType() == JITCode::DFGJIT)
+            if (codeBlock->jitType() == JITCode::DFGJIT)
                 type = DFGJIT;
-            else if (codeBlock->canCompileWithDFGState() == CodeBlock::CompileWithDFGFalse)
+            else if (!canCompile(codeBlock->capabilityLevelState()))
                 type = BaselineOnly;
             else if (codeBlock->replacement())
                 type = BaselineOSR;
@@ -133,7 +133,7 @@ void CodeProfile::sample(void* pc, void** framePointer)
         framePointer = 0;
 #else
         // This platform is not yet supported!
-        ASSERT_NOT_REACHED();
+        RELEASE_ASSERT_NOT_REACHED();
 #endif
     }
 
@@ -143,7 +143,7 @@ void CodeProfile::sample(void* pc, void** framePointer)
 
 void CodeProfile::report()
 {
-    dataLog("<CodeProfiling %s:%d>\n", m_file.data(), m_lineNo);
+    dataLogF("<CodeProfiling %s:%d>\n", m_file.data(), m_lineNo);
 
     // How many frames of C-code to print - 0, if not verbose, 1 if verbose, up to 1024 if very verbose.
     unsigned recursionLimit = CodeProfiling::beVeryVerbose() ? 1024 : CodeProfiling::beVerbose();
@@ -180,13 +180,13 @@ void CodeProfile::report()
     }
 
     // Output the profile tree.
-    dataLog("Total samples: %lld\n", static_cast<long long>(profile.childCount()));
+    dataLogF("Total samples: %lld\n", static_cast<long long>(profile.childCount()));
     profile.dump();
     
     for (size_t i = 0 ; i < m_children.size(); ++i)
         m_children[i]->report();
 
-    dataLog("</CodeProfiling %s:%d>\n", m_file.data(), m_lineNo);
+    dataLogF("</CodeProfiling %s:%d>\n", m_file.data(), m_lineNo);
 }
 
 }

@@ -21,6 +21,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
+require "config"
+
 #
 # Base utility types for the AST.
 #
@@ -669,6 +671,10 @@ class Address < Node
         raise "Bad offset for address #{offset.inspect} at #{codeOriginString}" unless offset.is_a? Variable or offset.immediate?
     end
     
+    def withOffset(extraOffset)
+        Address.new(codeOrigin, @base, Immediate.new(codeOrigin, @offset.value + extraOffset))
+    end
+    
     def children
         [@base, @offset]
     end
@@ -725,6 +731,10 @@ class BaseIndex < Node
         end
     end
     
+    def withOffset(extraOffset)
+        BaseIndex.new(codeOrigin, @base, @index, @scale, Immediate.new(codeOrigin, @offset.value + extraOffset))
+    end
+    
     def children
         [@base, @index, @offset]
     end
@@ -762,6 +772,10 @@ class AbsoluteAddress < NoChildren
         @address = address
     end
     
+    def withOffset(extraOffset)
+        AbsoluteAddress.new(codeOrigin, Immediate.new(codeOrigin, @address.value + extraOffset))
+    end
+    
     def dump
         "#{address.dump}[]"
     end
@@ -784,12 +798,13 @@ class AbsoluteAddress < NoChildren
 end
 
 class Instruction < Node
-    attr_reader :opcode, :operands
+    attr_reader :opcode, :operands, :annotation
     
-    def initialize(codeOrigin, opcode, operands)
+    def initialize(codeOrigin, opcode, operands, annotation=nil)
         super(codeOrigin)
         @opcode = opcode
         @operands = operands
+        @annotation = annotation
     end
     
     def children
@@ -797,11 +812,22 @@ class Instruction < Node
     end
     
     def mapChildren(&proc)
-        Instruction.new(codeOrigin, @opcode, @operands.map(&proc))
+        Instruction.new(codeOrigin, @opcode, @operands.map(&proc), @annotation)
     end
     
     def dump
         "\t" + opcode.to_s + " " + operands.collect{|v| v.dump}.join(", ")
+    end
+
+    def lowerDefault
+        case opcode
+        when "localAnnotation"
+            $asm.putLocalAnnotation
+        when "globalAnnotation"
+            $asm.putGlobalAnnotation
+        else
+            raise "Unhandled opcode #{opcode} at #{codeOriginString}"
+        end
     end
 end
 
@@ -1125,7 +1151,7 @@ class Not < Node
     end
     
     def children
-        [@left, @right]
+        [@child]
     end
     
     def mapChildren
@@ -1177,7 +1203,7 @@ end
 
 class Macro < Node
     attr_reader :name, :variables, :body
-    
+
     def initialize(codeOrigin, name, variables, body)
         super(codeOrigin)
         @name = name
@@ -1199,14 +1225,15 @@ class Macro < Node
 end
 
 class MacroCall < Node
-    attr_reader :name, :operands
+    attr_reader :name, :operands, :annotation
     
-    def initialize(codeOrigin, name, operands)
+    def initialize(codeOrigin, name, operands, annotation)
         super(codeOrigin)
         @name = name
         @operands = operands
         raise unless @operands
         @operands.each{|v| raise unless v}
+        @annotation = annotation
     end
     
     def children
@@ -1214,7 +1241,7 @@ class MacroCall < Node
     end
     
     def mapChildren(&proc)
-        MacroCall.new(codeOrigin, @name, @operands.map(&proc))
+        MacroCall.new(codeOrigin, @name, @operands.map(&proc), @annotation)
     end
     
     def dump

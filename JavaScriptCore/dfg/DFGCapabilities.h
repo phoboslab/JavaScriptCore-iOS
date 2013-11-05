@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,11 +26,13 @@
 #ifndef DFGCapabilities_h
 #define DFGCapabilities_h
 
-#include "Intrinsic.h"
+#include "CodeBlock.h"
+#include "DFGCommon.h"
 #include "DFGNode.h"
 #include "Executable.h"
-#include "Options.h"
 #include "Interpreter.h"
+#include "Intrinsic.h"
+#include "Options.h"
 #include <wtf/Platform.h>
 
 namespace JSC { namespace DFG {
@@ -38,218 +40,75 @@ namespace JSC { namespace DFG {
 #if ENABLE(DFG_JIT)
 // Fast check functions; if they return true it is still necessary to
 // check opcodes.
-inline bool mightCompileEval(CodeBlock* codeBlock)
-{
-    return codeBlock->instructionCount() <= Options::maximumOptimizationCandidateInstructionCount;
-}
-inline bool mightCompileProgram(CodeBlock* codeBlock)
-{
-    return codeBlock->instructionCount() <= Options::maximumOptimizationCandidateInstructionCount;
-}
-inline bool mightCompileFunctionForCall(CodeBlock* codeBlock)
-{
-    return codeBlock->instructionCount() <= Options::maximumOptimizationCandidateInstructionCount;
-}
-inline bool mightCompileFunctionForConstruct(CodeBlock* codeBlock)
-{
-    return codeBlock->instructionCount() <= Options::maximumOptimizationCandidateInstructionCount;
-}
+bool mightCompileEval(CodeBlock*);
+bool mightCompileProgram(CodeBlock*);
+bool mightCompileFunctionForCall(CodeBlock*);
+bool mightCompileFunctionForConstruct(CodeBlock*);
+bool mightInlineFunctionForCall(CodeBlock*);
+bool mightInlineFunctionForClosureCall(CodeBlock*);
+bool mightInlineFunctionForConstruct(CodeBlock*);
 
-inline bool mightInlineFunctionForCall(CodeBlock* codeBlock)
-{
-    return codeBlock->instructionCount() <= Options::maximumFunctionForCallInlineCandidateInstructionCount
-        && !codeBlock->ownerExecutable()->needsActivation();
-}
-inline bool mightInlineFunctionForConstruct(CodeBlock* codeBlock)
-{
-    return codeBlock->instructionCount() <= Options::maximumFunctionForConstructInlineCandidateInstructionCount
-        && !codeBlock->ownerExecutable()->needsActivation();
-}
+inline CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, Instruction* pc);
 
-// Opcode checking.
-inline bool canCompileOpcode(OpcodeID opcodeID)
-{
-    switch (opcodeID) {
-    case op_enter:
-    case op_convert_this:
-    case op_create_this:
-    case op_get_callee:
-    case op_bitand:
-    case op_bitor:
-    case op_bitxor:
-    case op_rshift:
-    case op_lshift:
-    case op_urshift:
-    case op_pre_inc:
-    case op_post_inc:
-    case op_pre_dec:
-    case op_post_dec:
-    case op_add:
-    case op_sub:
-    case op_negate:
-    case op_mul:
-    case op_mod:
-    case op_div:
-#if ENABLE(DEBUG_WITH_BREAKPOINT)
-    case op_debug:
-#endif
-    case op_mov:
-    case op_check_has_instance:
-    case op_instanceof:
-    case op_is_undefined:
-    case op_is_boolean:
-    case op_is_number:
-    case op_is_string:
-    case op_is_object:
-    case op_is_function:
-    case op_not:
-    case op_less:
-    case op_lesseq:
-    case op_greater:
-    case op_greatereq:
-    case op_eq:
-    case op_eq_null:
-    case op_stricteq:
-    case op_neq:
-    case op_neq_null:
-    case op_nstricteq:
-    case op_get_by_val:
-    case op_put_by_val:
-    case op_method_check:
-    case op_get_scoped_var:
-    case op_put_scoped_var:
-    case op_get_by_id:
-    case op_put_by_id:
-    case op_put_by_id_transition_direct:
-    case op_put_by_id_transition_normal:
-    case op_get_global_var:
-    case op_put_global_var:
-    case op_jmp:
-    case op_loop:
-    case op_jtrue:
-    case op_jfalse:
-    case op_loop_if_true:
-    case op_loop_if_false:
-    case op_jeq_null:
-    case op_jneq_null:
-    case op_jless:
-    case op_jlesseq:
-    case op_jgreater:
-    case op_jgreatereq:
-    case op_jnless:
-    case op_jnlesseq:
-    case op_jngreater:
-    case op_jngreatereq:
-    case op_loop_hint:
-    case op_loop_if_less:
-    case op_loop_if_lesseq:
-    case op_loop_if_greater:
-    case op_loop_if_greatereq:
-    case op_ret:
-    case op_end:
-    case op_call_put_result:
-    case op_resolve:
-    case op_resolve_base:
-    case op_resolve_global:
-    case op_new_object:
-    case op_new_array:
-    case op_new_array_buffer:
-    case op_strcat:
-    case op_to_primitive:
-    case op_throw:
-    case op_throw_reference_error:
-    case op_call:
-    case op_construct:
-    case op_new_regexp: 
-    case op_init_lazy_reg:
-    case op_create_activation:
-    case op_tear_off_activation:
-    case op_new_func:
-    case op_new_func_exp:
-        return true;
-        
-    default:
-        return false;
-    }
-}
-
-inline bool canInlineOpcode(OpcodeID opcodeID)
-{
-    switch (opcodeID) {
-        
-    // These opcodes would be easy to support with inlining, but we currently don't do it.
-    // The issue is that the scope chain will not be set correctly.
-    case op_get_scoped_var:
-    case op_put_scoped_var:
-    case op_resolve:
-    case op_resolve_base:
-    case op_resolve_global:
-        
-    // Constant buffers aren't copied correctly. This is easy to fix, but for
-    // now we just disable inlining for functions that use them.
-    case op_new_array_buffer:
-        
-    // Inlining doesn't correctly remap regular expression operands.
-    case op_new_regexp:
-        return false;
-        
-    // We don't support inlining code that creates activations or has nested functions.
-    case op_init_lazy_reg:
-    case op_create_activation:
-    case op_tear_off_activation:
-    case op_new_func:
-    case op_new_func_exp:
-        return false;
-        
-    default:
-        return canCompileOpcode(opcodeID);
-    }
-}
-
-bool canCompileOpcodes(CodeBlock*);
-bool canInlineOpcodes(CodeBlock*);
+CapabilityLevel capabilityLevel(CodeBlock*);
 #else // ENABLE(DFG_JIT)
 inline bool mightCompileEval(CodeBlock*) { return false; }
 inline bool mightCompileProgram(CodeBlock*) { return false; }
 inline bool mightCompileFunctionForCall(CodeBlock*) { return false; }
 inline bool mightCompileFunctionForConstruct(CodeBlock*) { return false; }
 inline bool mightInlineFunctionForCall(CodeBlock*) { return false; }
+inline bool mightInlineFunctionForClosureCall(CodeBlock*) { return false; }
 inline bool mightInlineFunctionForConstruct(CodeBlock*) { return false; }
 
-inline bool canCompileOpcode(OpcodeID) { return false; }
-inline bool canInlineOpcode(OpcodeID) { return false; }
-inline bool canCompileOpcodes(CodeBlock*) { return false; }
-inline bool canInlineOpcodes(CodeBlock*) { return false; }
+inline CapabilityLevel capabilityLevel(OpcodeID, CodeBlock*, Instruction*) { return CannotCompile; }
+inline CapabilityLevel capabilityLevel(CodeBlock*) { return CannotCompile; }
 #endif // ENABLE(DFG_JIT)
 
-inline bool canCompileEval(CodeBlock* codeBlock)
+inline CapabilityLevel evalCapabilityLevel(CodeBlock* codeBlock)
 {
-    return mightCompileEval(codeBlock) && canCompileOpcodes(codeBlock);
+    if (!mightCompileEval(codeBlock))
+        return CannotCompile;
+    
+    return capabilityLevel(codeBlock);
 }
 
-inline bool canCompileProgram(CodeBlock* codeBlock)
+inline CapabilityLevel programCapabilityLevel(CodeBlock* codeBlock)
 {
-    return mightCompileProgram(codeBlock) && canCompileOpcodes(codeBlock);
+    if (!mightCompileProgram(codeBlock))
+        return CannotCompile;
+    
+    return capabilityLevel(codeBlock);
 }
 
-inline bool canCompileFunctionForCall(CodeBlock* codeBlock)
+inline CapabilityLevel functionForCallCapabilityLevel(CodeBlock* codeBlock)
 {
-    return mightCompileFunctionForCall(codeBlock) && canCompileOpcodes(codeBlock);
+    if (!mightCompileFunctionForCall(codeBlock))
+        return CannotCompile;
+    
+    return capabilityLevel(codeBlock);
 }
 
-inline bool canCompileFunctionForConstruct(CodeBlock* codeBlock)
+inline CapabilityLevel functionForConstructCapabilityLevel(CodeBlock* codeBlock)
 {
-    return mightCompileFunctionForConstruct(codeBlock) && canCompileOpcodes(codeBlock);
+    if (!mightCompileFunctionForConstruct(codeBlock))
+        return CannotCompile;
+    
+    return capabilityLevel(codeBlock);
 }
 
 inline bool canInlineFunctionForCall(CodeBlock* codeBlock)
 {
-    return mightInlineFunctionForCall(codeBlock) && canInlineOpcodes(codeBlock);
+    return mightInlineFunctionForCall(codeBlock) && canInline(capabilityLevel(codeBlock));
+}
+
+inline bool canInlineFunctionForClosureCall(CodeBlock* codeBlock)
+{
+    return mightInlineFunctionForClosureCall(codeBlock) && canInline(capabilityLevel(codeBlock));
 }
 
 inline bool canInlineFunctionForConstruct(CodeBlock* codeBlock)
 {
-    return mightInlineFunctionForConstruct(codeBlock) && canInlineOpcodes(codeBlock);
+    return mightInlineFunctionForConstruct(codeBlock) && canInline(capabilityLevel(codeBlock));
 }
 
 inline bool mightInlineFunctionFor(CodeBlock* codeBlock, CodeSpecializationKind kind)
@@ -260,8 +119,17 @@ inline bool mightInlineFunctionFor(CodeBlock* codeBlock, CodeSpecializationKind 
     return mightInlineFunctionForConstruct(codeBlock);
 }
 
-inline bool canInlineFunctionFor(CodeBlock* codeBlock, CodeSpecializationKind kind)
+inline bool mightInlineFunction(CodeBlock* codeBlock)
 {
+    return mightInlineFunctionFor(codeBlock, codeBlock->specializationKind());
+}
+
+inline bool canInlineFunctionFor(CodeBlock* codeBlock, CodeSpecializationKind kind, bool isClosureCall)
+{
+    if (isClosureCall) {
+        ASSERT(kind == CodeForCall);
+        return canInlineFunctionForClosureCall(codeBlock);
+    }
     if (kind == CodeForCall)
         return canInlineFunctionForCall(codeBlock);
     ASSERT(kind == CodeForConstruct);

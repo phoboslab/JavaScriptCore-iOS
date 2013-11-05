@@ -27,43 +27,35 @@
 #include "JITExceptions.h"
 
 #include "CallFrame.h"
+#include "CallFrameInlines.h"
 #include "CodeBlock.h"
 #include "Interpreter.h"
-#include "JSGlobalData.h"
-#include "JSValue.h"
+#include "JSCJSValue.h"
+#include "VM.h"
+#include "Operations.h"
 
-#if ENABLE(JIT)
+#if ENABLE(JIT) || ENABLE(LLINT)
 
 namespace JSC {
 
-ExceptionHandler genericThrow(JSGlobalData* globalData, ExecState* callFrame, JSValue exceptionValue, unsigned vPCIndex)
+void genericUnwind(VM* vm, ExecState* callFrame, JSValue exceptionValue)
 {
-    ASSERT(exceptionValue);
-
-    globalData->exception = JSValue();
-    HandlerInfo* handler = globalData->interpreter->throwException(callFrame, exceptionValue, vPCIndex); // This may update callFrame & exceptionValue!
-    globalData->exception = exceptionValue;
+    RELEASE_ASSERT(exceptionValue);
+    HandlerInfo* handler = vm->interpreter->unwind(callFrame, exceptionValue); // This may update callFrame.
 
     void* catchRoutine;
     Instruction* catchPCForInterpreter = 0;
     if (handler) {
-        catchRoutine = handler->nativeCode.executableAddress();
         catchPCForInterpreter = &callFrame->codeBlock()->instructions()[handler->target];
+        catchRoutine = ExecutableBase::catchRoutineFor(handler, catchPCForInterpreter);
     } else
-        catchRoutine = FunctionPtr(ctiOpThrowNotCaught).value();
+        catchRoutine = FunctionPtr(LLInt::getCodePtr(ctiOpThrowNotCaught)).value();
     
-    globalData->callFrameForThrow = callFrame;
-    globalData->targetMachinePCForThrow = catchRoutine;
-    globalData->targetInterpreterPCForThrow = catchPCForInterpreter;
+    vm->callFrameForThrow = callFrame;
+    vm->targetMachinePCForThrow = catchRoutine;
+    vm->targetInterpreterPCForThrow = catchPCForInterpreter;
     
-    ASSERT(catchRoutine);
-    ExceptionHandler exceptionHandler = { catchRoutine, callFrame };
-    return exceptionHandler;
-}
-
-ExceptionHandler jitThrow(JSGlobalData* globalData, ExecState* callFrame, JSValue exceptionValue, ReturnAddressPtr faultLocation)
-{
-    return genericThrow(globalData, callFrame, exceptionValue, callFrame->codeBlock()->bytecodeOffset(callFrame, faultLocation));
+    RELEASE_ASSERT(catchRoutine);
 }
 
 }

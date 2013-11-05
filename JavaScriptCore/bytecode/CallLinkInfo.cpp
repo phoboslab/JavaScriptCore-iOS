@@ -27,25 +27,28 @@
 #include "CallLinkInfo.h"
 
 #include "DFGOperations.h"
+#include "DFGThunks.h"
 #include "RepatchBuffer.h"
 
 #if ENABLE(JIT)
 namespace JSC {
 
-void CallLinkInfo::unlink(JSGlobalData& globalData, RepatchBuffer& repatchBuffer)
+void CallLinkInfo::unlink(VM& vm, RepatchBuffer& repatchBuffer)
 {
     ASSERT(isLinked());
     
+    repatchBuffer.revertJumpReplacementToBranchPtrWithPatch(RepatchBuffer::startOfBranchPtrWithPatchOnRegister(hotPathBegin), static_cast<MacroAssembler::RegisterID>(calleeGPR), 0);
     if (isDFG) {
 #if ENABLE(DFG_JIT)
-        repatchBuffer.relink(CodeLocationCall(callReturnLocation), callType == Construct ? DFG::operationLinkConstruct : DFG::operationLinkCall);
+        repatchBuffer.relink(callReturnLocation, (callType == Construct ? vm.getCTIStub(linkConstructThunkGenerator) : vm.getCTIStub(linkCallThunkGenerator)).code());
 #else
-        ASSERT_NOT_REACHED();
+        RELEASE_ASSERT_NOT_REACHED();
 #endif
     } else
-        repatchBuffer.relink(CodeLocationNearCall(callReturnLocation), callType == Construct ? globalData.jitStubs->ctiVirtualConstructLink() : globalData.jitStubs->ctiVirtualCallLink());
+        repatchBuffer.relink(callReturnLocation, callType == Construct ? vm.getCTIStub(linkConstructThunkGenerator).code() : vm.getCTIStub(linkCallThunkGenerator).code());
     hasSeenShouldRepatch = false;
     callee.clear();
+    stub.clear();
 
     // It will be on a list if the callee has a code block.
     if (isOnList())

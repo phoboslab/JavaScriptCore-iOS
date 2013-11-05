@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,50 +30,61 @@
 
 #if ENABLE(DFG_JIT)
 
+#include <wtf/PrintStream.h>
 #include <wtf/StdLibExtras.h>
 
 namespace JSC { namespace DFG {
 
 // Entries in the NodeType enum (below) are composed of an id, a result type (possibly none)
 // and some additional informative flags (must generate, is constant, etc).
-#define NodeResultMask              0xF
-#define NodeResultJS                0x1
-#define NodeResultNumber            0x2
-#define NodeResultInt32             0x3
-#define NodeResultBoolean           0x4
-#define NodeResultStorage           0x5
+#define NodeResultMask                   0x0007
+#define NodeResultJS                     0x0001
+#define NodeResultNumber                 0x0002
+#define NodeResultInt32                  0x0003
+#define NodeResultInt52                  0x0004
+#define NodeResultBoolean                0x0005
+#define NodeResultStorage                0x0006
                                 
-#define NodeMustGenerate           0x10 // set on nodes that have side effects, and may not trivially be removed by DCE.
-#define NodeHasVarArgs             0x20
-#define NodeClobbersWorld          0x40
-#define NodeMightClobber           0x80
+#define NodeMustGenerate                 0x0008 // set on nodes that have side effects, and may not trivially be removed by DCE.
+#define NodeHasVarArgs                   0x0010
+#define NodeClobbersWorld                0x0020
+#define NodeMightClobber                 0x0040
                                 
-#define NodeBehaviorMask          0x300
-#define NodeMayOverflow           0x100
-#define NodeMayNegZero            0x200
+#define NodeBehaviorMask                 0x0180
+#define NodeMayOverflow                  0x0080
+#define NodeMayNegZero                   0x0100
                                 
-#define NodeBackPropMask         0x1C00
-#define NodeUseBottom             0x000
-#define NodeUsedAsNumber          0x400 // The result of this computation may be used in a context that observes fractional results.
-#define NodeNeedsNegZero          0x800 // The result of this computation may be used in a context that observes -0.
-#define NodeUsedAsValue           (NodeUsedAsNumber | NodeNeedsNegZero)
-#define NodeUsedAsInt            0x1000 // The result of this computation is known to be used in a context that prefers, but does not require, integer values.
+#define NodeBytecodeBackPropMask         0x1E00
+#define NodeBytecodeUseBottom            0x0000
+#define NodeBytecodeUsesAsNumber         0x0200 // The result of this computation may be used in a context that observes fractional, or bigger-than-int32, results.
+#define NodeBytecodeNeedsNegZero         0x0400 // The result of this computation may be used in a context that observes -0.
+#define NodeBytecodeUsesAsOther          0x0800 // The result of this computation may be used in a context that distinguishes between NaN and other things (like undefined).
+#define NodeBytecodeUsesAsValue          (NodeBytecodeUsesAsNumber | NodeBytecodeNeedsNegZero | NodeBytecodeUsesAsOther)
+#define NodeBytecodeUsesAsInt            0x1000 // The result of this computation is known to be used in a context that prefers, but does not require, integer values.
 
-typedef uint16_t NodeFlags;
+#define NodeArithFlagsMask               (NodeBehaviorMask | NodeBytecodeBackPropMask)
 
-static inline bool nodeUsedAsNumber(NodeFlags flags)
+#define NodeDoesNotExit                  0x2000 // This flag is negated to make it natural for the default to be that a node does exit.
+
+#define NodeRelevantToOSR                0x4000
+
+#define NodeExitsForward                 0x8000
+
+typedef uint32_t NodeFlags;
+
+static inline bool bytecodeUsesAsNumber(NodeFlags flags)
 {
-    return !!(flags & NodeUsedAsNumber);
+    return !!(flags & NodeBytecodeUsesAsNumber);
 }
 
-static inline bool nodeCanTruncateInteger(NodeFlags flags)
+static inline bool bytecodeCanTruncateInteger(NodeFlags flags)
 {
-    return !nodeUsedAsNumber(flags);
+    return !bytecodeUsesAsNumber(flags);
 }
 
-static inline bool nodeCanIgnoreNegativeZero(NodeFlags flags)
+static inline bool bytecodeCanIgnoreNegativeZero(NodeFlags flags)
 {
-    return !(flags & NodeNeedsNegZero);
+    return !(flags & NodeBytecodeNeedsNegZero);
 }
 
 static inline bool nodeMayOverflow(NodeFlags flags)
@@ -81,18 +92,32 @@ static inline bool nodeMayOverflow(NodeFlags flags)
     return !!(flags & NodeMayOverflow);
 }
 
-static inline bool nodeCanSpeculateInteger(NodeFlags flags)
+static inline bool nodeMayNegZero(NodeFlags flags)
 {
-    if (flags & NodeMayOverflow)
-        return !nodeUsedAsNumber(flags);
+    return !!(flags & NodeMayNegZero);
+}
+
+static inline bool nodeCanSpeculateInt32(NodeFlags flags)
+{
+    if (nodeMayOverflow(flags))
+        return !bytecodeUsesAsNumber(flags);
     
-    if (flags & NodeMayNegZero)
-        return nodeCanIgnoreNegativeZero(flags);
+    if (nodeMayNegZero(flags))
+        return bytecodeCanIgnoreNegativeZero(flags);
     
     return true;
 }
 
-const char* nodeFlagsAsString(NodeFlags);
+static inline bool nodeCanSpeculateInt52(NodeFlags flags)
+{
+    if (nodeMayNegZero(flags))
+        return bytecodeCanIgnoreNegativeZero(flags);
+    
+    return true;
+}
+
+void dumpNodeFlags(PrintStream&, NodeFlags);
+MAKE_PRINT_ADAPTOR(NodeFlagsDump, NodeFlags, dumpNodeFlags);
 
 } } // namespace JSC::DFG
 

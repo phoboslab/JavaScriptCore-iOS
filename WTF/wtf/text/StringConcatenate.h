@@ -26,6 +26,8 @@
 #ifndef StringConcatenate_h
 #define StringConcatenate_h
 
+#include <string.h>
+
 #ifndef WTFString_h
 #include <wtf/text/AtomicString.h>
 #endif
@@ -164,8 +166,7 @@ public:
 
     void writeTo(UChar* destination)
     {
-        for (unsigned i = 0; i < m_length; ++i)
-            destination[i] = m_buffer[i];
+        StringImpl::copyChars(destination, m_buffer, m_length);
     }
 
 private:
@@ -181,7 +182,7 @@ public:
     {
         size_t len = 0;
         while (m_buffer[len] != UChar(0))
-            len++;
+            ++len;
 
         if (len > std::numeric_limits<unsigned>::max())
             CRASH();
@@ -259,8 +260,7 @@ public:
 
     void writeTo(UChar* destination)
     {
-        for (unsigned i = 0; i < m_length; ++i)
-            destination[i] = m_buffer[i];
+        StringImpl::copyChars(destination, m_buffer, m_length);
     }
 
 private:
@@ -269,9 +269,37 @@ private:
 };
 
 template<>
-class StringTypeAdapter<Vector<char> > {
+class StringTypeAdapter<ASCIILiteral> {
 public:
-    StringTypeAdapter<Vector<char> >(const Vector<char>& buffer)
+    StringTypeAdapter<ASCIILiteral>(ASCIILiteral buffer)
+        : m_buffer(reinterpret_cast<const LChar*>(static_cast<const char*>(buffer)))
+        , m_length(strlen(buffer))
+    {
+    }
+
+    size_t length() { return m_length; }
+
+    bool is8Bit() { return true; }
+
+    void writeTo(LChar* destination)
+    {
+        memcpy(destination, m_buffer, static_cast<size_t>(m_length));
+    }
+
+    void writeTo(UChar* destination)
+    {
+        StringImpl::copyChars(destination, m_buffer, m_length);
+    }
+
+private:
+    const LChar* m_buffer;
+    unsigned m_length;
+};
+
+template<>
+class StringTypeAdapter<Vector<char>> {
+public:
+    StringTypeAdapter<Vector<char>>(const Vector<char>& buffer)
         : m_buffer(buffer)
     {
     }
@@ -297,9 +325,9 @@ private:
 };
 
 template<>
-class StringTypeAdapter<Vector<LChar> > {
+class StringTypeAdapter<Vector<LChar>> {
 public:
-    StringTypeAdapter<Vector<LChar> >(const Vector<LChar>& buffer)
+    StringTypeAdapter<Vector<LChar>>(const Vector<LChar>& buffer)
         : m_buffer(buffer)
     {
     }

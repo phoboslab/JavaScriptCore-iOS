@@ -25,16 +25,15 @@
 #include "Lookup.h"
 #include "NumberObject.h"
 #include "NumberPrototype.h"
+#include "Operations.h"
 
 namespace JSC {
 
-ASSERT_CLASS_FITS_IN_CELL(NumberConstructor);
-
-static JSValue numberConstructorNaNValue(ExecState*, JSValue, const Identifier&);
-static JSValue numberConstructorNegInfinity(ExecState*, JSValue, const Identifier&);
-static JSValue numberConstructorPosInfinity(ExecState*, JSValue, const Identifier&);
-static JSValue numberConstructorMaxValue(ExecState*, JSValue, const Identifier&);
-static JSValue numberConstructorMinValue(ExecState*, JSValue, const Identifier&);
+static JSValue numberConstructorNaNValue(ExecState*, JSValue, PropertyName);
+static JSValue numberConstructorNegInfinity(ExecState*, JSValue, PropertyName);
+static JSValue numberConstructorPosInfinity(ExecState*, JSValue, PropertyName);
+static JSValue numberConstructorMaxValue(ExecState*, JSValue, PropertyName);
+static JSValue numberConstructorMinValue(ExecState*, JSValue, PropertyName);
 
 } // namespace JSC
 
@@ -42,7 +41,7 @@ static JSValue numberConstructorMinValue(ExecState*, JSValue, const Identifier&)
 
 namespace JSC {
 
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(NumberConstructor);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(NumberConstructor);
 
 const ClassInfo NumberConstructor::s_info = { "Function", &InternalFunction::s_info, 0, ExecState::numberConstructorTable, CREATE_METHOD_TABLE(NumberConstructor) };
 
@@ -56,59 +55,54 @@ const ClassInfo NumberConstructor::s_info = { "Function", &InternalFunction::s_i
 @end
 */
 
-NumberConstructor::NumberConstructor(JSGlobalObject* globalObject, Structure* structure)
-    : InternalFunction(globalObject, structure) 
+NumberConstructor::NumberConstructor(VM& vm, Structure* structure)
+    : InternalFunction(vm, structure)
 {
 }
 
-void NumberConstructor::finishCreation(ExecState* exec, NumberPrototype* numberPrototype)
+void NumberConstructor::finishCreation(VM& vm, NumberPrototype* numberPrototype)
 {
-    Base::finishCreation(exec->globalData(), Identifier(exec, numberPrototype->s_info.className));
-    ASSERT(inherits(&s_info));
+    Base::finishCreation(vm, NumberPrototype::info()->className);
+    ASSERT(inherits(info()));
 
     // Number.Prototype
-    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().prototype, numberPrototype, DontEnum | DontDelete | ReadOnly);
+    putDirectWithoutTransition(vm, vm.propertyNames->prototype, numberPrototype, DontEnum | DontDelete | ReadOnly);
 
     // no. of arguments for constructor
-    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontEnum | DontDelete);
+    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(1), ReadOnly | DontEnum | DontDelete);
 }
 
-bool NumberConstructor::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+bool NumberConstructor::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
-    return getStaticValueSlot<NumberConstructor, InternalFunction>(exec, ExecState::numberConstructorTable(exec), jsCast<NumberConstructor*>(cell), propertyName, slot);
+    return getStaticValueSlot<NumberConstructor, InternalFunction>(exec, ExecState::numberConstructorTable(exec), jsCast<NumberConstructor*>(object), propertyName, slot);
 }
 
-bool NumberConstructor::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
-{
-    return getStaticValueDescriptor<NumberConstructor, InternalFunction>(exec, ExecState::numberConstructorTable(exec), jsCast<NumberConstructor*>(object), propertyName, descriptor);
-}
-
-void NumberConstructor::put(JSCell* cell, ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
+void NumberConstructor::put(JSCell* cell, ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
 {
     lookupPut<NumberConstructor, InternalFunction>(exec, propertyName, value, ExecState::numberConstructorTable(exec), jsCast<NumberConstructor*>(cell), slot);
 }
 
-static JSValue numberConstructorNaNValue(ExecState*, JSValue, const Identifier&)
+static JSValue numberConstructorNaNValue(ExecState*, JSValue, PropertyName)
 {
     return jsNaN();
 }
 
-static JSValue numberConstructorNegInfinity(ExecState*, JSValue, const Identifier&)
+static JSValue numberConstructorNegInfinity(ExecState*, JSValue, PropertyName)
 {
     return jsNumber(-std::numeric_limits<double>::infinity());
 }
 
-static JSValue numberConstructorPosInfinity(ExecState*, JSValue, const Identifier&)
+static JSValue numberConstructorPosInfinity(ExecState*, JSValue, PropertyName)
 {
     return jsNumber(std::numeric_limits<double>::infinity());
 }
 
-static JSValue numberConstructorMaxValue(ExecState*, JSValue, const Identifier&)
+static JSValue numberConstructorMaxValue(ExecState*, JSValue, PropertyName)
 {
     return jsNumber(1.7976931348623157E+308);
 }
 
-static JSValue numberConstructorMinValue(ExecState*, JSValue, const Identifier&)
+static JSValue numberConstructorMinValue(ExecState*, JSValue, PropertyName)
 {
     return jsNumber(5E-324);
 }
@@ -116,9 +110,9 @@ static JSValue numberConstructorMinValue(ExecState*, JSValue, const Identifier&)
 // ECMA 15.7.1
 static EncodedJSValue JSC_HOST_CALL constructWithNumberConstructor(ExecState* exec)
 {
-    NumberObject* object = NumberObject::create(exec->globalData(), asInternalFunction(exec->callee())->globalObject()->numberObjectStructure());
-    double n = exec->argumentCount() ? exec->argument(0).toNumber(exec) : 0;
-    object->setInternalValue(exec->globalData(), jsNumber(n));
+    NumberObject* object = NumberObject::create(exec->vm(), asInternalFunction(exec->callee())->globalObject()->numberObjectStructure());
+    double n = exec->argumentCount() ? exec->uncheckedArgument(0).toNumber(exec) : 0;
+    object->setInternalValue(exec->vm(), jsNumber(n));
     return JSValue::encode(object);
 }
 
@@ -131,7 +125,7 @@ ConstructType NumberConstructor::getConstructData(JSCell*, ConstructData& constr
 // ECMA 15.7.2
 static EncodedJSValue JSC_HOST_CALL callNumberConstructor(ExecState* exec)
 {
-    return JSValue::encode(jsNumber(!exec->argumentCount() ? 0 : exec->argument(0).toNumber(exec)));
+    return JSValue::encode(jsNumber(!exec->argumentCount() ? 0 : exec->uncheckedArgument(0).toNumber(exec)));
 }
 
 CallType NumberConstructor::getCallData(JSCell*, CallData& callData)

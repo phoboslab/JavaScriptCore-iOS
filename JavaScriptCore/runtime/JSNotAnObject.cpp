@@ -30,12 +30,11 @@
 #include "config.h"
 #include "JSNotAnObject.h"
 
-#include <wtf/UnusedParam.h>
+#include "Operations.h"
 
 namespace JSC {
 
-ASSERT_CLASS_FITS_IN_CELL(JSNotAnObject);
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSNotAnObject);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSNotAnObject);
 
 const ClassInfo JSNotAnObject::s_info = { "Object", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSNotAnObject) };
 
@@ -47,25 +46,19 @@ JSValue JSNotAnObject::defaultValue(const JSObject*, ExecState* exec, PreferredP
 }
 
 // JSObject methods
-bool JSNotAnObject::getOwnPropertySlot(JSCell*, ExecState* exec, const Identifier&, PropertySlot&)
+bool JSNotAnObject::getOwnPropertySlot(JSObject*, ExecState* exec, PropertyName, PropertySlot&)
 {
     ASSERT_UNUSED(exec, exec->hadException());
     return false;
 }
 
-bool JSNotAnObject::getOwnPropertySlotByIndex(JSCell*, ExecState* exec, unsigned, PropertySlot&)
+bool JSNotAnObject::getOwnPropertySlotByIndex(JSObject*, ExecState* exec, unsigned, PropertySlot&)
 {
     ASSERT_UNUSED(exec, exec->hadException());
     return false;
 }
 
-bool JSNotAnObject::getOwnPropertyDescriptor(JSObject*, ExecState* exec, const Identifier&, PropertyDescriptor&)
-{
-    ASSERT_UNUSED(exec, exec->hadException());
-    return false;
-}
-
-void JSNotAnObject::put(JSCell*, ExecState* exec, const Identifier& , JSValue, PutPropertySlot&)
+void JSNotAnObject::put(JSCell*, ExecState* exec, PropertyName , JSValue, PutPropertySlot&)
 {
     ASSERT_UNUSED(exec, exec->hadException());
 }
@@ -75,7 +68,7 @@ void JSNotAnObject::putByIndex(JSCell*, ExecState* exec, unsigned, JSValue, bool
     ASSERT_UNUSED(exec, exec->hadException());
 }
 
-bool JSNotAnObject::deleteProperty(JSCell*, ExecState* exec, const Identifier&)
+bool JSNotAnObject::deleteProperty(JSCell*, ExecState* exec, PropertyName)
 {
     ASSERT_UNUSED(exec, exec->hadException());
     return false;

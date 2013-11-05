@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,9 +31,9 @@
 #define JumpTable_h
 
 #include "MacroAssembler.h"
-#include "UString.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringImpl.h>
 
 namespace JSC {
 
@@ -57,7 +57,7 @@ namespace JSC {
             StringOffsetTable::const_iterator loc = offsetTable.find(value);
             if (loc == end)
                 return defaultOffset;
-            return loc->second.branchOffset;
+            return loc->value.branchOffset;
         }
 
 #if ENABLE(JIT)
@@ -67,9 +67,14 @@ namespace JSC {
             StringOffsetTable::const_iterator loc = offsetTable.find(value);
             if (loc == end)
                 return ctiDefault;
-            return loc->second.ctiOffset;
+            return loc->value.ctiOffset;
         }
 #endif
+        
+        void clear()
+        {
+            offsetTable.clear();
+        }
     };
 
     struct SimpleJumpTable {
@@ -96,6 +101,14 @@ namespace JSC {
             return ctiDefault;
         }
 #endif
+        
+        void clear()
+        {
+            branchOffsets.clear();
+#if ENABLE(JIT)
+            ctiOffsets.clear();
+#endif
+        }
     };
 
 } // namespace JSC

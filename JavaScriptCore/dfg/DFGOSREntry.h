@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,11 +38,27 @@ class CodeBlock;
 namespace DFG {
 
 #if ENABLE(DFG_JIT)
+struct OSREntryReshuffling {
+    OSREntryReshuffling() { }
+    
+    OSREntryReshuffling(int fromOffset, int toOffset)
+        : fromOffset(fromOffset)
+        , toOffset(toOffset)
+    {
+    }
+    
+    int fromOffset;
+    int toOffset;
+};
+
 struct OSREntryData {
     unsigned m_bytecodeIndex;
     unsigned m_machineCodeOffset;
     Operands<AbstractValue> m_expectedValues;
+    // Use bitvectors here because they tend to only require one word.
     BitVector m_localsForcedDouble;
+    BitVector m_localsForcedMachineInt;
+    Vector<OSREntryReshuffling> m_reshufflings;
 };
 
 inline unsigned getOSREntryDataBytecodeIndex(OSREntryData* osrEntryData)

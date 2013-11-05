@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,25 +31,43 @@
 #include "MacroAssemblerCodeRef.h"
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/UnusedParam.h>
 
 #if ENABLE(ASSEMBLER)
 
-
-#if PLATFORM(QT)
-#define ENABLE_JIT_CONSTANT_BLINDING 0
-#endif
-
-#ifndef ENABLE_JIT_CONSTANT_BLINDING
-#define ENABLE_JIT_CONSTANT_BLINDING 1
-#endif
-
 namespace JSC {
+
+inline bool isARMv7s()
+{
+#if CPU(APPLE_ARMV7S)
+    return true;
+#else
+    return false;
+#endif
+}
+
+inline bool isARM64()
+{
+#if CPU(ARM64)
+    return true;
+#else
+    return false;
+#endif
+}
+
+inline bool isX86()
+{
+#if CPU(X86_64) || CPU(X86)
+    return true;
+#else
+    return false;
+#endif
+}
 
 class LinkBuffer;
 class RepatchBuffer;
+class Watchpoint;
 namespace DFG {
-class CorrectableJumpPoint;
+struct OSRExit;
 }
 
 template <class AssemblerType>
@@ -64,12 +82,18 @@ public:
     class Jump;
 
     typedef typename AssemblerType::RegisterID RegisterID;
+    typedef typename AssemblerType::FPRegisterID FPRegisterID;
+    
+    static RegisterID firstRegister() { return AssemblerType::firstRegister(); }
+    static RegisterID lastRegister() { return AssemblerType::lastRegister(); }
+
+    static FPRegisterID firstFPRegister() { return AssemblerType::firstFPRegister(); }
+    static FPRegisterID lastFPRegister() { return AssemblerType::lastFPRegister(); }
 
     // Section 1: MacroAssembler operand types
     //
     // The following types are used as operands to MacroAssembler operations,
     // describing immediate  and memory operands to the instructions to be planted.
-
 
     enum Scale {
         TimesOne,
@@ -77,6 +101,13 @@ public:
         TimesFour,
         TimesEight,
     };
+    
+    static Scale timesPtr()
+    {
+        if (sizeof(void*) == 4)
+            return TimesFour;
+        return TimesEight;
+    }
 
     // Address:
     //
@@ -86,6 +117,11 @@ public:
             : base(base)
             , offset(offset)
         {
+        }
+        
+        Address withOffset(int32_t additionalOffset)
+        {
+            return Address(base, offset + additionalOffset);
         }
 
         RegisterID base;
@@ -171,6 +207,8 @@ public:
     // in a class requiring explicit construction in order to differentiate
     // from pointers used as absolute addresses to memory operations
     struct TrustedImmPtr {
+        TrustedImmPtr() { }
+        
         explicit TrustedImmPtr(const void* value)
             : m_value(value)
         {
@@ -197,12 +235,7 @@ public:
         const void* m_value;
     };
 
-    struct ImmPtr : 
-#if ENABLE(JIT_CONSTANT_BLINDING)
-        private TrustedImmPtr 
-#else
-        public TrustedImmPtr
-#endif
+    struct ImmPtr : private TrustedImmPtr
     {
         explicit ImmPtr(const void* value)
             : TrustedImmPtr(value)
@@ -219,45 +252,25 @@ public:
     // (which are implemented as an enum) from accidentally being passed as
     // immediate values.
     struct TrustedImm32 {
+        TrustedImm32() { }
+        
         explicit TrustedImm32(int32_t value)
             : m_value(value)
-#if CPU(ARM) || CPU(MIPS)
-            , m_isPointer(false)
-#endif
         {
         }
 
 #if !CPU(X86_64)
         explicit TrustedImm32(TrustedImmPtr ptr)
             : m_value(ptr.asIntptr())
-#if CPU(ARM) || CPU(MIPS)
-            , m_isPointer(true)
-#endif
         {
         }
 #endif
 
         int32_t m_value;
-#if CPU(ARM) || CPU(MIPS)
-        // We rely on being able to regenerate code to recover exception handling
-        // information.  Since ARMv7 supports 16-bit immediates there is a danger
-        // that if pointer values change the layout of the generated code will change.
-        // To avoid this problem, always generate pointers (and thus Imm32s constructed
-        // from ImmPtrs) with a code sequence that is able  to represent  any pointer
-        // value - don't use a more compact form in these cases.
-        // Same for MIPS.
-        bool m_isPointer;
-#endif
     };
 
 
-    struct Imm32 : 
-#if ENABLE(JIT_CONSTANT_BLINDING)
-        private TrustedImm32 
-#else
-        public TrustedImm32
-#endif
-    {
+    struct Imm32 : private TrustedImm32 {
         explicit Imm32(int32_t value)
             : TrustedImm32(value)
         {
@@ -270,6 +283,45 @@ public:
 #endif
         const TrustedImm32& asTrustedImm32() const { return *this; }
 
+    };
+    
+    // TrustedImm64:
+    //
+    // A 64bit immediate operand to an instruction - this is wrapped in a
+    // class requiring explicit construction in order to prevent RegisterIDs
+    // (which are implemented as an enum) from accidentally being passed as
+    // immediate values.
+    struct TrustedImm64 {
+        TrustedImm64() { }
+        
+        explicit TrustedImm64(int64_t value)
+            : m_value(value)
+        {
+        }
+
+#if CPU(X86_64) || CPU(ARM64)
+        explicit TrustedImm64(TrustedImmPtr ptr)
+            : m_value(ptr.asIntptr())
+        {
+        }
+#endif
+
+        int64_t m_value;
+    };
+
+    struct Imm64 : private TrustedImm64
+    {
+        explicit Imm64(int64_t value)
+            : TrustedImm64(value)
+        {
+        }
+#if CPU(X86_64) || CPU(ARM64)
+        explicit Imm64(TrustedImmPtr ptr)
+            : TrustedImm64(ptr)
+        {
+        }
+#endif
+        const TrustedImm64& asTrustedImm64() const { return *this; }
     };
     
     // Section 2: MacroAssembler code buffer handles
@@ -287,10 +339,11 @@ public:
     class Label {
         template<class TemplateAssemblerType>
         friend class AbstractMacroAssembler;
-        friend class DFG::CorrectableJumpPoint;
+        friend struct DFG::OSRExit;
         friend class Jump;
         friend class MacroAssemblerCodeRef;
         friend class LinkBuffer;
+        friend class Watchpoint;
 
     public:
         Label()
@@ -299,6 +352,37 @@ public:
 
         Label(AbstractMacroAssembler<AssemblerType>* masm)
             : m_label(masm->m_assembler.label())
+        {
+            masm->invalidateAllTempRegisters();
+        }
+
+        bool isSet() const { return m_label.isSet(); }
+    private:
+        AssemblerLabel m_label;
+    };
+    
+    // ConvertibleLoadLabel:
+    //
+    // A ConvertibleLoadLabel records a loadPtr instruction that can be patched to an addPtr
+    // so that:
+    //
+    // loadPtr(Address(a, i), b)
+    //
+    // becomes:
+    //
+    // addPtr(TrustedImmPtr(i), a, b)
+    class ConvertibleLoadLabel {
+        template<class TemplateAssemblerType>
+        friend class AbstractMacroAssembler;
+        friend class LinkBuffer;
+        
+    public:
+        ConvertibleLoadLabel()
+        {
+        }
+        
+        ConvertibleLoadLabel(AbstractMacroAssembler<AssemblerType>* masm)
+            : m_label(masm->m_assembler.labelIgnoringWatchpoints())
         {
         }
         
@@ -324,7 +408,7 @@ public:
             : m_label(masm->m_assembler.label())
         {
         }
-        
+
         bool isSet() const { return m_label.isSet(); }
         
     private:
@@ -372,11 +456,13 @@ public:
             : m_label(masm->m_assembler.label())
         {
         }
-    
+
         DataLabelCompact(AssemblerLabel label)
             : m_label(label)
         {
         }
+
+        AssemblerLabel label() const { return m_label; }
 
     private:
         AssemblerLabel m_label;
@@ -436,7 +522,7 @@ public:
         template<class TemplateAssemblerType>
         friend class AbstractMacroAssembler;
         friend class Call;
-        friend class DFG::CorrectableJumpPoint;
+        friend struct DFG::OSRExit;
         friend class LinkBuffer;
     public:
         Jump()
@@ -445,11 +531,38 @@ public:
         
 #if CPU(ARM_THUMB2)
         // Fixme: this information should be stored in the instruction stream, not in the Jump object.
-        Jump(AssemblerLabel jmp, ARMv7Assembler::JumpType type, ARMv7Assembler::Condition condition = ARMv7Assembler::ConditionInvalid)
+        Jump(AssemblerLabel jmp, ARMv7Assembler::JumpType type = ARMv7Assembler::JumpNoCondition, ARMv7Assembler::Condition condition = ARMv7Assembler::ConditionInvalid)
             : m_label(jmp)
             , m_type(type)
             , m_condition(condition)
         {
+        }
+#elif CPU(ARM64)
+        Jump(AssemblerLabel jmp, ARM64Assembler::JumpType type = ARM64Assembler::JumpNoCondition, ARM64Assembler::Condition condition = ARM64Assembler::ConditionInvalid)
+            : m_label(jmp)
+            , m_type(type)
+            , m_condition(condition)
+        {
+        }
+
+        Jump(AssemblerLabel jmp, ARM64Assembler::JumpType type, ARM64Assembler::Condition condition, bool is64Bit, ARM64Assembler::RegisterID compareRegister)
+            : m_label(jmp)
+            , m_type(type)
+            , m_condition(condition)
+            , m_is64Bit(is64Bit)
+            , m_compareRegister(compareRegister)
+        {
+            ASSERT((type == ARM64Assembler::JumpCompareAndBranch) || (type == ARM64Assembler::JumpCompareAndBranchFixedSize));
+        }
+
+        Jump(AssemblerLabel jmp, ARM64Assembler::JumpType type, ARM64Assembler::Condition condition, unsigned bitNumber, ARM64Assembler::RegisterID compareRegister)
+            : m_label(jmp)
+            , m_type(type)
+            , m_condition(condition)
+            , m_bitNumber(bitNumber)
+            , m_compareRegister(compareRegister)
+        {
+            ASSERT((type == ARM64Assembler::JumpTestBit) || (type == ARM64Assembler::JumpTestBitFixedSize));
         }
 #elif CPU(SH4)
         Jump(AssemblerLabel jmp, SH4Assembler::JumpType type = SH4Assembler::JumpFar)
@@ -463,11 +576,31 @@ public:
         {
         }
 #endif
+        
+        Label label() const
+        {
+            Label result;
+            result.m_label = m_label;
+            return result;
+        }
 
         void link(AbstractMacroAssembler<AssemblerType>* masm) const
         {
+            masm->invalidateAllTempRegisters();
+
+#if ENABLE(DFG_REGISTER_ALLOCATION_VALIDATION)
+            masm->checkRegisterAllocationAgainstBranchRange(m_label.m_offset, masm->debugOffset());
+#endif
+
 #if CPU(ARM_THUMB2)
             masm->m_assembler.linkJump(m_label, masm->m_assembler.label(), m_type, m_condition);
+#elif CPU(ARM64)
+            if ((m_type == ARM64Assembler::JumpCompareAndBranch) || (m_type == ARM64Assembler::JumpCompareAndBranchFixedSize))
+                masm->m_assembler.linkJump(m_label, masm->m_assembler.label(), m_type, m_condition, m_is64Bit, m_compareRegister);
+            else if ((m_type == ARM64Assembler::JumpTestBit) || (m_type == ARM64Assembler::JumpTestBitFixedSize))
+                masm->m_assembler.linkJump(m_label, masm->m_assembler.label(), m_type, m_condition, m_bitNumber, m_compareRegister);
+            else
+                masm->m_assembler.linkJump(m_label, masm->m_assembler.label(), m_type, m_condition);
 #elif CPU(SH4)
             masm->m_assembler.linkJump(m_label, masm->m_assembler.label(), m_type);
 #else
@@ -477,8 +610,19 @@ public:
         
         void linkTo(Label label, AbstractMacroAssembler<AssemblerType>* masm) const
         {
+#if ENABLE(DFG_REGISTER_ALLOCATION_VALIDATION)
+            masm->checkRegisterAllocationAgainstBranchRange(label.m_label.m_offset, m_label.m_offset);
+#endif
+
 #if CPU(ARM_THUMB2)
             masm->m_assembler.linkJump(m_label, label.m_label, m_type, m_condition);
+#elif CPU(ARM64)
+            if ((m_type == ARM64Assembler::JumpCompareAndBranch) || (m_type == ARM64Assembler::JumpCompareAndBranchFixedSize))
+                masm->m_assembler.linkJump(m_label, label.m_label, m_type, m_condition, m_is64Bit, m_compareRegister);
+            else if ((m_type == ARM64Assembler::JumpTestBit) || (m_type == ARM64Assembler::JumpTestBitFixedSize))
+                masm->m_assembler.linkJump(m_label, label.m_label, m_type, m_condition, m_bitNumber, m_compareRegister);
+            else
+                masm->m_assembler.linkJump(m_label, label.m_label, m_type, m_condition);
 #else
             masm->m_assembler.linkJump(m_label, label.m_label);
 #endif
@@ -491,6 +635,12 @@ public:
 #if CPU(ARM_THUMB2)
         ARMv7Assembler::JumpType m_type;
         ARMv7Assembler::Condition m_condition;
+#elif CPU(ARM64)
+        ARM64Assembler::JumpType m_type;
+        ARM64Assembler::Condition m_condition;
+        bool m_is64Bit;
+        unsigned m_bitNumber;
+        ARM64Assembler::RegisterID m_compareRegister;
 #endif
 #if CPU(SH4)
         SH4Assembler::JumpType m_type;
@@ -520,7 +670,14 @@ public:
         friend class LinkBuffer;
 
     public:
-        typedef Vector<Jump, 16> JumpVector;
+        typedef Vector<Jump, 2> JumpVector;
+        
+        JumpList() { }
+        
+        JumpList(Jump jump)
+        {
+            append(jump);
+        }
 
         void link(AbstractMacroAssembler<AssemblerType>* masm)
         {
@@ -543,7 +700,7 @@ public:
             m_jumps.append(jump);
         }
         
-        void append(JumpList& other)
+        void append(const JumpList& other)
         {
             m_jumps.append(other.m_jumps.begin(), other.m_jumps.size());
         }
@@ -558,7 +715,7 @@ public:
             m_jumps.clear();
         }
         
-        const JumpVector& jumps() { return m_jumps; }
+        const JumpVector& jumps() const { return m_jumps; }
 
     private:
         JumpVector m_jumps;
@@ -566,9 +723,36 @@ public:
 
 
     // Section 3: Misc admin methods
+#if ENABLE(DFG_JIT)
+    Label labelIgnoringWatchpoints()
+    {
+        Label result;
+        result.m_label = m_assembler.labelIgnoringWatchpoints();
+        return result;
+    }
+#else
+    Label labelIgnoringWatchpoints()
+    {
+        return label();
+    }
+#endif
+    
     Label label()
     {
         return Label(this);
+    }
+    
+    void padBeforePatch()
+    {
+        // Rely on the fact that asking for a label already does the padding.
+        (void)label();
+    }
+    
+    Label watchpointLabel()
+    {
+        Label result;
+        result.m_label = m_assembler.labelForWatchpoint();
+        return result;
     }
     
     Label align()
@@ -576,6 +760,44 @@ public:
         m_assembler.align(16);
         return Label(this);
     }
+
+#if ENABLE(DFG_REGISTER_ALLOCATION_VALIDATION)
+    class RegisterAllocationOffset {
+    public:
+        RegisterAllocationOffset(unsigned offset)
+            : m_offset(offset)
+        {
+        }
+
+        void checkOffsets(unsigned low, unsigned high)
+        {
+            RELEASE_ASSERT_WITH_MESSAGE(!(low <= m_offset && m_offset <= high), "Unsafe branch over register allocation at instruction offset %u in jump offset range %u..%u", m_offset, low, high);
+        }
+
+    private:
+        unsigned m_offset;
+    };
+
+    void addRegisterAllocationAtOffset(unsigned offset)
+    {
+        m_registerAllocationForOffsets.append(RegisterAllocationOffset(offset));
+    }
+
+    void clearRegisterAllocationOffsets()
+    {
+        m_registerAllocationForOffsets.clear();
+    }
+
+    void checkRegisterAllocationAgainstBranchRange(unsigned offset1, unsigned offset2)
+    {
+        if (offset1 > offset2)
+            std::swap(offset1, offset2);
+
+        size_t size = m_registerAllocationForOffsets.size();
+        for (size_t i = 0; i < size; ++i)
+            m_registerAllocationForOffsets[i].checkOffsets(offset1, offset2);
+    }
+#endif
 
     template<typename T, typename U>
     static ptrdiff_t differenceBetween(T from, U to)
@@ -590,14 +812,19 @@ public:
 
     unsigned debugOffset() { return m_assembler.debugOffset(); }
 
+    ALWAYS_INLINE static void cacheFlush(void* code, size_t size)
+    {
+        AssemblerType::cacheFlush(code, size);
+    }
+
+    AssemblerType m_assembler;
+    
 protected:
     AbstractMacroAssembler()
         : m_randomSource(cryptographicallyRandomNumber())
     {
     }
 
-    AssemblerType m_assembler;
-    
     uint32_t random()
     {
         return m_randomSource.getUint32();
@@ -605,11 +832,77 @@ protected:
 
     WeakRandom m_randomSource;
 
-#if ENABLE(JIT_CONSTANT_BLINDING)
+#if ENABLE(DFG_REGISTER_ALLOCATION_VALIDATION)
+    Vector<RegisterAllocationOffset, 10> m_registerAllocationForOffsets;
+#endif
+
     static bool scratchRegisterForBlinding() { return false; }
     static bool shouldBlindForSpecificArch(uint32_t) { return true; }
     static bool shouldBlindForSpecificArch(uint64_t) { return true; }
-#endif
+
+    class CachedTempRegister {
+        friend class DataLabelPtr;
+        friend class DataLabel32;
+        friend class DataLabelCompact;
+        friend class Jump;
+        friend class Label;
+
+    public:
+        CachedTempRegister(AbstractMacroAssembler<AssemblerType>* masm, RegisterID registerID)
+            : m_masm(masm)
+            , m_registerID(registerID)
+            , m_value(0)
+            , m_validBit(1 << static_cast<unsigned>(registerID))
+        {
+            ASSERT(static_cast<unsigned>(registerID) < (sizeof(unsigned) * 8));
+        }
+
+        ALWAYS_INLINE RegisterID registerIDInvalidate() { invalidate(); return m_registerID; }
+
+        ALWAYS_INLINE RegisterID registerIDNoInvalidate() { return m_registerID; }
+
+        bool value(intptr_t& value)
+        {
+            value = m_value;
+            return m_masm->isTempRegisterValid(m_validBit);
+        }
+
+        void setValue(intptr_t value)
+        {
+            m_value = value;
+            m_masm->setTempRegisterValid(m_validBit);
+        }
+
+        ALWAYS_INLINE void invalidate() { m_masm->clearTempRegisterValid(m_validBit); }
+
+    private:
+        AbstractMacroAssembler<AssemblerType>* m_masm;
+        RegisterID m_registerID;
+        intptr_t m_value;
+        unsigned m_validBit;
+    };
+
+    ALWAYS_INLINE void invalidateAllTempRegisters()
+    {
+        m_tempRegistersValidBits = 0;
+    }
+
+    ALWAYS_INLINE bool isTempRegisterValid(unsigned registerMask)
+    {
+        return (m_tempRegistersValidBits & registerMask);
+    }
+
+    ALWAYS_INLINE void clearTempRegisterValid(unsigned registerMask)
+    {
+        m_tempRegistersValidBits &=  ~registerMask;
+    }
+
+    ALWAYS_INLINE void setTempRegisterValid(unsigned registerMask)
+    {
+        m_tempRegistersValidBits |= registerMask;
+    }
+
+    unsigned m_tempRegistersValidBits;
 
     friend class LinkBuffer;
     friend class RepatchBuffer;
@@ -664,16 +957,14 @@ protected:
         return AssemblerType::readPointer(dataLabelPtr.dataLocation());
     }
     
-    static void unreachableForPlatform()
+    static void replaceWithLoad(CodeLocationConvertibleLoad label)
     {
-#if COMPILER(CLANG)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-        ASSERT_NOT_REACHED();
-#pragma clang diagnostic pop
-#else
-        ASSERT_NOT_REACHED();
-#endif
+        AssemblerType::replaceWithLoad(label.dataLocation());
+    }
+    
+    static void replaceWithAddressComputation(CodeLocationConvertibleLoad label)
+    {
+        AssemblerType::replaceWithAddressComputation(label.dataLocation());
     }
 };
 

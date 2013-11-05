@@ -22,22 +22,20 @@
 #define WTF_OwnPtr_h
 
 #include <wtf/Assertions.h>
-#include <wtf/NullPtr.h>
+#include <wtf/Noncopyable.h>
 #include <wtf/OwnPtrCommon.h>
-#include <wtf/TypeTraits.h>
 #include <algorithm>
+#include <cstddef>
 #include <memory>
 
 namespace WTF {
-
-    // Unlike most of our smart pointers, OwnPtr can take either the pointer type or the pointed-to type.
 
     template<typename T> class PassOwnPtr;
     template<typename T> PassOwnPtr<T> adoptPtr(T*);
 
     template<typename T> class OwnPtr {
     public:
-        typedef typename RemovePointer<T>::Type ValueType;
+        typedef T ValueType;
         typedef ValueType* PtrType;
 
         OwnPtr() : m_ptr(0) { }
@@ -45,12 +43,6 @@ namespace WTF {
 
         // See comment in PassOwnPtr.h for why this takes a const reference.
         template<typename U> OwnPtr(const PassOwnPtr<U>& o);
-
-        // This copy constructor is used implicitly by gcc when it generates
-        // transients for assigning a PassOwnPtr<T> object to a stack-allocated
-        // OwnPtr<T> object. It should never be called explicitly and gcc
-        // should optimize away the constructor when generating code.
-        OwnPtr(const OwnPtr<ValueType>&);
 
         ~OwnPtr() { deleteOwnedPtr(m_ptr); }
 
@@ -73,10 +65,16 @@ namespace WTF {
         OwnPtr& operator=(std::nullptr_t) { clear(); return *this; }
         template<typename U> OwnPtr& operator=(const PassOwnPtr<U>&);
 
+        OwnPtr(OwnPtr&&);
+        template<typename U> OwnPtr(OwnPtr<U>&&);
+
+        OwnPtr& operator=(OwnPtr&&);
+        template<typename U> OwnPtr& operator=(OwnPtr<U>&&);
+
         void swap(OwnPtr& o) { std::swap(m_ptr, o.m_ptr); }
 
     private:
-        OwnPtr& operator=(const OwnPtr<T>&);
+        explicit OwnPtr(PtrType ptr) : m_ptr(ptr) { }
 
         // We should never have two OwnPtrs for the same underlying object (otherwise we'll get
         // double-destruction), so these equality operators should never be needed.
@@ -129,6 +127,32 @@ namespace WTF {
         m_ptr = o.leakPtr();
         ASSERT(!ptr || m_ptr != ptr);
         deleteOwnedPtr(ptr);
+        return *this;
+    }
+
+    template<typename T> inline OwnPtr<T>::OwnPtr(OwnPtr<T>&& o)
+        : m_ptr(o.leakPtr())
+    {
+    }
+
+    template<typename T> template<typename U> inline OwnPtr<T>::OwnPtr(OwnPtr<U>&& o)
+        : m_ptr(o.leakPtr())
+    {
+    }
+
+    template<typename T> inline auto OwnPtr<T>::operator=(OwnPtr&& o) -> OwnPtr&
+    {
+        ASSERT(!o || o != m_ptr);
+        OwnPtr ptr = std::move(o);
+        swap(ptr);
+        return *this;
+    }
+
+    template<typename T> template<typename U> inline auto OwnPtr<T>::operator=(OwnPtr<U>&& o) -> OwnPtr&
+    {
+        ASSERT(!o || o != m_ptr);
+        OwnPtr ptr = std::move(o);
+        swap(ptr);
         return *this;
     }
 

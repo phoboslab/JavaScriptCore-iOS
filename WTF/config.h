@@ -33,17 +33,12 @@
 #if OS(WINDOWS)
 
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0500
+#define _WIN32_WINNT 0x0502
 #endif
 
 #ifndef WINVER
-#define WINVER 0x0500
+#define WINVER 0x0502
 #endif
-
-// If we don't define these, they get defined in windef.h. 
-// We want to use std::min and std::max
-#define max max
-#define min min
 
 #if !COMPILER(MSVC7_OR_LOWER) && !OS(WINCE)
 // We need to define this before the first #include of stdlib.h or it won't contain rand_s.
@@ -62,12 +57,7 @@
 #include <wtf/FastMalloc.h>
 #endif
 
-// this breaks compilation of <QFontDatabase>, at least, so turn it off for now
-// Also generates errors on wx on Windows and QNX, because these functions
-// are used from wx and QNX headers. 
-#if !PLATFORM(QT) && !PLATFORM(WX) && !OS(QNX)
 #include <wtf/DisallowCType.h>
-#endif
 
 #if COMPILER(MSVC)
 #define SKIP_STATIC_CONSTRUCTORS_ON_MSVC 1

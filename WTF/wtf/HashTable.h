@@ -22,7 +22,9 @@
 #ifndef WTF_HashTable_h
 #define WTF_HashTable_h
 
-#include <wtf/Alignment.h>
+#include <string.h>
+#include <type_traits>
+#include <utility>
 #include <wtf/Assertions.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/HashTraits.h>
@@ -36,9 +38,14 @@
 #include <wtf/PassOwnPtr.h>
 #endif
 
-namespace WTF {
-
 #define DUMP_HASHTABLE_STATS 0
+#define DUMP_HASHTABLE_STATS_PER_TABLE 0
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+#include <wtf/DataLog.h>
+#endif
+
+namespace WTF {
 
 // Enables internal WTF consistency checks that are invoked automatically. Non-WTF callers can call checkTableConsistency() even if internal checks are disabled.
 #define CHECK_HASHTABLE_CONSISTENCY 0
@@ -54,21 +61,19 @@ namespace WTF {
 #if DUMP_HASHTABLE_STATS
 
     struct HashTableStats {
-        ~HashTableStats();
-        // All of the variables are accessed in ~HashTableStats when the static struct is destroyed.
-
         // The following variables are all atomically incremented when modified.
-        static int numAccesses;
-        static int numRehashes;
-        static int numRemoves;
-        static int numReinserts;
+        WTF_EXPORTDATA static int numAccesses;
+        WTF_EXPORTDATA static int numRehashes;
+        WTF_EXPORTDATA static int numRemoves;
+        WTF_EXPORTDATA static int numReinserts;
 
         // The following variables are only modified in the recordCollisionAtCount method within a mutex.
-        static int maxCollisions;
-        static int numCollisions;
-        static int collisionGraph[4096];
+        WTF_EXPORTDATA static int maxCollisions;
+        WTF_EXPORTDATA static int numCollisions;
+        WTF_EXPORTDATA static int collisionGraph[4096];
 
-        static void recordCollisionAtCount(int count);
+        WTF_EXPORT_PRIVATE static void recordCollisionAtCount(int count);
+        WTF_EXPORT_PRIVATE static void dumpStats();
     };
 
 #endif
@@ -276,30 +281,11 @@ namespace WTF {
         const_iterator m_iterator;
     };
 
-    using std::swap;
-
-    // Work around MSVC's standard library, whose swap for pairs does not swap by component.
-    template<typename T> inline void hashTableSwap(T& a, T& b)
-    {
-        swap(a, b);
-    }
-
-    // Swap pairs by component, in case of pair members that specialize swap.
-    template<typename T, typename U> inline void hashTableSwap(pair<T, U>& a, pair<T, U>& b)
-    {
-        swap(a.first, b.first);
-        swap(a.second, b.second);
-    }
-
-    template<typename T, bool useSwap> struct Mover;
-    template<typename T> struct Mover<T, true> { static void move(T& from, T& to) { hashTableSwap(from, to); } };
-    template<typename T> struct Mover<T, false> { static void move(T& from, T& to) { to = from; } };
-
     template<typename HashFunctions> class IdentityHashTranslator {
     public:
         template<typename T> static unsigned hash(const T& key) { return HashFunctions::hash(key); }
-        template<typename T> static bool equal(const T& a, const T& b) { return HashFunctions::equal(a, b); }
-        template<typename T, typename U> static void translate(T& location, const U&, const T& value) { location = value; }
+        template<typename T, typename U> static bool equal(const T& a, const U& b) { return HashFunctions::equal(a, b); }
+        template<typename T, typename U, typename V> static void translate(T& location, const U&, V&& value) { location = std::forward<V>(value); }
     };
 
     template<typename IteratorType> struct HashTableAddResult {
@@ -319,6 +305,51 @@ namespace WTF {
         typedef IdentityHashTranslator<HashFunctions> IdentityTranslatorType;
         typedef HashTableAddResult<iterator> AddResult;
 
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        struct Stats {
+            Stats()
+                : numAccesses(0)
+                , numRehashes(0)
+                , numRemoves(0)
+                , numReinserts(0)
+                , maxCollisions(0)
+                , numCollisions(0)
+                , collisionGraph()
+            {
+            }
+
+            int numAccesses;
+            int numRehashes;
+            int numRemoves;
+            int numReinserts;
+
+            int maxCollisions;
+            int numCollisions;
+            int collisionGraph[4096];
+
+            void recordCollisionAtCount(int count)
+            {
+                if (count > maxCollisions)
+                    maxCollisions = count;
+                numCollisions++;
+                collisionGraph[count]++;
+            }
+
+            void dumpStats()
+            {
+                dataLogF("\nWTF::HashTable::Stats dump\n\n");
+                dataLogF("%d accesses\n", numAccesses);
+                dataLogF("%d total collisions, average %.2f probes per access\n", numCollisions, 1.0 * (numAccesses + numCollisions) / numAccesses);
+                dataLogF("longest collision chain: %d\n", maxCollisions);
+                for (int i = 1; i <= maxCollisions; i++) {
+                    dataLogF("  %d lookups with exactly %d collisions (%.2f%% , %.2f%% with this many or more)\n", collisionGraph[i], i, 100.0 * (collisionGraph[i] - collisionGraph[i+1]) / numAccesses, 100.0 * collisionGraph[i] / numAccesses);
+                }
+                dataLogF("%d rehashes\n", numRehashes);
+                dataLogF("%d reinserts\n", numReinserts);
+            }
+        };
+#endif
+
         HashTable();
         ~HashTable() 
         {
@@ -334,9 +365,12 @@ namespace WTF {
         void swap(HashTable&);
         HashTable& operator=(const HashTable&);
 
-        iterator begin() { return makeIterator(m_table); }
+        // When the hash table is empty, just return the same iterator for end as for begin.
+        // This is more efficient because we don't have to skip all the empty and deleted
+        // buckets, and iterating an empty table is a common case that's worth optimizing.
+        iterator begin() { return isEmpty() ? end() : makeIterator(m_table); }
         iterator end() { return makeKnownGoodIterator(m_table + m_tableSize); }
-        const_iterator begin() const { return makeConstIterator(m_table); }
+        const_iterator begin() const { return isEmpty() ? end() : makeConstIterator(m_table); }
         const_iterator end() const { return makeKnownGoodConstIterator(m_table + m_tableSize); }
 
         int size() const { return m_keyCount; }
@@ -344,12 +378,13 @@ namespace WTF {
         bool isEmpty() const { return !m_keyCount; }
 
         AddResult add(const ValueType& value) { return add<IdentityTranslatorType>(Extractor::extract(value), value); }
+        AddResult add(ValueType&& value) { return add<IdentityTranslatorType>(Extractor::extract(value), std::move(value)); }
 
         // A special version of add() that finds the object by hashing and comparing
         // with some other type, to avoid the cost of type conversion if the object is already
         // in the table.
-        template<typename HashTranslator, typename T, typename Extra> AddResult add(const T& key, const Extra&);
-        template<typename HashTranslator, typename T, typename Extra> AddResult addPassingHashCode(const T& key, const Extra&);
+        template<typename HashTranslator, typename T, typename Extra> AddResult add(T&& key, Extra&&);
+        template<typename HashTranslator, typename T, typename Extra> AddResult addPassingHashCode(T&& key, Extra&&);
 
         iterator find(const KeyType& key) { return find<IdentityTranslatorType>(key); }
         const_iterator find(const KeyType& key) const { return find<IdentityTranslatorType>(key); }
@@ -389,8 +424,8 @@ namespace WTF {
         static ValueType* allocateTable(int size);
         static void deallocateTable(ValueType* table, int size);
 
-        typedef pair<ValueType*, bool> LookupType;
-        typedef pair<LookupType, unsigned> FullLookupType;
+        typedef std::pair<ValueType*, bool> LookupType;
+        typedef std::pair<LookupType, unsigned> FullLookupType;
 
         LookupType lookupForWriting(const Key& key) { return lookupForWriting<IdentityTranslatorType>(key); };
         template<typename HashTranslator, typename T> FullLookupType fullLookupForWriting(const T&);
@@ -405,11 +440,11 @@ namespace WTF {
         bool shouldExpand() const { return (m_keyCount + m_deletedCount) * m_maxLoad >= m_tableSize; }
         bool mustRehashInPlace() const { return m_keyCount * m_minLoad < m_tableSize * 2; }
         bool shouldShrink() const { return m_keyCount * m_minLoad < m_tableSize && m_tableSize > KeyTraits::minimumTableSize; }
-        void expand();
-        void shrink() { rehash(m_tableSize / 2); }
+        ValueType* expand(ValueType* entry = nullptr);
+        void shrink() { rehash(m_tableSize / 2, nullptr); }
 
-        void rehash(int newTableSize);
-        void reinsert(ValueType&);
+        ValueType* rehash(int newTableSize, ValueType* entry);
+        ValueType* reinsert(ValueType&&);
 
         static void initializeBucket(ValueType& bucket);
         static void deleteBucket(ValueType& bucket) { bucket.~ValueType(); Traits::constructDeletedValue(bucket); }
@@ -448,8 +483,51 @@ namespace WTF {
         // All access to m_iterators should be guarded with m_mutex.
         mutable const_iterator* m_iterators;
         // Use OwnPtr so HashTable can still be memmove'd or memcpy'ed.
-        mutable OwnPtr<Mutex> m_mutex;
+        mutable std::unique_ptr<Mutex> m_mutex;
 #endif
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+    public:
+        mutable OwnPtr<Stats> m_stats;
+#endif
+    };
+
+    // Set all the bits to one after the most significant bit: 00110101010 -> 00111111111.
+    template<unsigned size> struct OneifyLowBits;
+    template<>
+    struct OneifyLowBits<0> {
+        static const unsigned value = 0;
+    };
+    template<unsigned number>
+    struct OneifyLowBits {
+        static const unsigned value = number | OneifyLowBits<(number >> 1)>::value;
+    };
+    // Compute the first power of two integer that is an upper bound of the parameter 'number'.
+    template<unsigned number>
+    struct UpperPowerOfTwoBound {
+        static const unsigned value = (OneifyLowBits<number - 1>::value + 1) * 2;
+    };
+
+    // Because power of two numbers are the limit of maxLoad, their capacity is twice the
+    // UpperPowerOfTwoBound, or 4 times their values.
+    template<unsigned size, bool isPowerOfTwo> struct HashTableCapacityForSizeSplitter;
+    template<unsigned size>
+    struct HashTableCapacityForSizeSplitter<size, true> {
+        static const unsigned value = size * 4;
+    };
+    template<unsigned size>
+    struct HashTableCapacityForSizeSplitter<size, false> {
+        static const unsigned value = UpperPowerOfTwoBound<size>::value;
+    };
+
+    // HashTableCapacityForSize computes the upper power of two capacity to hold the size parameter.
+    // This is done at compile time to initialize the HashTraits.
+    template<unsigned size>
+    struct HashTableCapacityForSize {
+        static const unsigned value = HashTableCapacityForSizeSplitter<size, !(size & (size - 1))>::value;
+        COMPILE_ASSERT(size > 0, HashTableNonZeroMinimumCapacity);
+        COMPILE_ASSERT(!static_cast<int>(value >> 31), HashTableNoCapacityOverflow);
+        COMPILE_ASSERT(value > (2 * size), HashTableCapacityHoldsContentSize);
     };
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
@@ -461,7 +539,10 @@ namespace WTF {
         , m_deletedCount(0)
 #if CHECK_HASHTABLE_ITERATORS
         , m_iterators(0)
-        , m_mutex(adoptPtr(new Mutex))
+        , m_mutex(std::make_unique<Mutex>())
+#endif
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        , m_stats(std::make_unique<Stats>())
 #endif
     {
     }
@@ -493,8 +574,8 @@ namespace WTF {
         if (!HashFunctions::safeToCompareToEmptyOrDeleted)
             return;
         ASSERT(!HashTranslator::equal(KeyTraits::emptyValue(), key));
-        AlignedBuffer<sizeof(ValueType), WTF_ALIGN_OF(ValueType)> deletedValueBuffer;
-        ValueType* deletedValuePtr = reinterpret_cast_ptr<ValueType*>(deletedValueBuffer.buffer);
+        typename std::aligned_storage<sizeof(ValueType), std::alignment_of<ValueType>::value>::type deletedValueBuffer;
+        ValueType* deletedValuePtr = reinterpret_cast_ptr<ValueType*>(&deletedValueBuffer);
         ValueType& deletedValue = *deletedValuePtr;
         Traits::constructDeletedValue(deletedValue);
         ASSERT(!HashTranslator::equal(Extractor::extract(deletedValue), key));
@@ -504,7 +585,7 @@ namespace WTF {
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
     template<typename HashTranslator, typename T>
-    inline Value* HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::lookup(const T& key)
+    inline auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::lookup(const T& key) -> ValueType*
     {
         checkKey<HashTranslator>(key);
 
@@ -520,6 +601,11 @@ namespace WTF {
 #if DUMP_HASHTABLE_STATS
         atomicIncrement(&HashTableStats::numAccesses);
         int probeCount = 0;
+#endif
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        ++m_stats->numAccesses;
+        int perTableProbeCount = 0;
 #endif
 
         while (1) {
@@ -543,6 +629,12 @@ namespace WTF {
             ++probeCount;
             HashTableStats::recordCollisionAtCount(probeCount);
 #endif
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+            ++perTableProbeCount;
+            m_stats->recordCollisionAtCount(perTableProbeCount);
+#endif
+
             if (k == 0)
                 k = 1 | doubleHash(h);
             i = (i + k) & sizeMask;
@@ -551,7 +643,7 @@ namespace WTF {
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
     template<typename HashTranslator, typename T>
-    inline typename HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::LookupType HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::lookupForWriting(const T& key)
+    inline auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::lookupForWriting(const T& key) -> LookupType
     {
         ASSERT(m_table);
         checkKey<HashTranslator>(key);
@@ -565,6 +657,11 @@ namespace WTF {
 #if DUMP_HASHTABLE_STATS
         atomicIncrement(&HashTableStats::numAccesses);
         int probeCount = 0;
+#endif
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        ++m_stats->numAccesses;
+        int perTableProbeCount = 0;
 #endif
 
         ValueType* deletedEntry = 0;
@@ -595,6 +692,12 @@ namespace WTF {
             ++probeCount;
             HashTableStats::recordCollisionAtCount(probeCount);
 #endif
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+            ++perTableProbeCount;
+            m_stats->recordCollisionAtCount(perTableProbeCount);
+#endif
+
             if (k == 0)
                 k = 1 | doubleHash(h);
             i = (i + k) & sizeMask;
@@ -603,7 +706,7 @@ namespace WTF {
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
     template<typename HashTranslator, typename T>
-    inline typename HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::FullLookupType HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::fullLookupForWriting(const T& key)
+    inline auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::fullLookupForWriting(const T& key) -> FullLookupType
     {
         ASSERT(m_table);
         checkKey<HashTranslator>(key);
@@ -617,6 +720,11 @@ namespace WTF {
 #if DUMP_HASHTABLE_STATS
         atomicIncrement(&HashTableStats::numAccesses);
         int probeCount = 0;
+#endif
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        ++m_stats->numAccesses;
+        int perTableProbeCount = 0;
 #endif
 
         ValueType* deletedEntry = 0;
@@ -647,6 +755,12 @@ namespace WTF {
             ++probeCount;
             HashTableStats::recordCollisionAtCount(probeCount);
 #endif
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+            ++perTableProbeCount;
+            m_stats->recordCollisionAtCount(perTableProbeCount);
+#endif
+
             if (k == 0)
                 k = 1 | doubleHash(h);
             i = (i + k) & sizeMask;
@@ -680,14 +794,14 @@ namespace WTF {
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
     template<typename HashTranslator, typename T, typename Extra>
-    inline typename HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::AddResult HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::add(const T& key, const Extra& extra)
+    inline auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::add(T&& key, Extra&& extra) -> AddResult
     {
         checkKey<HashTranslator>(key);
 
         invalidateIterators();
 
         if (!m_table)
-            expand();
+            expand(nullptr);
 
         internalCheckTableConsistency();
 
@@ -702,6 +816,11 @@ namespace WTF {
 #if DUMP_HASHTABLE_STATS
         atomicIncrement(&HashTableStats::numAccesses);
         int probeCount = 0;
+#endif
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        ++m_stats->numAccesses;
+        int perTableProbeCount = 0;
 #endif
 
         ValueType* deletedEntry = 0;
@@ -732,6 +851,12 @@ namespace WTF {
             ++probeCount;
             HashTableStats::recordCollisionAtCount(probeCount);
 #endif
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+            ++perTableProbeCount;
+            m_stats->recordCollisionAtCount(perTableProbeCount);
+#endif
+
             if (k == 0)
                 k = 1 | doubleHash(h);
             i = (i + k) & sizeMask;
@@ -743,21 +868,12 @@ namespace WTF {
             --m_deletedCount; 
         }
 
-        HashTranslator::translate(*entry, key, extra);
-
+        HashTranslator::translate(*entry, std::forward<T>(key), std::forward<Extra>(extra));
         ++m_keyCount;
         
-        if (shouldExpand()) {
-            // FIXME: This makes an extra copy on expand. Probably not that bad since
-            // expand is rare, but would be better to have a version of expand that can
-            // follow a pivot entry and return the new position.
-            KeyType enteredKey = Extractor::extract(*entry);
-            expand();
-            AddResult result(find(enteredKey), true);
-            ASSERT(result.iterator != end());
-            return result;
-        }
-        
+        if (shouldExpand())
+            entry = expand(entry);
+
         internalCheckTableConsistency();
         
         return AddResult(makeKnownGoodIterator(entry), true);
@@ -765,7 +881,7 @@ namespace WTF {
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
     template<typename HashTranslator, typename T, typename Extra>
-    inline typename HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::AddResult HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::addPassingHashCode(const T& key, const Extra& extra)
+    inline auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::addPassingHashCode(T&& key, Extra&& extra) -> AddResult
     {
         checkKey<HashTranslator>(key);
 
@@ -789,19 +905,12 @@ namespace WTF {
             initializeBucket(*entry);
             --m_deletedCount;
         }
-        
-        HashTranslator::translate(*entry, key, extra, h);
+
+        HashTranslator::translate(*entry, std::forward<T>(key), std::forward<Extra>(extra), h);
         ++m_keyCount;
-        if (shouldExpand()) {
-            // FIXME: This makes an extra copy on expand. Probably not that bad since
-            // expand is rare, but would be better to have a version of expand that can
-            // follow a pivot entry and return the new position.
-            KeyType enteredKey = Extractor::extract(*entry);
-            expand();
-            AddResult result(find(enteredKey), true);
-            ASSERT(result.iterator != end());
-            return result;
-        }
+
+        if (shouldExpand())
+            entry = expand(entry);
 
         internalCheckTableConsistency();
 
@@ -809,7 +918,7 @@ namespace WTF {
     }
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
-    inline void HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::reinsert(ValueType& entry)
+    inline auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::reinsert(ValueType&& entry) -> ValueType*
     {
         ASSERT(m_table);
         ASSERT(!lookupForWriting(Extractor::extract(entry)).second);
@@ -817,13 +926,20 @@ namespace WTF {
 #if DUMP_HASHTABLE_STATS
         atomicIncrement(&HashTableStats::numReinserts);
 #endif
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        ++m_stats->numReinserts;
+#endif
 
-        Mover<ValueType, Traits::needsDestruction>::move(entry, *lookupForWriting(Extractor::extract(entry)).first);
+        Value* newEntry = lookupForWriting(Extractor::extract(entry)).first;
+        newEntry->~Value();
+        new (NotNull, newEntry) ValueType(std::move(entry));
+
+        return newEntry;
     }
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
     template <typename HashTranslator, typename T> 
-    typename HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::iterator HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::find(const T& key)
+    auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::find(const T& key) -> iterator
     {
         if (!m_table)
             return end();
@@ -837,7 +953,7 @@ namespace WTF {
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
     template <typename HashTranslator, typename T> 
-    typename HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::const_iterator HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::find(const T& key) const
+    auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::find(const T& key) const -> const_iterator
     {
         if (!m_table)
             return end();
@@ -879,6 +995,9 @@ namespace WTF {
     {
 #if DUMP_HASHTABLE_STATS
         atomicIncrement(&HashTableStats::numRemoves);
+#endif
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        ++m_stats->numRemoves;
 #endif
 
         deleteBucket(*pos);
@@ -925,7 +1044,7 @@ namespace WTF {
     }
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
-    Value* HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::allocateTable(int size)
+    auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::allocateTable(int size) -> ValueType*
     {
         // would use a template member function with explicit specializations here, but
         // gcc doesn't appear to support that
@@ -940,17 +1059,15 @@ namespace WTF {
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
     void HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::deallocateTable(ValueType* table, int size)
     {
-        if (Traits::needsDestruction) {
-            for (int i = 0; i < size; ++i) {
-                if (!isDeletedBucket(table[i]))
-                    table[i].~ValueType();
-            }
+        for (int i = 0; i < size; ++i) {
+            if (!isDeletedBucket(table[i]))
+                table[i].~ValueType();
         }
         fastFree(table);
     }
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
-    void HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::expand()
+    auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::expand(ValueType* entry) -> ValueType*
     {
         int newSize;
         if (m_tableSize == 0)
@@ -960,11 +1077,11 @@ namespace WTF {
         else
             newSize = m_tableSize * 2;
 
-        rehash(newSize);
+        return rehash(newSize, entry);
     }
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
-    void HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::rehash(int newTableSize)
+    auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::rehash(int newTableSize, ValueType* entry) -> ValueType*
     {
         internalCheckTableConsistencyExceptSize();
 
@@ -976,19 +1093,35 @@ namespace WTF {
             atomicIncrement(&HashTableStats::numRehashes);
 #endif
 
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        if (oldTableSize != 0)
+            ++m_stats->numRehashes;
+#endif
+
         m_tableSize = newTableSize;
         m_tableSizeMask = newTableSize - 1;
         m_table = allocateTable(newTableSize);
 
-        for (int i = 0; i != oldTableSize; ++i)
-            if (!isEmptyOrDeletedBucket(oldTable[i]))
-                reinsert(oldTable[i]);
+        Value* newEntry = nullptr;
+        for (int i = 0; i != oldTableSize; ++i) {
+            if (isEmptyOrDeletedBucket(oldTable[i])) {
+                ASSERT(&oldTable[i] != entry);
+                continue;
+            }
+
+            Value* reinsertedEntry = reinsert(std::move(oldTable[i]));
+            if (&oldTable[i] == entry) {
+                ASSERT(!newEntry);
+                newEntry = reinsertedEntry;
+            }
+        }
 
         m_deletedCount = 0;
 
         deallocateTable(oldTable, oldTableSize);
 
         internalCheckTableConsistency();
+        return newEntry;
     }
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
@@ -1014,11 +1147,16 @@ namespace WTF {
         , m_deletedCount(0)
 #if CHECK_HASHTABLE_ITERATORS
         , m_iterators(0)
-        , m_mutex(adoptPtr(new Mutex))
+        , m_mutex(std::make_unique<Mutex>())
+#endif
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        , m_stats(std::make_unique<Stats>(*other.m_stats))
 #endif
     {
         // Copy the hash table the dumb way, by adding each element to the new table.
         // It might be more efficient to copy the table slots, but it's not clear that efficiency is needed.
+        // FIXME: It's likely that this can be improved, for static analyses that use
+        // HashSets. https://bugs.webkit.org/show_bug.cgi?id=118455
         const_iterator end = other.end();
         for (const_iterator it = other.begin(); it != end; ++it)
             add(*it);
@@ -1049,11 +1187,17 @@ namespace WTF {
         int tmp_deletedCount = m_deletedCount;
         m_deletedCount = other.m_deletedCount;
         other.m_deletedCount = tmp_deletedCount;
+
+#if DUMP_HASHTABLE_STATS_PER_TABLE
+        m_stats.swap(other.m_stats);
+#endif
     }
 
     template<typename Key, typename Value, typename Extractor, typename HashFunctions, typename Traits, typename KeyTraits>
-    HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>& HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::operator=(const HashTable& other)
+    auto HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits>::operator=(const HashTable& other) -> HashTable&
     {
+        // FIXME: It's likely that this can be improved, for static analyses that use
+        // HashSets. https://bugs.webkit.org/show_bug.cgi?id=118455
         HashTable tmp(other);
         swap(tmp);
         return *this;
@@ -1091,7 +1235,7 @@ namespace WTF {
             ASSERT(entry == it.m_position);
             ++count;
 
-            ValueCheck<Key>::checkConsistency(it->first);
+            ValueCheck<Key>::checkConsistency(it->key);
         }
 
         ASSERT(count == m_keyCount);

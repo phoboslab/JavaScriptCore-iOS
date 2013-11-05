@@ -34,12 +34,12 @@ namespace Unicode {
     // Given a first byte, gives the length of the UTF-8 sequence it begins.
     // Returns 0 for bytes that are not legal starts of UTF-8 sequences.
     // Only allows sequences of up to 4 bytes, since that works for all Unicode characters (U-00000000 to U-0010FFFF).
-    int UTF8SequenceLength(char);
+    WTF_EXPORT_PRIVATE int UTF8SequenceLength(char);
 
     // Takes a null-terminated C-style string with a UTF-8 sequence in it and converts it to a character.
     // Only allows Unicode characters (U-00000000 to U-0010FFFF).
     // Returns -1 if the sequence is not valid (including presence of extra bytes).
-    int decodeUTF8Sequence(const char*);
+    WTF_EXPORT_PRIVATE int decodeUTF8Sequence(const char*);
 
     typedef enum {
             conversionOK,       // conversion successful
@@ -64,9 +64,9 @@ namespace Unicode {
 
     WTF_EXPORT_PRIVATE ConversionResult convertUTF8ToUTF16(
                     const char** sourceStart, const char* sourceEnd, 
-                    UChar** targetStart, UChar* targetEnd, bool strict = true);
+                    UChar** targetStart, UChar* targetEnd, bool* isSourceAllASCII = 0, bool strict = true);
 
-    ConversionResult convertLatin1ToUTF8(
+    WTF_EXPORT_PRIVATE ConversionResult convertLatin1ToUTF8(
                     const LChar** sourceStart, const LChar* sourceEnd, 
                     char** targetStart, char* targetEnd);
 
@@ -74,9 +74,9 @@ namespace Unicode {
                     const UChar** sourceStart, const UChar* sourceEnd, 
                     char** targetStart, char* targetEnd, bool strict = true);
 
-    unsigned calculateStringHashAndLengthFromUTF8MaskingTop8Bits(const char* data, const char* dataEnd, unsigned& dataLength, unsigned& utf16Length);
+    WTF_EXPORT_PRIVATE unsigned calculateStringHashAndLengthFromUTF8MaskingTop8Bits(const char* data, const char* dataEnd, unsigned& dataLength, unsigned& utf16Length);
 
-    bool equalUTF16WithUTF8(const UChar* a, const UChar* aEnd, const char* b, const char* bEnd);
+    WTF_EXPORT_PRIVATE bool equalUTF16WithUTF8(const UChar* a, const UChar* aEnd, const char* b, const char* bEnd);
 
 } // namespace Unicode
 } // namespace WTF

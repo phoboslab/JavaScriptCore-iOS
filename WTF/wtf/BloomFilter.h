@@ -26,7 +26,6 @@
 #ifndef BloomFilter_h
 #define BloomFilter_h
 
-#include <wtf/AlwaysInline.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WTF {
@@ -36,8 +35,9 @@ namespace WTF {
 // keys and m is the table size (==2^keyBits).
 template <unsigned keyBits>
 class BloomFilter {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    COMPILE_ASSERT(keyBits <= 16, bloom_filter_key_size);
+    static_assert(keyBits <= 16, "BloomFilter key size must be less than or equal to 16!");
 
     static const size_t tableSize = 1 << keyBits;
     static const unsigned keyMask = (1 << keyBits) - 1;

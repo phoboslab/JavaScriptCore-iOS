@@ -22,14 +22,14 @@
 #ifndef MachineThreads_h
 #define MachineThreads_h
 
-#include <pthread.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/ThreadSpecific.h>
 #include <wtf/ThreadingPrimitives.h>
 
 namespace JSC {
 
-    class Heap;
     class ConservativeRoots;
+    class Heap;
 
     class MachineThreads {
         WTF_MAKE_NONCOPYABLE(MachineThreads);
@@ -39,7 +39,7 @@ namespace JSC {
 
         void gatherConservativeRoots(ConservativeRoots&, void* stackCurrent);
 
-        void makeUsableFromMultipleThreads();
+        JS_EXPORT_PRIVATE void makeUsableFromMultipleThreads();
         JS_EXPORT_PRIVATE void addCurrentThread(); // Only needs to be called by clients that can use the same heap from multiple threads.
 
     private:
@@ -52,10 +52,12 @@ namespace JSC {
 
         void gatherFromOtherThread(ConservativeRoots&, Thread*);
 
-        Heap* m_heap;
         Mutex m_registeredThreadsMutex;
         Thread* m_registeredThreads;
-        pthread_key_t m_threadSpecific;
+        WTF::ThreadSpecificKey m_threadSpecific;
+#if !ASSERT_DISABLED
+        Heap* m_heap;
+#endif
     };
 
 } // namespace JSC

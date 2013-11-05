@@ -30,21 +30,14 @@ namespace JSC {
     public:
         typedef JSNonFinalObject Base;
 
-        static RegExpObject* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, RegExp* regExp)
+        static RegExpObject* create(VM& vm, Structure* structure, RegExp* regExp)
         {
-            RegExpObject* object = new (NotNull, allocateCell<RegExpObject>(*exec->heap())) RegExpObject(globalObject, structure, regExp);
-            object->finishCreation(globalObject);
-            return object;
-        }
-        
-        static RegExpObject* create(JSGlobalData& globalData, JSGlobalObject* globalObject, Structure* structure, RegExp* regExp)
-        {
-            RegExpObject* object = new (NotNull, allocateCell<RegExpObject>(globalData.heap)) RegExpObject(globalObject, structure, regExp);
-            object->finishCreation(globalObject);
+            RegExpObject* object = new (NotNull, allocateCell<RegExpObject>(vm.heap)) RegExpObject(vm, structure, regExp);
+            object->finishCreation(vm);
             return object;
         }
 
-        void setRegExp(JSGlobalData& globalData, RegExp* r) { m_regExp.set(globalData, this, r); }
+        void setRegExp(VM& vm, RegExp* r) { m_regExp.set(vm, this, r); }
         RegExp* regExp() const { return m_regExp.get(); }
 
         void setLastIndex(ExecState* exec, size_t lastIndex)
@@ -58,7 +51,7 @@ namespace JSC {
         void setLastIndex(ExecState* exec, JSValue lastIndex, bool shouldThrow)
         {
             if (LIKELY(m_lastIndexIsWritable))
-                m_lastIndex.set(exec->globalData(), this, lastIndex);
+                m_lastIndex.set(exec->vm(), this, lastIndex);
             else if (shouldThrow)
                 throwTypeError(exec, StrictModeReadonlyPropertyWriteError);
         }
@@ -70,29 +63,28 @@ namespace JSC {
         bool test(ExecState* exec, JSString* string) { return match(exec, string); }
         JSValue exec(ExecState*, JSString*);
 
-        static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier& propertyName, PropertySlot&);
-        static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&);
-        static void put(JSCell*, ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
+        static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
+        static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
 
-        static JS_EXPORTDATA const ClassInfo s_info;
+        DECLARE_EXPORT_INFO;
 
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
         {
-            return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+            return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
         }
 
     protected:
-        JS_EXPORT_PRIVATE RegExpObject(JSGlobalObject*, Structure*, RegExp*);
-        JS_EXPORT_PRIVATE void finishCreation(JSGlobalObject*);
+        JS_EXPORT_PRIVATE RegExpObject(VM&, Structure*, RegExp*);
+        JS_EXPORT_PRIVATE void finishCreation(VM&);
 
         static const unsigned StructureFlags = OverridesVisitChildren | OverridesGetOwnPropertySlot | Base::StructureFlags;
 
         static void visitChildren(JSCell*, SlotVisitor&);
 
-        JS_EXPORT_PRIVATE static bool deleteProperty(JSCell*, ExecState*, const Identifier& propertyName);
-        JS_EXPORT_PRIVATE static void getOwnPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
+        JS_EXPORT_PRIVATE static bool deleteProperty(JSCell*, ExecState*, PropertyName);
+        JS_EXPORT_PRIVATE static void getOwnNonIndexPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
         JS_EXPORT_PRIVATE static void getPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
-        JS_EXPORT_PRIVATE static bool defineOwnProperty(JSObject*, ExecState*, const Identifier& propertyName, PropertyDescriptor&, bool shouldThrow);
+        JS_EXPORT_PRIVATE static bool defineOwnProperty(JSObject*, ExecState*, PropertyName, const PropertyDescriptor&, bool shouldThrow);
 
     private:
         MatchResult match(ExecState*, JSString*);
@@ -106,7 +98,7 @@ namespace JSC {
 
     inline RegExpObject* asRegExpObject(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&RegExpObject::s_info));
+        ASSERT(asObject(value)->inherits(RegExpObject::info()));
         return static_cast<RegExpObject*>(asObject(value));
     }
 

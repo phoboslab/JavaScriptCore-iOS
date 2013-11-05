@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2010, 2012, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Justin Haygood (jhaygood@reaktix.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,72 +61,74 @@
 
 #include <wtf/Platform.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/UnusedParam.h>
 
 #if OS(WINDOWS)
+#if !COMPILER(GCC)
+extern "C" void _ReadWriteBarrier(void);
+#pragma intrinsic(_ReadWriteBarrier)
+#endif
 #include <windows.h>
-#elif OS(DARWIN)
-#include <libkern/OSAtomic.h>
 #elif OS(QNX)
 #include <atomic.h>
-#elif OS(ANDROID)
-#include <sys/atomics.h>
-#elif COMPILER(GCC)
-#if (__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2))
-#include <ext/atomicity.h>
-#else
-#include <bits/atomicity.h>
-#endif
 #endif
 
 namespace WTF {
 
 #if OS(WINDOWS)
-#define WTF_USE_LOCKFREE_THREADSAFEREFCOUNTED 1
 
-#if COMPILER(MINGW) || COMPILER(MSVC7_OR_LOWER) || OS(WINCE)
+#if OS(WINCE)
 inline int atomicIncrement(int* addend) { return InterlockedIncrement(reinterpret_cast<long*>(addend)); }
 inline int atomicDecrement(int* addend) { return InterlockedDecrement(reinterpret_cast<long*>(addend)); }
+#elif COMPILER(MINGW)
+inline int atomicIncrement(int* addend) { return InterlockedIncrement(reinterpret_cast<long*>(addend)); }
+inline int atomicDecrement(int* addend) { return InterlockedDecrement(reinterpret_cast<long*>(addend)); }
+
+inline int64_t atomicIncrement(int64_t* addend) { return InterlockedIncrement64(reinterpret_cast<long long*>(addend)); }
+inline int64_t atomicDecrement(int64_t* addend) { return InterlockedDecrement64(reinterpret_cast<long long*>(addend)); }
 #else
 inline int atomicIncrement(int volatile* addend) { return InterlockedIncrement(reinterpret_cast<long volatile*>(addend)); }
 inline int atomicDecrement(int volatile* addend) { return InterlockedDecrement(reinterpret_cast<long volatile*>(addend)); }
+
+inline int64_t atomicIncrement(int64_t volatile* addend) { return InterlockedIncrement64(reinterpret_cast<long long volatile*>(addend)); }
+inline int64_t atomicDecrement(int64_t volatile* addend) { return InterlockedDecrement64(reinterpret_cast<long long volatile*>(addend)); }
 #endif
 
-#elif OS(DARWIN)
-#define WTF_USE_LOCKFREE_THREADSAFEREFCOUNTED 1
-
-inline int atomicIncrement(int volatile* addend) { return OSAtomicIncrement32Barrier(const_cast<int*>(addend)); }
-inline int atomicDecrement(int volatile* addend) { return OSAtomicDecrement32Barrier(const_cast<int*>(addend)); }
-
 #elif OS(QNX)
-#define WTF_USE_LOCKFREE_THREADSAFEREFCOUNTED 1
 
 // Note, atomic_{add, sub}_value() return the previous value of addend's content.
 inline int atomicIncrement(int volatile* addend) { return static_cast<int>(atomic_add_value(reinterpret_cast<unsigned volatile*>(addend), 1)) + 1; }
 inline int atomicDecrement(int volatile* addend) { return static_cast<int>(atomic_sub_value(reinterpret_cast<unsigned volatile*>(addend), 1)) - 1; }
 
-#elif OS(ANDROID)
+#elif COMPILER(GCC)
 
-inline int atomicIncrement(int volatile* addend) { return __atomic_inc(addend); }
-inline int atomicDecrement(int volatile* addend) { return __atomic_dec(addend); }
+inline int atomicIncrement(int volatile* addend) { return __sync_add_and_fetch(addend, 1); }
+inline int atomicDecrement(int volatile* addend) { return __sync_sub_and_fetch(addend, 1); }
 
-#elif COMPILER(GCC) && !CPU(SPARC64) // sizeof(_Atomic_word) != sizeof(int) on sparc64 gcc
-#define WTF_USE_LOCKFREE_THREADSAFEREFCOUNTED 1
-
-inline int atomicIncrement(int volatile* addend) { return __gnu_cxx::__exchange_and_add(addend, 1) + 1; }
-inline int atomicDecrement(int volatile* addend) { return __gnu_cxx::__exchange_and_add(addend, -1) - 1; }
+inline int64_t atomicIncrement(int64_t volatile* addend) { return __sync_add_and_fetch(addend, 1); }
+inline int64_t atomicDecrement(int64_t volatile* addend) { return __sync_sub_and_fetch(addend, 1); }
 
 #endif
 
-#if COMPILER(GCC) && !COMPILER(CLANG) // Work around a gcc bug 
-inline bool weakCompareAndSwap(volatile unsigned* location, unsigned expected, unsigned newValue) 
+#if OS(WINDOWS)
+inline bool weakCompareAndSwap(volatile unsigned* location, unsigned expected, unsigned newValue)
+{
+#if OS(WINCE)
+    return InterlockedCompareExchange(reinterpret_cast<LONG*>(const_cast<unsigned*>(location)), static_cast<LONG>(newValue), static_cast<LONG>(expected)) == static_cast<LONG>(expected);
 #else
-inline bool weakCompareAndSwap(unsigned* location, unsigned expected, unsigned newValue)
+    return InterlockedCompareExchange(reinterpret_cast<LONG volatile*>(location), static_cast<LONG>(newValue), static_cast<LONG>(expected)) == static_cast<LONG>(expected);
 #endif
+}
+
+inline bool weakCompareAndSwap(void*volatile* location, void* expected, void* newValue)
+{
+    return InterlockedCompareExchangePointer(location, newValue, expected) == expected;
+}
+#else // OS(WINDOWS) --> not windows
+inline bool weakCompareAndSwap(volatile unsigned* location, unsigned expected, unsigned newValue) 
 {
 #if ENABLE(COMPARE_AND_SWAP)
-    bool result;
 #if CPU(X86) || CPU(X86_64)
+    unsigned char result;
     asm volatile(
         "lock; cmpxchgl %3, %2\n\t"
         "sete %1"
@@ -136,12 +138,27 @@ inline bool weakCompareAndSwap(unsigned* location, unsigned expected, unsigned n
         );
 #elif CPU(ARM_THUMB2)
     unsigned tmp;
+    unsigned result;
     asm volatile(
         "movw %1, #1\n\t"
         "ldrex %2, %0\n\t"
         "cmp %3, %2\n\t"
         "bne.n 0f\n\t"
         "strex %1, %4, %0\n\t"
+        "0:"
+        : "+Q"(*location), "=&r"(result), "=&r"(tmp)
+        : "r"(expected), "r"(newValue)
+        : "memory");
+    result = !result;
+#elif CPU(ARM64)
+    unsigned tmp;
+    unsigned result;
+    asm volatile(
+        "mov %w1, #1\n\t"
+        "ldxr %w2, %0\n\t"
+        "cmp %w3, %w2\n\t"
+        "b.ne 0f\n\t"
+        "stxr %w1, %w4, %0\n\t"
         "0:"
         : "+m"(*location), "=&r"(result), "=&r"(tmp)
         : "r"(expected), "r"(newValue)
@@ -156,7 +173,7 @@ inline bool weakCompareAndSwap(unsigned* location, unsigned expected, unsigned n
     UNUSED_PARAM(expected);
     UNUSED_PARAM(newValue);
     CRASH();
-    return 0;
+    return false;
 #endif
 }
 
@@ -173,6 +190,20 @@ inline bool weakCompareAndSwap(void*volatile* location, void* expected, void* ne
         : "memory"
         );
     return result;
+#elif CPU(ARM64)
+    bool result;
+    void* tmp;
+    asm volatile(
+        "mov %w1, #1\n\t"
+        "ldxr %x2, %0\n\t"
+        "cmp %x3, %x2\n\t"
+        "b.ne 0f\n\t"
+        "stxr %w1, %x4, %0\n\t"
+        "0:"
+        : "+m"(*location), "=&r"(result), "=&r"(tmp)
+        : "r"(expected), "r"(newValue)
+        : "memory");
+    return !result;
 #else
     return weakCompareAndSwap(bitwise_cast<unsigned*>(location), bitwise_cast<unsigned>(expected), bitwise_cast<unsigned>(newValue));
 #endif
@@ -184,17 +215,143 @@ inline bool weakCompareAndSwap(void*volatile* location, void* expected, void* ne
     return 0;
 #endif // ENABLE(COMPARE_AND_SWAP)
 }
+#endif // OS(WINDOWS) (end of the not-windows case)
 
 inline bool weakCompareAndSwapUIntPtr(volatile uintptr_t* location, uintptr_t expected, uintptr_t newValue)
 {
     return weakCompareAndSwap(reinterpret_cast<void*volatile*>(location), reinterpret_cast<void*>(expected), reinterpret_cast<void*>(newValue));
 }
 
+inline bool weakCompareAndSwapSize(volatile size_t* location, size_t expected, size_t newValue)
+{
+    return weakCompareAndSwap(reinterpret_cast<void*volatile*>(location), reinterpret_cast<void*>(expected), reinterpret_cast<void*>(newValue));
+}
+
+// Just a compiler fence. Has no effect on the hardware, but tells the compiler
+// not to move things around this call. Should not affect the compiler's ability
+// to do things like register allocation and code motion over pure operations.
+inline void compilerFence()
+{
+#if OS(WINDOWS) && !COMPILER(GCC)
+    _ReadWriteBarrier();
+#else
+    asm volatile("" ::: "memory");
+#endif
+}
+
+#if CPU(ARM_THUMB2) || CPU(ARM64)
+
+// Full memory fence. No accesses will float above this, and no accesses will sink
+// below it.
+inline void armV7_dmb()
+{
+    asm volatile("dmb sy" ::: "memory");
+}
+
+// Like the above, but only affects stores.
+inline void armV7_dmb_st()
+{
+    asm volatile("dmb st" ::: "memory");
+}
+
+inline void loadLoadFence() { armV7_dmb(); }
+inline void loadStoreFence() { armV7_dmb(); }
+inline void storeLoadFence() { armV7_dmb(); }
+inline void storeStoreFence() { armV7_dmb_st(); }
+inline void memoryBarrierAfterLock() { armV7_dmb(); }
+inline void memoryBarrierBeforeUnlock() { armV7_dmb(); }
+
+#elif CPU(X86) || CPU(X86_64)
+
+inline void x86_mfence()
+{
+#if OS(WINDOWS)
+    // I think that this does the equivalent of a dummy interlocked instruction,
+    // instead of using the 'mfence' instruction, at least according to MSDN. I
+    // know that it is equivalent for our purposes, but it would be good to
+    // investigate if that is actually better.
+    MemoryBarrier();
+#else
+    asm volatile("mfence" ::: "memory");
+#endif
+}
+
+inline void loadLoadFence() { compilerFence(); }
+inline void loadStoreFence() { compilerFence(); }
+inline void storeLoadFence() { x86_mfence(); }
+inline void storeStoreFence() { compilerFence(); }
+inline void memoryBarrierAfterLock() { compilerFence(); }
+inline void memoryBarrierBeforeUnlock() { compilerFence(); }
+
+#else
+
+inline void loadLoadFence() { compilerFence(); }
+inline void loadStoreFence() { compilerFence(); }
+inline void storeLoadFence() { compilerFence(); }
+inline void storeStoreFence() { compilerFence(); }
+inline void memoryBarrierAfterLock() { compilerFence(); }
+inline void memoryBarrierBeforeUnlock() { compilerFence(); }
+
+#endif
+
+inline bool weakCompareAndSwap(uint8_t* location, uint8_t expected, uint8_t newValue)
+{
+#if ENABLE(COMPARE_AND_SWAP)
+#if !OS(WINDOWS) && (CPU(X86) || CPU(X86_64))
+    unsigned char result;
+    asm volatile(
+        "lock; cmpxchgb %3, %2\n\t"
+        "sete %1"
+        : "+a"(expected), "=q"(result), "+m"(*location)
+        : "r"(newValue)
+        : "memory"
+        );
+    return result;
+#elif OS(WINDOWS) && CPU(X86)
+    // FIXME: We need a 64-bit ASM implementation, but this cannot be inline due to
+    // Microsoft's decision to exclude it from the compiler.
+    bool result = false;
+
+    __asm {
+        mov al, expected
+        mov edx, location
+        mov cl, newValue
+        lock cmpxchg byte ptr[edx], cl
+        setz result
+    }
+
+    return result;
+#else
+    uintptr_t locationValue = bitwise_cast<uintptr_t>(location);
+    uintptr_t alignedLocationValue = locationValue & ~(sizeof(unsigned) - 1);
+    uintptr_t locationOffset = locationValue - alignedLocationValue;
+    ASSERT(locationOffset < sizeof(unsigned));
+    unsigned* alignedLocation = bitwise_cast<unsigned*>(alignedLocationValue);
+    // Make sure that this load is always issued and never optimized away.
+    unsigned oldAlignedValue = *const_cast<volatile unsigned*>(alignedLocation);
+    union {
+        uint8_t bytes[sizeof(unsigned)];
+        unsigned word;
+    } u;
+    u.word = oldAlignedValue;
+    if (u.bytes[locationOffset] != expected)
+        return false;
+    u.bytes[locationOffset] = newValue;
+    unsigned newAlignedValue = u.word;
+    return weakCompareAndSwap(alignedLocation, oldAlignedValue, newAlignedValue);
+#endif
+#else
+    UNUSED_PARAM(location);
+    UNUSED_PARAM(expected);
+    UNUSED_PARAM(newValue);
+    CRASH();
+    return false;
+#endif
+}
+
 } // namespace WTF
 
-#if USE(LOCKFREE_THREADSAFEREFCOUNTED)
 using WTF::atomicDecrement;
 using WTF::atomicIncrement;
-#endif
 
 #endif // Atomics_h

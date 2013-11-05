@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2010, 2012, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2010 University of Szeged
  *
  * Redistribution and use in source and binary forms, with or without
@@ -172,6 +172,77 @@ namespace ARMRegisters {
         ASSERT(!(reg & 1));
         return (FPDoubleRegisterID)(reg >> 1);
     }
+
+#if USE(MASM_PROBE)
+    #define FOR_EACH_CPU_REGISTER(V) \
+        FOR_EACH_CPU_GPREGISTER(V) \
+        FOR_EACH_CPU_SPECIAL_REGISTER(V) \
+        FOR_EACH_CPU_FPREGISTER(V)
+
+    #define FOR_EACH_CPU_GPREGISTER(V) \
+        V(void*, r0) \
+        V(void*, r1) \
+        V(void*, r2) \
+        V(void*, r3) \
+        V(void*, r4) \
+        V(void*, r5) \
+        V(void*, r6) \
+        V(void*, r7) \
+        V(void*, r8) \
+        V(void*, r9) \
+        V(void*, r10) \
+        V(void*, r11) \
+        V(void*, ip) \
+        V(void*, sp) \
+        V(void*, lr) \
+        V(void*, pc)
+
+    #define FOR_EACH_CPU_SPECIAL_REGISTER(V) \
+        V(void*, apsr) \
+        V(void*, fpscr) \
+
+    #define FOR_EACH_CPU_FPREGISTER(V) \
+        V(double, d0) \
+        V(double, d1) \
+        V(double, d2) \
+        V(double, d3) \
+        V(double, d4) \
+        V(double, d5) \
+        V(double, d6) \
+        V(double, d7) \
+        V(double, d8) \
+        V(double, d9) \
+        V(double, d10) \
+        V(double, d11) \
+        V(double, d12) \
+        V(double, d13) \
+        V(double, d14) \
+        V(double, d15) \
+        FOR_EACH_CPU_FPREGISTER_EXTENSION(V)
+
+#if CPU(APPLE_ARMV7S)
+    #define FOR_EACH_CPU_FPREGISTER_EXTENSION(V) \
+        V(double, d16) \
+        V(double, d17) \
+        V(double, d18) \
+        V(double, d19) \
+        V(double, d20) \
+        V(double, d21) \
+        V(double, d22) \
+        V(double, d23) \
+        V(double, d24) \
+        V(double, d25) \
+        V(double, d26) \
+        V(double, d27) \
+        V(double, d28) \
+        V(double, d29) \
+        V(double, d30) \
+        V(double, d31)
+#else
+    #define FOR_EACH_CPU_FPREGISTER_EXTENSION(V) // Nothing to add.
+#endif // CPU(APPLE_ARMV7S)
+
+#endif // USE(MASM_PROBE)
 }
 
 class ARMv7Assembler;
@@ -418,25 +489,32 @@ public:
     typedef ARMRegisters::FPSingleRegisterID FPSingleRegisterID;
     typedef ARMRegisters::FPDoubleRegisterID FPDoubleRegisterID;
     typedef ARMRegisters::FPQuadRegisterID FPQuadRegisterID;
+    typedef FPDoubleRegisterID FPRegisterID;
+    
+    static RegisterID firstRegister() { return ARMRegisters::r0; }
+    static RegisterID lastRegister() { return ARMRegisters::r13; }
+    
+    static FPRegisterID firstFPRegister() { return ARMRegisters::d0; }
+    static FPRegisterID lastFPRegister() { return ARMRegisters::d31; }
 
     // (HS, LO, HI, LS) -> (AE, B, A, BE)
     // (VS, VC) -> (O, NO)
     typedef enum {
-        ConditionEQ,
-        ConditionNE,
-        ConditionHS, ConditionCS = ConditionHS,
-        ConditionLO, ConditionCC = ConditionLO,
-        ConditionMI,
-        ConditionPL,
-        ConditionVS,
-        ConditionVC,
-        ConditionHI,
-        ConditionLS,
-        ConditionGE,
-        ConditionLT,
-        ConditionGT,
-        ConditionLE,
-        ConditionAL,
+        ConditionEQ, // Zero / Equal.
+        ConditionNE, // Non-zero / Not equal.
+        ConditionHS, ConditionCS = ConditionHS, // Unsigned higher or same.
+        ConditionLO, ConditionCC = ConditionLO, // Unsigned lower.
+        ConditionMI, // Negative.
+        ConditionPL, // Positive or zero.
+        ConditionVS, // Overflowed.
+        ConditionVC, // Not overflowed.
+        ConditionHI, // Unsigned higher.
+        ConditionLS, // Unsigned lower or same.
+        ConditionGE, // Signed greater than or equal.
+        ConditionLT, // Signed less than.
+        ConditionGT, // Signed greater than.
+        ConditionLE, // Signed less than or equal.
+        ConditionAL, // Unconditional / Always execute.
         ConditionInvalid
     } Condition;
 
@@ -462,32 +540,52 @@ public:
     class LinkRecord {
     public:
         LinkRecord(intptr_t from, intptr_t to, JumpType type, Condition condition)
-            : m_from(from)
-            , m_to(to)
-            , m_type(type)
-            , m_linkType(LinkInvalid)
-            , m_condition(condition)
         {
+            data.realTypes.m_from = from;
+            data.realTypes.m_to = to;
+            data.realTypes.m_type = type;
+            data.realTypes.m_linkType = LinkInvalid;
+            data.realTypes.m_condition = condition;
         }
-        intptr_t from() const { return m_from; }
-        void setFrom(intptr_t from) { m_from = from; }
-        intptr_t to() const { return m_to; }
-        JumpType type() const { return m_type; }
-        JumpLinkType linkType() const { return m_linkType; }
-        void setLinkType(JumpLinkType linkType) { ASSERT(m_linkType == LinkInvalid); m_linkType = linkType; }
-        Condition condition() const { return m_condition; }
+        void operator=(const LinkRecord& other)
+        {
+            data.copyTypes.content[0] = other.data.copyTypes.content[0];
+            data.copyTypes.content[1] = other.data.copyTypes.content[1];
+            data.copyTypes.content[2] = other.data.copyTypes.content[2];
+        }
+        intptr_t from() const { return data.realTypes.m_from; }
+        void setFrom(intptr_t from) { data.realTypes.m_from = from; }
+        intptr_t to() const { return data.realTypes.m_to; }
+        JumpType type() const { return data.realTypes.m_type; }
+        JumpLinkType linkType() const { return data.realTypes.m_linkType; }
+        void setLinkType(JumpLinkType linkType) { ASSERT(data.realTypes.m_linkType == LinkInvalid); data.realTypes.m_linkType = linkType; }
+        Condition condition() const { return data.realTypes.m_condition; }
     private:
-        intptr_t m_from : 31;
-        intptr_t m_to : 31;
-        JumpType m_type : 8;
-        JumpLinkType m_linkType : 8;
-        Condition m_condition : 16;
+        union {
+            struct RealTypes {
+                intptr_t m_from : 31;
+                intptr_t m_to : 31;
+                JumpType m_type : 8;
+                JumpLinkType m_linkType : 8;
+                Condition m_condition : 16;
+            } realTypes;
+            struct CopyTypes {
+                uint32_t content[3];
+            } copyTypes;
+            COMPILE_ASSERT(sizeof(RealTypes) == sizeof(CopyTypes), LinkRecordCopyStructSizeEqualsRealStruct);
+        } data;
     };
+
+    ARMv7Assembler()
+        : m_indexOfLastWatchpoint(INT_MIN)
+        , m_indexOfTailOfLastWatchpoint(INT_MIN)
+    {
+    }
 
 private:
 
     // ARMv7, Appx-A.6.3
-    bool BadReg(RegisterID reg)
+    static bool BadReg(RegisterID reg)
     {
         return (reg == ARMRegisters::sp) || (reg == ARMRegisters::pc);
     }
@@ -641,6 +739,10 @@ private:
         OP_ROR_reg_T2   = 0xFA60,
         OP_CLZ          = 0xFAB0,
         OP_SMULL_T1     = 0xFB80,
+#if CPU(APPLE_ARMV7S)
+        OP_SDIV_T1      = 0xFB90,
+        OP_UDIV_T1      = 0xFBB0,
+#endif
     } OpcodeID1;
 
     typedef enum {
@@ -1012,6 +1114,12 @@ public:
         else
             m_formatter.twoWordOp12Reg4Reg4Imm12(OP_LDR_imm_T3, rn, rt, imm.getUInt12());
     }
+    
+    ALWAYS_INLINE void ldrWide8BitImmediate(RegisterID rt, RegisterID rn, uint8_t immediate)
+    {
+        ASSERT(rn != ARMRegisters::pc);
+        m_formatter.twoWordOp12Reg4Reg4Imm12(OP_LDR_imm_T3, rn, rt, immediate);
+    }
 
     ALWAYS_INLINE void ldrCompact(RegisterID rt, RegisterID rn, ARMThumbImmediate imm)
     {
@@ -1235,6 +1343,33 @@ public:
         
         m_formatter.twoWordOp5i6Imm4Reg4EncodedImm(OP_MOV_imm_T3, imm.m_value.imm4, rd, imm);
     }
+    
+#if OS(LINUX) || OS(QNX)
+    static void revertJumpTo_movT3movtcmpT2(void* instructionStart, RegisterID left, RegisterID right, uintptr_t imm)
+    {
+        uint16_t* address = static_cast<uint16_t*>(instructionStart);
+        ARMThumbImmediate lo16 = ARMThumbImmediate::makeUInt16(static_cast<uint16_t>(imm));
+        ARMThumbImmediate hi16 = ARMThumbImmediate::makeUInt16(static_cast<uint16_t>(imm >> 16));
+        address[0] = twoWordOp5i6Imm4Reg4EncodedImmFirst(OP_MOV_imm_T3, lo16);
+        address[1] = twoWordOp5i6Imm4Reg4EncodedImmSecond(right, lo16);
+        address[2] = twoWordOp5i6Imm4Reg4EncodedImmFirst(OP_MOVT, hi16);
+        address[3] = twoWordOp5i6Imm4Reg4EncodedImmSecond(right, hi16);
+        address[4] = OP_CMP_reg_T2 | left;
+        cacheFlush(address, sizeof(uint16_t) * 5);
+    }
+#else
+    static void revertJumpTo_movT3(void* instructionStart, RegisterID rd, ARMThumbImmediate imm)
+    {
+        ASSERT(imm.isValid());
+        ASSERT(!imm.isEncodedImm());
+        ASSERT(!BadReg(rd));
+        
+        uint16_t* address = static_cast<uint16_t*>(instructionStart);
+        address[0] = twoWordOp5i6Imm4Reg4EncodedImmFirst(OP_MOV_imm_T3, imm);
+        address[1] = twoWordOp5i6Imm4Reg4EncodedImmSecond(rd, imm);
+        cacheFlush(address, sizeof(uint16_t) * 2);
+    }
+#endif
 
     ALWAYS_INLINE void mov(RegisterID rd, ARMThumbImmediate imm)
     {
@@ -1349,6 +1484,16 @@ public:
         ASSERT(!BadReg(rm));
         m_formatter.twoWordOp12Reg4FourFours(OP_ROR_reg_T2, rn, FourFours(0xf, rd, 0, rm));
     }
+
+#if CPU(APPLE_ARMV7S)
+    ALWAYS_INLINE void sdiv(RegisterID rd, RegisterID rn, RegisterID rm)
+    {
+        ASSERT(!BadReg(rd));
+        ASSERT(!BadReg(rn));
+        ASSERT(!BadReg(rm));
+        m_formatter.twoWordOp12Reg4FourFours(OP_SDIV_T1, rn, FourFours(0xf, rd, 0xf, rm));
+    }
+#endif
 
     ALWAYS_INLINE void smull(RegisterID rdLo, RegisterID rdHi, RegisterID rn, RegisterID rm)
     {
@@ -1686,6 +1831,16 @@ public:
         m_formatter.twoWordOp12Reg40Imm3Reg4Imm20Imm5(OP_UBFX_T1, rd, rn, (lsb & 0x1c) << 10, (lsb & 0x3) << 6, (width - 1) & 0x1f);
     }
 
+#if CPU(APPLE_ARMV7S)
+    ALWAYS_INLINE void udiv(RegisterID rd, RegisterID rn, RegisterID rm)
+    {
+        ASSERT(!BadReg(rd));
+        ASSERT(!BadReg(rn));
+        ASSERT(!BadReg(rm));
+        m_formatter.twoWordOp12Reg4FourFours(OP_UDIV_T1, rn, FourFours(0xf, rd, 0xf, rm));
+    }
+#endif
+
     void vadd(FPDoubleRegisterID rd, FPDoubleRegisterID rn, FPDoubleRegisterID rm)
     {
         m_formatter.vfpOp(OP_VADD_T2, OP_VADD_T2b, true, rn, rd, rm);
@@ -1821,9 +1976,37 @@ public:
         m_formatter.oneWordOp8Imm8(OP_NOP_T1, 0);
     }
 
-    AssemblerLabel label()
+    void nopw()
+    {
+        m_formatter.twoWordOp16Op16(OP_NOP_T2a, OP_NOP_T2b);
+    }
+
+    AssemblerLabel labelIgnoringWatchpoints()
     {
         return m_formatter.label();
+    }
+
+    AssemblerLabel labelForWatchpoint()
+    {
+        AssemblerLabel result = m_formatter.label();
+        if (static_cast<int>(result.m_offset) != m_indexOfLastWatchpoint)
+            result = label();
+        m_indexOfLastWatchpoint = result.m_offset;
+        m_indexOfTailOfLastWatchpoint = result.m_offset + maxJumpReplacementSize();
+        return result;
+    }
+
+    AssemblerLabel label()
+    {
+        AssemblerLabel result = m_formatter.label();
+        while (UNLIKELY(static_cast<int>(result.m_offset) < m_indexOfTailOfLastWatchpoint)) {
+            if (UNLIKELY(static_cast<int>(result.m_offset) + 4 <= m_indexOfTailOfLastWatchpoint))
+                nopw();
+            else
+                nop();
+            result = m_formatter.label();
+        }
+        return result;
     }
     
     AssemblerLabel align(int alignment)
@@ -1882,7 +2065,6 @@ public:
             return LinkConditionalBX;
         
         const int paddingSize = JUMP_ENUM_SIZE(jumpType);
-        bool mayTriggerErrata = false;
         
         if (jumpType == JumpCondition) {
             // 2-byte conditional T1
@@ -1891,17 +2073,13 @@ public:
                 return LinkJumpT1;
             // 4-byte conditional T3
             const uint16_t* jumpT3Location = reinterpret_cast_ptr<const uint16_t*>(from - (paddingSize - JUMP_ENUM_SIZE(LinkJumpT3)));
-            if (canBeJumpT3(jumpT3Location, to, mayTriggerErrata)) {
-                if (!mayTriggerErrata)
-                    return LinkJumpT3;
-            }
+            if (canBeJumpT3(jumpT3Location, to))
+                return LinkJumpT3;
             // 4-byte conditional T4 with IT
             const uint16_t* conditionalJumpT4Location = 
             reinterpret_cast_ptr<const uint16_t*>(from - (paddingSize - JUMP_ENUM_SIZE(LinkConditionalJumpT4)));
-            if (canBeJumpT4(conditionalJumpT4Location, to, mayTriggerErrata)) {
-                if (!mayTriggerErrata)
-                    return LinkConditionalJumpT4;
-            }
+            if (canBeJumpT4(conditionalJumpT4Location, to))
+                return LinkConditionalJumpT4;
         } else {
             // 2-byte unconditional T2
             const uint16_t* jumpT2Location = reinterpret_cast_ptr<const uint16_t*>(from - (paddingSize - JUMP_ENUM_SIZE(LinkJumpT2)));
@@ -1909,10 +2087,8 @@ public:
                 return LinkJumpT2;
             // 4-byte unconditional T4
             const uint16_t* jumpT4Location = reinterpret_cast_ptr<const uint16_t*>(from - (paddingSize - JUMP_ENUM_SIZE(LinkJumpT4)));
-            if (canBeJumpT4(jumpT4Location, to, mayTriggerErrata)) {
-                if (!mayTriggerErrata)
-                    return LinkJumpT4;
-            }
+            if (canBeJumpT4(jumpT4Location, to))
+                return LinkJumpT4;
             // use long jump sequence
             return LinkBX;
         }
@@ -1937,7 +2113,7 @@ public:
             offsets[ptr++] = offset;
     }
     
-    Vector<LinkRecord>& jumpsToLink()
+    Vector<LinkRecord, 0, UnsafeVectorOverflow>& jumpsToLink()
     {
         std::sort(m_jumpsToLink.begin(), m_jumpsToLink.end(), linkRecordSourceComparator);
         return m_jumpsToLink;
@@ -1968,7 +2144,7 @@ public:
             linkBX(reinterpret_cast_ptr<uint16_t*>(from), to);
             break;
         default:
-            ASSERT_NOT_REACHED();
+            RELEASE_ASSERT_NOT_REACHED();
             break;
         }
     }
@@ -2011,12 +2187,12 @@ public:
         ASSERT(from.isSet());
         ASSERT(reinterpret_cast<intptr_t>(to) & 1);
 
-        setPointer(reinterpret_cast<uint16_t*>(reinterpret_cast<intptr_t>(code) + from.m_offset) - 1, to);
+        setPointer(reinterpret_cast<uint16_t*>(reinterpret_cast<intptr_t>(code) + from.m_offset) - 1, to, false);
     }
 
     static void linkPointer(void* code, AssemblerLabel where, void* value)
     {
-        setPointer(reinterpret_cast<char*>(code) + where.m_offset, value);
+        setPointer(reinterpret_cast<char*>(code) + where.m_offset, value, false);
     }
 
     static void relinkJump(void* from, void* to)
@@ -2026,7 +2202,7 @@ public:
 
         linkJumpAbsolute(reinterpret_cast<uint16_t*>(from), to);
 
-        ExecutableAllocator::cacheFlush(reinterpret_cast<uint16_t*>(from) - 5, 5 * sizeof(uint16_t));
+        cacheFlush(reinterpret_cast<uint16_t*>(from) - 5, 5 * sizeof(uint16_t));
     }
     
     static void relinkCall(void* from, void* to)
@@ -2034,7 +2210,7 @@ public:
         ASSERT(!(reinterpret_cast<intptr_t>(from) & 1));
         ASSERT(reinterpret_cast<intptr_t>(to) & 1);
 
-        setPointer(reinterpret_cast<uint16_t*>(from) - 1, to);
+        setPointer(reinterpret_cast<uint16_t*>(from) - 1, to, true);
     }
     
     static void* readCallTarget(void* from)
@@ -2046,29 +2222,166 @@ public:
     {
         ASSERT(!(reinterpret_cast<intptr_t>(where) & 1));
         
-        setInt32(where, value);
+        setInt32(where, value, true);
     }
     
-    static void repatchCompact(void* where, int32_t value)
+    static void repatchCompact(void* where, int32_t offset)
     {
-        ASSERT(value >= 0);
-        ASSERT(ARMThumbImmediate::makeUInt12(value).isUInt7());
-        setUInt7ForLoad(where, ARMThumbImmediate::makeUInt12(value));
+        ASSERT(offset >= -255 && offset <= 255);
+
+        bool add = true;
+        if (offset < 0) {
+            add = false;
+            offset = -offset;
+        }
+        
+        offset |= (add << 9);
+        offset |= (1 << 10);
+        offset |= (1 << 11);
+
+        uint16_t* location = reinterpret_cast<uint16_t*>(where);
+        location[1] &= ~((1 << 12) - 1);
+        location[1] |= offset;
+        cacheFlush(location, sizeof(uint16_t) * 2);
     }
 
     static void repatchPointer(void* where, void* value)
     {
         ASSERT(!(reinterpret_cast<intptr_t>(where) & 1));
         
-        setPointer(where, value);
+        setPointer(where, value, true);
     }
 
     static void* readPointer(void* where)
     {
         return reinterpret_cast<void*>(readInt32(where));
     }
+    
+    static void replaceWithJump(void* instructionStart, void* to)
+    {
+        ASSERT(!(bitwise_cast<uintptr_t>(instructionStart) & 1));
+        ASSERT(!(bitwise_cast<uintptr_t>(to) & 1));
+
+#if OS(LINUX) || OS(QNX)
+        if (canBeJumpT4(reinterpret_cast<uint16_t*>(instructionStart), to)) {
+            uint16_t* ptr = reinterpret_cast<uint16_t*>(instructionStart) + 2;
+            linkJumpT4(ptr, to);
+            cacheFlush(ptr - 2, sizeof(uint16_t) * 2);
+        } else {
+            uint16_t* ptr = reinterpret_cast<uint16_t*>(instructionStart) + 5;
+            linkBX(ptr, to);
+            cacheFlush(ptr - 5, sizeof(uint16_t) * 5);
+        }
+#else
+        uint16_t* ptr = reinterpret_cast<uint16_t*>(instructionStart) + 2;
+        linkJumpT4(ptr, to);
+        cacheFlush(ptr - 2, sizeof(uint16_t) * 2);
+#endif
+    }
+    
+    static ptrdiff_t maxJumpReplacementSize()
+    {
+#if OS(LINUX) || OS(QNX)
+        return 10;
+#else
+        return 4;
+#endif
+    }
+    
+    static void replaceWithLoad(void* instructionStart)
+    {
+        ASSERT(!(bitwise_cast<uintptr_t>(instructionStart) & 1));
+        uint16_t* ptr = reinterpret_cast<uint16_t*>(instructionStart);
+        switch (ptr[0] & 0xFFF0) {
+        case OP_LDR_imm_T3:
+            break;
+        case OP_ADD_imm_T3:
+            ASSERT(!(ptr[1] & 0xF000));
+            ptr[0] &= 0x000F;
+            ptr[0] |= OP_LDR_imm_T3;
+            ptr[1] |= (ptr[1] & 0x0F00) << 4;
+            ptr[1] &= 0xF0FF;
+            cacheFlush(ptr, sizeof(uint16_t) * 2);
+            break;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    }
+
+    static void replaceWithAddressComputation(void* instructionStart)
+    {
+        ASSERT(!(bitwise_cast<uintptr_t>(instructionStart) & 1));
+        uint16_t* ptr = reinterpret_cast<uint16_t*>(instructionStart);
+        switch (ptr[0] & 0xFFF0) {
+        case OP_LDR_imm_T3:
+            ASSERT(!(ptr[1] & 0x0F00));
+            ptr[0] &= 0x000F;
+            ptr[0] |= OP_ADD_imm_T3;
+            ptr[1] |= (ptr[1] & 0xF000) >> 4;
+            ptr[1] &= 0x0FFF;
+            cacheFlush(ptr, sizeof(uint16_t) * 2);
+            break;
+        case OP_ADD_imm_T3:
+            break;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    }
 
     unsigned debugOffset() { return m_formatter.debugOffset(); }
+
+#if OS(LINUX)
+    static inline void linuxPageFlush(uintptr_t begin, uintptr_t end)
+    {
+        asm volatile(
+            "push    {r7}\n"
+            "mov     r0, %0\n"
+            "mov     r1, %1\n"
+            "movw    r7, #0x2\n"
+            "movt    r7, #0xf\n"
+            "movs    r2, #0x0\n"
+            "svc     0x0\n"
+            "pop     {r7}\n"
+            :
+            : "r" (begin), "r" (end)
+            : "r0", "r1", "r2");
+    }
+#endif
+
+    static void cacheFlush(void* code, size_t size)
+    {
+#if OS(IOS)
+        sys_cache_control(kCacheFunctionPrepareForExecution, code, size);
+#elif OS(LINUX)
+        size_t page = pageSize();
+        uintptr_t current = reinterpret_cast<uintptr_t>(code);
+        uintptr_t end = current + size;
+        uintptr_t firstPageEnd = (current & ~(page - 1)) + page;
+
+        if (end <= firstPageEnd) {
+            linuxPageFlush(current, end);
+            return;
+        }
+
+        linuxPageFlush(current, firstPageEnd);
+
+        for (current = firstPageEnd; current + page < end; current += page)
+            linuxPageFlush(current, current + page);
+
+        linuxPageFlush(current, end);
+#elif OS(WINCE)
+        CacheRangeFlush(code, size, CACHE_SYNC_ALL);
+#elif OS(QNX)
+#if !ENABLE(ASSEMBLER_WX_EXCLUSIVE)
+        msync(code, size, MS_INVALIDATE_ICACHE);
+#else
+        UNUSED_PARAM(code);
+        UNUSED_PARAM(size);
+#endif
+#else
+#error "The cacheFlush support is missing on this platform."
+#endif
+    }
 
 private:
     // VFP operations commonly take one or more 5-bit operands, typically representing a
@@ -2137,7 +2450,7 @@ private:
         return VFPOperand(op);
     }
 
-    static void setInt32(void* code, uint32_t value)
+    static void setInt32(void* code, uint32_t value, bool flush)
     {
         uint16_t* location = reinterpret_cast<uint16_t*>(code);
         ASSERT(isMOV_imm_T3(location - 4) && isMOVT(location - 2));
@@ -2149,7 +2462,8 @@ private:
         location[-2] = twoWordOp5i6Imm4Reg4EncodedImmFirst(OP_MOVT, hi16);
         location[-1] = twoWordOp5i6Imm4Reg4EncodedImmSecond((location[-1] >> 8) & 0xf, hi16);
 
-        ExecutableAllocator::cacheFlush(location - 4, 4 * sizeof(uint16_t));
+        if (flush)
+            cacheFlush(location - 4, 4 * sizeof(uint16_t));
     }
     
     static int32_t readInt32(void* code)
@@ -2177,12 +2491,12 @@ private:
         uint16_t* location = reinterpret_cast<uint16_t*>(code);
         location[0] &= ~((static_cast<uint16_t>(0x7f) >> 2) << 6);
         location[0] |= (imm.getUInt7() >> 2) << 6;
-        ExecutableAllocator::cacheFlush(location, sizeof(uint16_t));
+        cacheFlush(location, sizeof(uint16_t));
     }
 
-    static void setPointer(void* code, void* value)
+    static void setPointer(void* code, void* value, bool flush)
     {
-        setInt32(code, reinterpret_cast<uint32_t>(value));
+        setInt32(code, reinterpret_cast<uint32_t>(value), flush);
     }
 
     static bool isB(void* address)
@@ -2247,46 +2561,22 @@ private:
         return ((relative << 20) >> 20) == relative;
     }
     
-    static bool canBeJumpT3(const uint16_t* instruction, const void* target, bool& mayTriggerErrata)
+    static bool canBeJumpT3(const uint16_t* instruction, const void* target)
     {
         ASSERT(!(reinterpret_cast<intptr_t>(instruction) & 1));
         ASSERT(!(reinterpret_cast<intptr_t>(target) & 1));
         
         intptr_t relative = reinterpret_cast<intptr_t>(target) - (reinterpret_cast<intptr_t>(instruction));
-        // From Cortex-A8 errata:
-        // If the 32-bit Thumb-2 branch instruction spans two 4KiB regions and
-        // the target of the branch falls within the first region it is
-        // possible for the processor to incorrectly determine the branch
-        // instruction, and it is also possible in some cases for the processor
-        // to enter a deadlock state.
-        // The instruction is spanning two pages if it ends at an address ending 0x002
-        bool spansTwo4K = ((reinterpret_cast<intptr_t>(instruction) & 0xfff) == 0x002);
-        mayTriggerErrata = spansTwo4K;
-        // The target is in the first page if the jump branch back by [3..0x1002] bytes
-        bool targetInFirstPage = (relative >= -0x1002) && (relative < -2);
-        bool wouldTriggerA8Errata = spansTwo4K && targetInFirstPage;
-        return ((relative << 11) >> 11) == relative && !wouldTriggerA8Errata;
+        return ((relative << 11) >> 11) == relative;
     }
     
-    static bool canBeJumpT4(const uint16_t* instruction, const void* target, bool& mayTriggerErrata)
+    static bool canBeJumpT4(const uint16_t* instruction, const void* target)
     {
         ASSERT(!(reinterpret_cast<intptr_t>(instruction) & 1));
         ASSERT(!(reinterpret_cast<intptr_t>(target) & 1));
         
         intptr_t relative = reinterpret_cast<intptr_t>(target) - (reinterpret_cast<intptr_t>(instruction));
-        // From Cortex-A8 errata:
-        // If the 32-bit Thumb-2 branch instruction spans two 4KiB regions and
-        // the target of the branch falls within the first region it is
-        // possible for the processor to incorrectly determine the branch
-        // instruction, and it is also possible in some cases for the processor
-        // to enter a deadlock state.
-        // The instruction is spanning two pages if it ends at an address ending 0x002
-        bool spansTwo4K = ((reinterpret_cast<intptr_t>(instruction) & 0xfff) == 0x002);
-        mayTriggerErrata = spansTwo4K;
-        // The target is in the first page if the jump branch back by [3..0x1002] bytes
-        bool targetInFirstPage = (relative >= -0x1002) && (relative < -2);
-        bool wouldTriggerA8Errata = spansTwo4K && targetInFirstPage;
-        return ((relative << 7) >> 7) == relative && !wouldTriggerA8Errata;
+        return ((relative << 7) >> 7) == relative;
     }
     
     void linkJumpT1(Condition cond, uint16_t* instruction, void* target)
@@ -2330,9 +2620,7 @@ private:
         // FIMXE: this should be up in the MacroAssembler layer. :-(
         ASSERT(!(reinterpret_cast<intptr_t>(instruction) & 1));
         ASSERT(!(reinterpret_cast<intptr_t>(target) & 1));
-        bool scratch;
-        UNUSED_PARAM(scratch);
-        ASSERT(canBeJumpT3(instruction, target, scratch));
+        ASSERT(canBeJumpT3(instruction, target));
         
         intptr_t relative = reinterpret_cast<intptr_t>(target) - (reinterpret_cast<intptr_t>(instruction));
         
@@ -2347,9 +2635,7 @@ private:
         // FIMXE: this should be up in the MacroAssembler layer. :-(        
         ASSERT(!(reinterpret_cast<intptr_t>(instruction) & 1));
         ASSERT(!(reinterpret_cast<intptr_t>(target) & 1));
-        bool scratch;
-        UNUSED_PARAM(scratch);
-        ASSERT(canBeJumpT4(instruction, target, scratch));
+        ASSERT(canBeJumpT4(instruction, target));
         
         intptr_t relative = reinterpret_cast<intptr_t>(target) - (reinterpret_cast<intptr_t>(instruction));
         // ARM encoding for the top two bits below the sign bit is 'peculiar'.
@@ -2407,8 +2693,7 @@ private:
         ASSERT((isMOV_imm_T3(instruction - 5) && isMOVT(instruction - 3) && isBX(instruction - 1))
                || (isNOP_T1(instruction - 5) && isNOP_T2(instruction - 4) && isB(instruction - 2)));
         
-        bool scratch;
-        if (canBeJumpT4(instruction, target, scratch)) {
+        if (canBeJumpT4(instruction, target)) {
             // There may be a better way to fix this, but right now put the NOPs first, since in the
             // case of an conditional branch this will be coming after an ITTT predicating *three*
             // instructions!  Looking backwards to modify the ITTT to an IT is not easy, due to
@@ -2571,8 +2856,9 @@ private:
         AssemblerBuffer m_buffer;
     } m_formatter;
 
-    Vector<LinkRecord> m_jumpsToLink;
-    Vector<int32_t> m_offsets;
+    Vector<LinkRecord, 0, UnsafeVectorOverflow> m_jumpsToLink;
+    int m_indexOfLastWatchpoint;
+    int m_indexOfTailOfLastWatchpoint;
 };
 
 } // namespace JSC

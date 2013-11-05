@@ -24,11 +24,10 @@
 #include "JSAPIValueWrapper.h"
 
 #include "NumberObject.h"
-#include "UString.h"
 
 namespace JSC {
 
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSAPIValueWrapper);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSAPIValueWrapper);
 
 const ClassInfo JSAPIValueWrapper::s_info = { "API Wrapper", 0, 0, 0, CREATE_METHOD_TABLE(JSAPIValueWrapper) };
 

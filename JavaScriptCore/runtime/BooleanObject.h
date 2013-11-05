@@ -25,36 +25,36 @@
 
 namespace JSC {
 
-    class BooleanObject : public JSWrapperObject {
-    protected:
-        BooleanObject(JSGlobalData&, Structure*);
-        void finishCreation(JSGlobalData&);
+class BooleanObject : public JSWrapperObject {
+protected:
+    JS_EXPORT_PRIVATE BooleanObject(VM&, Structure*);
+    JS_EXPORT_PRIVATE void finishCreation(VM&);
 
-    public:
-        typedef JSWrapperObject Base;
+public:
+    typedef JSWrapperObject Base;
 
-        static BooleanObject* create(JSGlobalData& globalData, Structure* structure)
-        {
-            BooleanObject* boolean = new (NotNull, allocateCell<BooleanObject>(globalData.heap)) BooleanObject(globalData, structure);
-            boolean->finishCreation(globalData);
-            return boolean;
-        }
-        
-        static const ClassInfo s_info;
-        
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
-        {
-            return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
-        }
-    };
-
-    BooleanObject* asBooleanObject(JSValue);
-
-    inline BooleanObject* asBooleanObject(JSValue value)
+    static BooleanObject* create(VM& vm, Structure* structure)
     {
-        ASSERT(asObject(value)->inherits(&BooleanObject::s_info));
-        return static_cast<BooleanObject*>(asObject(value));
+        BooleanObject* boolean = new (NotNull, allocateCell<BooleanObject>(vm.heap)) BooleanObject(vm, structure);
+        boolean->finishCreation(vm);
+        return boolean;
     }
+        
+    DECLARE_EXPORT_INFO;
+        
+    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
+    {
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
+    }
+};
+
+BooleanObject* asBooleanObject(JSValue);
+
+inline BooleanObject* asBooleanObject(JSValue value)
+{
+    ASSERT(asObject(value)->inherits(BooleanObject::info()));
+    return static_cast<BooleanObject*>(asObject(value));
+}
 
 } // namespace JSC
 

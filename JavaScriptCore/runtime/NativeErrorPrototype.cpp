@@ -24,23 +24,21 @@
 #include "JSGlobalObject.h"
 #include "JSString.h"
 #include "NativeErrorConstructor.h"
-#include "UString.h"
+#include "Operations.h"
 
 namespace JSC {
 
-ASSERT_CLASS_FITS_IN_CELL(NativeErrorPrototype);
-
-NativeErrorPrototype::NativeErrorPrototype(ExecState* exec, Structure* structure)
-    : ErrorPrototype(exec, structure)
+NativeErrorPrototype::NativeErrorPrototype(VM& vm, Structure* structure)
+    : ErrorPrototype(vm, structure)
 {
 }
 
-void NativeErrorPrototype::finishCreation(ExecState* exec, JSGlobalObject* globalObject, const UString& nameAndMessage, NativeErrorConstructor* constructor)
+void NativeErrorPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject, const WTF::String& nameAndMessage, NativeErrorConstructor* constructor)
 {
-    Base::finishCreation(exec, globalObject);
-    putDirect(exec->globalData(), exec->propertyNames().name, jsString(exec, nameAndMessage), DontEnum);
-    putDirect(exec->globalData(), exec->propertyNames().message, jsEmptyString(exec), DontEnum);
-    putDirect(exec->globalData(), exec->propertyNames().constructor, constructor, DontEnum);
+    Base::finishCreation(vm, globalObject);
+    putDirect(vm, vm.propertyNames->name, jsString(&vm, nameAndMessage), DontEnum);
+    putDirect(vm, vm.propertyNames->message, jsEmptyString(&vm), DontEnum);
+    putDirect(vm, vm.propertyNames->constructor, constructor, DontEnum);
 }
 
 } // namespace JSC

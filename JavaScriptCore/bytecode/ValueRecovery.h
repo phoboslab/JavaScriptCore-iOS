@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,9 @@
 #define ValueRecovery_h
 
 #include "DataFormat.h"
-#include "JSValue.h"
+#include "GPRInfo.h"
+#include "FPRInfo.h"
+#include "JSCJSValue.h"
 #include "MacroAssembler.h"
 #include "VirtualRegister.h"
 #include <stdio.h>
@@ -35,32 +37,34 @@
 
 namespace JSC {
 
+struct DumpContext;
+
 // Describes how to recover a given bytecode virtual register at a given
 // code point.
 enum ValueRecoveryTechnique {
-    // It's already in the register file at the right location.
-    AlreadyInRegisterFile,
-    // It's already in the register file but unboxed.
-    AlreadyInRegisterFileAsUnboxedInt32,
-    AlreadyInRegisterFileAsUnboxedCell,
-    AlreadyInRegisterFileAsUnboxedBoolean,
-    AlreadyInRegisterFileAsUnboxedDouble,
     // It's in a register.
     InGPR,
     UnboxedInt32InGPR,
+    UnboxedInt52InGPR,
+    UnboxedStrictInt52InGPR,
     UnboxedBooleanInGPR,
+    UnboxedCellInGPR,
 #if USE(JSVALUE32_64)
     InPair,
 #endif
     InFPR,
     UInt32InGPR,
-    // It's in the register file, but at a different location.
-    DisplacedInRegisterFile,
-    // It's in the register file, at a different location, and it's unboxed.
-    Int32DisplacedInRegisterFile,
-    DoubleDisplacedInRegisterFile,
-    CellDisplacedInRegisterFile,
-    BooleanDisplacedInRegisterFile,
+    // It's in the stack, but at a different location.
+    DisplacedInJSStack,
+    // It's in the stack, at a different location, and it's unboxed.
+    Int32DisplacedInJSStack,
+    Int52DisplacedInJSStack,
+    StrictInt52DisplacedInJSStack,
+    DoubleDisplacedInJSStack,
+    CellDisplacedInJSStack,
+    BooleanDisplacedInJSStack,
+    // It's an Arguments object.
+    ArgumentsThatWereNotCreated,
     // It's a constant.
     Constant,
     // Don't know how to recover it.
@@ -74,52 +78,26 @@ public:
     {
     }
     
-    static ValueRecovery alreadyInRegisterFile()
-    {
-        ValueRecovery result;
-        result.m_technique = AlreadyInRegisterFile;
-        return result;
-    }
-    
-    static ValueRecovery alreadyInRegisterFileAsUnboxedInt32()
-    {
-        ValueRecovery result;
-        result.m_technique = AlreadyInRegisterFileAsUnboxedInt32;
-        return result;
-    }
-    
-    static ValueRecovery alreadyInRegisterFileAsUnboxedCell()
-    {
-        ValueRecovery result;
-        result.m_technique = AlreadyInRegisterFileAsUnboxedCell;
-        return result;
-    }
-    
-    static ValueRecovery alreadyInRegisterFileAsUnboxedBoolean()
-    {
-        ValueRecovery result;
-        result.m_technique = AlreadyInRegisterFileAsUnboxedBoolean;
-        return result;
-    }
-    
-    static ValueRecovery alreadyInRegisterFileAsUnboxedDouble()
-    {
-        ValueRecovery result;
-        result.m_technique = AlreadyInRegisterFileAsUnboxedDouble;
-        return result;
-    }
+    bool isSet() const { return m_technique != DontKnow; }
+    bool operator!() const { return !isSet(); }
     
     static ValueRecovery inGPR(MacroAssembler::RegisterID gpr, DataFormat dataFormat)
     {
         ASSERT(dataFormat != DataFormatNone);
 #if USE(JSVALUE32_64)
-        ASSERT(dataFormat == DataFormatInteger || dataFormat == DataFormatCell || dataFormat == DataFormatBoolean);
+        ASSERT(dataFormat == DataFormatInt32 || dataFormat == DataFormatCell || dataFormat == DataFormatBoolean);
 #endif
         ValueRecovery result;
-        if (dataFormat == DataFormatInteger)
+        if (dataFormat == DataFormatInt32)
             result.m_technique = UnboxedInt32InGPR;
+        else if (dataFormat == DataFormatInt52)
+            result.m_technique = UnboxedInt52InGPR;
+        else if (dataFormat == DataFormatStrictInt52)
+            result.m_technique = UnboxedStrictInt52InGPR;
         else if (dataFormat == DataFormatBoolean)
             result.m_technique = UnboxedBooleanInGPR;
+        else if (dataFormat == DataFormatCell)
+            result.m_technique = UnboxedCellInGPR;
         else
             result.m_technique = InGPR;
         result.m_source.gpr = gpr;
@@ -153,32 +131,40 @@ public:
         return result;
     }
     
-    static ValueRecovery displacedInRegisterFile(VirtualRegister virtualReg, DataFormat dataFormat)
+    static ValueRecovery displacedInJSStack(VirtualRegister virtualReg, DataFormat dataFormat)
     {
         ValueRecovery result;
         switch (dataFormat) {
-        case DataFormatInteger:
-            result.m_technique = Int32DisplacedInRegisterFile;
+        case DataFormatInt32:
+            result.m_technique = Int32DisplacedInJSStack;
+            break;
+            
+        case DataFormatInt52:
+            result.m_technique = Int52DisplacedInJSStack;
+            break;
+            
+        case DataFormatStrictInt52:
+            result.m_technique = StrictInt52DisplacedInJSStack;
             break;
             
         case DataFormatDouble:
-            result.m_technique = DoubleDisplacedInRegisterFile;
+            result.m_technique = DoubleDisplacedInJSStack;
             break;
 
         case DataFormatCell:
-            result.m_technique = CellDisplacedInRegisterFile;
+            result.m_technique = CellDisplacedInJSStack;
             break;
             
         case DataFormatBoolean:
-            result.m_technique = BooleanDisplacedInRegisterFile;
+            result.m_technique = BooleanDisplacedInJSStack;
             break;
             
         default:
             ASSERT(dataFormat != DataFormatNone && dataFormat != DataFormatStorage);
-            result.m_technique = DisplacedInRegisterFile;
+            result.m_technique = DisplacedInJSStack;
             break;
         }
-        result.m_source.virtualReg = virtualReg;
+        result.m_source.virtualReg = virtualReg.offset();
         return result;
     }
     
@@ -187,6 +173,13 @@ public:
         ValueRecovery result;
         result.m_technique = Constant;
         result.m_source.constant = JSValue::encode(value);
+        return result;
+    }
+    
+    static ValueRecovery argumentsThatWereNotCreated()
+    {
+        ValueRecovery result;
+        result.m_technique = ArgumentsThatWereNotCreated;
         return result;
     }
     
@@ -200,6 +193,9 @@ public:
         case InGPR:
         case UnboxedInt32InGPR:
         case UnboxedBooleanInGPR:
+        case UnboxedCellInGPR:
+        case UnboxedInt52InGPR:
+        case UnboxedStrictInt52InGPR:
 #if USE(JSVALUE32_64)
         case InPair:
 #endif
@@ -210,23 +206,9 @@ public:
         }
     }
     
-    bool isAlreadyInRegisterFile() const
-    {
-        switch (technique()) {
-        case AlreadyInRegisterFile:
-        case AlreadyInRegisterFileAsUnboxedInt32:
-        case AlreadyInRegisterFileAsUnboxedCell:
-        case AlreadyInRegisterFileAsUnboxedBoolean:
-        case AlreadyInRegisterFileAsUnboxedDouble:
-            return true;
-        default:
-            return false;
-        }
-    }
-    
     MacroAssembler::RegisterID gpr() const
     {
-        ASSERT(m_technique == InGPR || m_technique == UnboxedInt32InGPR || m_technique == UnboxedBooleanInGPR || m_technique == UInt32InGPR);
+        ASSERT(m_technique == InGPR || m_technique == UnboxedInt32InGPR || m_technique == UnboxedBooleanInGPR || m_technique == UInt32InGPR || m_technique == UnboxedInt52InGPR || m_technique == UnboxedStrictInt52InGPR || m_technique == UnboxedCellInGPR);
         return m_source.gpr;
     }
     
@@ -252,8 +234,8 @@ public:
     
     VirtualRegister virtualRegister() const
     {
-        ASSERT(m_technique == DisplacedInRegisterFile || m_technique == Int32DisplacedInRegisterFile || m_technique == DoubleDisplacedInRegisterFile || m_technique == CellDisplacedInRegisterFile || m_technique == BooleanDisplacedInRegisterFile);
-        return m_source.virtualReg;
+        ASSERT(m_technique == DisplacedInJSStack || m_technique == Int32DisplacedInJSStack || m_technique == DoubleDisplacedInJSStack || m_technique == CellDisplacedInJSStack || m_technique == BooleanDisplacedInJSStack || m_technique == Int52DisplacedInJSStack || m_technique == StrictInt52DisplacedInJSStack);
+        return VirtualRegister(m_source.virtualReg);
     }
     
     JSValue constant() const
@@ -262,71 +244,11 @@ public:
         return JSValue::decode(m_source.constant);
     }
     
-    void dump(FILE* out) const
-    {
-        switch (technique()) {
-        case AlreadyInRegisterFile:
-            fprintf(out, "-");
-            break;
-        case AlreadyInRegisterFileAsUnboxedInt32:
-            fprintf(out, "(int32)");
-            break;
-        case AlreadyInRegisterFileAsUnboxedCell:
-            fprintf(out, "(cell)");
-            break;
-        case AlreadyInRegisterFileAsUnboxedBoolean:
-            fprintf(out, "(bool)");
-            break;
-        case AlreadyInRegisterFileAsUnboxedDouble:
-            fprintf(out, "(double)");
-            break;
-        case InGPR:
-            fprintf(out, "%%r%d", gpr());
-            break;
-        case UnboxedInt32InGPR:
-            fprintf(out, "int32(%%r%d)", gpr());
-            break;
-        case UnboxedBooleanInGPR:
-            fprintf(out, "bool(%%r%d)", gpr());
-            break;
-        case UInt32InGPR:
-            fprintf(out, "uint32(%%r%d)", gpr());
-            break;
-        case InFPR:
-            fprintf(out, "%%fr%d", fpr());
-            break;
-#if USE(JSVALUE32_64)
-        case InPair:
-            fprintf(out, "pair(%%r%d, %%r%d)", tagGPR(), payloadGPR());
-            break;
-#endif
-        case DisplacedInRegisterFile:
-            fprintf(out, "*%d", virtualRegister());
-            break;
-        case Int32DisplacedInRegisterFile:
-            fprintf(out, "*int32(%d)", virtualRegister());
-            break;
-        case DoubleDisplacedInRegisterFile:
-            fprintf(out, "*double(%d)", virtualRegister());
-            break;
-        case CellDisplacedInRegisterFile:
-            fprintf(out, "*cell(%d)", virtualRegister());
-            break;
-        case BooleanDisplacedInRegisterFile:
-            fprintf(out, "*bool(%d)", virtualRegister());
-            break;
-        case Constant:
-            fprintf(out, "[%s]", constant().description());
-            break;
-        case DontKnow:
-            fprintf(out, "!");
-            break;
-        default:
-            fprintf(out, "?%d", technique());
-            break;
-        }
-    }
+    JSValue recover(ExecState*) const;
     
+    void dumpInContext(PrintStream& out, DumpContext* context) const;
+    void dump(PrintStream& out) const;
+
 private:
     ValueRecoveryTechnique m_technique;
     union {
@@ -338,7 +260,7 @@ private:
             MacroAssembler::RegisterID payloadGPR;
         } pair;
 #endif
-        VirtualRegister virtualReg;
+        int virtualReg;
         EncodedJSValue constant;
     } m_source;
 };

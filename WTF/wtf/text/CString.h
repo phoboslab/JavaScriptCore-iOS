@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2008, 2009, 2010, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,25 +26,29 @@
 #ifndef CString_h
 #define CString_h
 
+#include <wtf/HashFunctions.h>
+#include <wtf/HashTraits.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
-#include <wtf/Vector.h>
 
 namespace WTF {
 
+// CStringBuffer is the ref-counted storage class for the characters in a CString.
+// The data is implicitly allocated 1 character longer than length(), as it is zero-terminated.
 class CStringBuffer : public RefCounted<CStringBuffer> {
 public:
-    const char* data() { return m_vector.data(); }
-    size_t length() { return m_vector.size(); }
+    const char* data() { return mutableData(); }
+    size_t length() const { return m_length; }
 
 private:
     friend class CString;
 
-    static PassRefPtr<CStringBuffer> create(size_t length) { return adoptRef(new CStringBuffer(length)); }
-    CStringBuffer(size_t length) : m_vector(length) { }
-    char* mutableData() { return m_vector.data(); }
+    static PassRefPtr<CStringBuffer> createUninitialized(size_t length);
 
-    Vector<char> m_vector;
+    CStringBuffer(size_t length) : m_length(length) { }
+    char* mutableData() { return reinterpret_cast_ptr<char*>(this + 1); }
+
+    const size_t m_length;
 };
 
 // A container for a null-terminated char array supporting copy-on-write
@@ -56,6 +60,7 @@ public:
     WTF_EXPORT_PRIVATE CString(const char*, size_t length);
     CString(CStringBuffer* buffer) : m_buffer(buffer) { }
     WTF_EXPORT_PRIVATE static CString newUninitialized(size_t length, char*& characterBuffer);
+    CString(HashTableDeletedValueType) : m_buffer(HashTableDeletedValue) { }
 
     const char* data() const
     {
@@ -64,12 +69,17 @@ public:
     WTF_EXPORT_PRIVATE char* mutableData();
     size_t length() const
     {
-        return m_buffer ? m_buffer->length() - 1 : 0;
+        return m_buffer ? m_buffer->length() : 0;
     }
 
     bool isNull() const { return !m_buffer; }
+    bool isSafeToSendToAnotherThread() const;
 
     CStringBuffer* buffer() const { return m_buffer.get(); }
+    
+    bool isHashTableDeletedValue() const { return m_buffer.isHashTableDeletedValue(); }
+    
+    WTF_EXPORT_PRIVATE unsigned hash() const;
 
 private:
     void copyBufferIfNeeded();
@@ -79,6 +89,23 @@ private:
 
 WTF_EXPORT_PRIVATE bool operator==(const CString& a, const CString& b);
 inline bool operator!=(const CString& a, const CString& b) { return !(a == b); }
+WTF_EXPORT_PRIVATE bool operator==(const CString& a, const char* b);
+inline bool operator!=(const CString& a, const char* b) { return !(a == b); }
+WTF_EXPORT_PRIVATE bool operator<(const CString& a, const CString& b);
+
+struct CStringHash {
+    static unsigned hash(const CString& string) { return string.hash(); }
+    WTF_EXPORT_PRIVATE static bool equal(const CString& a, const CString& b);
+    static const bool safeToCompareToEmptyOrDeleted = true;
+};
+
+template<typename T> struct DefaultHash;
+template<> struct DefaultHash<CString> {
+    typedef CStringHash Hash;
+};
+
+template<typename T> struct HashTraits;
+template<> struct HashTraits<CString> : SimpleClassHashTraits<CString> { };
 
 } // namespace WTF
 

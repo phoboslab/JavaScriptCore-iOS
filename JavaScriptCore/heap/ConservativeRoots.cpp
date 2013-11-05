@@ -26,10 +26,10 @@
 #include "config.h"
 #include "ConservativeRoots.h"
 
-#include "CopiedSpace.h"
-#include "CopiedSpaceInlineMethods.h"
 #include "CodeBlock.h"
-#include "DFGCodeBlocks.h"
+#include "CodeBlockSet.h"
+#include "CopiedSpace.h"
+#include "CopiedSpaceInlines.h"
 #include "JSCell.h"
 #include "JSObject.h"
 #include "Structure.h"
@@ -62,19 +62,12 @@ void ConservativeRoots::grow()
     m_roots = newRoots;
 }
 
-class DummyMarkHook {
-public:
-    void mark(void*) { }
-};
-
 template<typename MarkHook>
 inline void ConservativeRoots::genericAddPointer(void* p, TinyBloomFilter filter, MarkHook& markHook)
 {
     markHook.mark(p);
-    
-    CopiedBlock* block;
-    if (m_copiedSpace->contains(p, block))
-        m_copiedSpace->pin(block);
+
+    m_copiedSpace->pinIfNecessary(p);
     
     MarkedBlock* candidate = MarkedBlock::blockFor(p);
     if (filter.ruleOut(reinterpret_cast<Bits>(candidate))) {
@@ -100,7 +93,12 @@ inline void ConservativeRoots::genericAddPointer(void* p, TinyBloomFilter filter
 template<typename MarkHook>
 void ConservativeRoots::genericAddSpan(void* begin, void* end, MarkHook& markHook)
 {
-    ASSERT(begin <= end);
+    if (begin > end) {
+        void* swapTemp = begin;
+        begin = end;
+        end = swapTemp;
+    }
+
     ASSERT((static_cast<char*>(end) - static_cast<char*>(begin)) < 0x1000000);
     ASSERT(isPointerAligned(begin));
     ASSERT(isPointerAligned(end));
@@ -110,15 +108,47 @@ void ConservativeRoots::genericAddSpan(void* begin, void* end, MarkHook& markHoo
         genericAddPointer(*it, filter, markHook);
 }
 
+class DummyMarkHook {
+public:
+    void mark(void*) { }
+};
+
 void ConservativeRoots::add(void* begin, void* end)
 {
-    DummyMarkHook hook;
-    genericAddSpan(begin, end, hook);
+    DummyMarkHook dummy;
+    genericAddSpan(begin, end, dummy);
 }
 
-void ConservativeRoots::add(void* begin, void* end, DFGCodeBlocks& dfgCodeBlocks)
+void ConservativeRoots::add(void* begin, void* end, JITStubRoutineSet& jitStubRoutines)
 {
-    genericAddSpan(begin, end, dfgCodeBlocks);
+    genericAddSpan(begin, end, jitStubRoutines);
+}
+
+template<typename T, typename U>
+class CompositeMarkHook {
+public:
+    CompositeMarkHook(T& first, U& second)
+        : m_first(first)
+        , m_second(second)
+    {
+    }
+    
+    void mark(void* address)
+    {
+        m_first.mark(address);
+        m_second.mark(address);
+    }
+
+private:
+    T& m_first;
+    U& m_second;
+};
+
+void ConservativeRoots::add(
+    void* begin, void* end, JITStubRoutineSet& jitStubRoutines, CodeBlockSet& codeBlocks)
+{
+    CompositeMarkHook<JITStubRoutineSet, CodeBlockSet> markHook(jitStubRoutines, codeBlocks);
+    genericAddSpan(begin, end, markHook);
 }
 
 } // namespace JSC

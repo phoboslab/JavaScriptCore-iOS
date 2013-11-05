@@ -26,33 +26,27 @@
 
 namespace JSC {
 
-    class ArrayPrototype : public JSArray {
-    private:
-        ArrayPrototype(JSGlobalObject*, Structure*);
+class ArrayPrototype : public JSArray {
+private:
+    ArrayPrototype(VM&, Structure*);
 
-    public:
-        typedef JSArray Base;
+public:
+    typedef JSArray Base;
 
-        static ArrayPrototype* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
-        {
-            ArrayPrototype* prototype = new (NotNull, allocateCell<ArrayPrototype>(*exec->heap())) ArrayPrototype(globalObject, structure);
-            prototype->finishCreation(globalObject);
-            return prototype;
-        }
+    static ArrayPrototype* create(VM&, JSGlobalObject*, Structure*);
         
-        static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier&, PropertySlot&);
-        static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&);
+    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
 
-        static const ClassInfo s_info;
+    DECLARE_INFO;
 
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
-        {
-            return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
-        }
+    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
+    {
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info(), ArrayClass);
+    }
 
-    protected:
-        void finishCreation(JSGlobalObject*);
-    };
+protected:
+    void finishCreation(VM&, JSGlobalObject*);
+};
 
 } // namespace JSC
 

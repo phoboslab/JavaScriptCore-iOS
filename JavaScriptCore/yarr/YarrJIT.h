@@ -28,10 +28,9 @@
 
 #if ENABLE(YARR_JIT)
 
-#include "JSGlobalData.h"
+#include "VM.h"
 #include "MacroAssemblerCodeRef.h"
 #include "MatchResult.h"
-#include "UString.h"
 #include "Yarr.h"
 #include "YarrPattern.h"
 
@@ -43,13 +42,13 @@
 
 namespace JSC {
 
-class JSGlobalData;
+class VM;
 class ExecutablePool;
 
 namespace Yarr {
 
 class YarrCodeBlock {
-#if CPU(X86_64)
+#if CPU(X86_64) || CPU(ARM64)
     typedef MatchResult (*YarrJITCode8)(const LChar* input, unsigned start, unsigned length, int* output) YARR_CALL;
     typedef MatchResult (*YarrJITCode16)(const UChar* input, unsigned start, unsigned length, int* output) YARR_CALL;
     typedef MatchResult (*YarrJITCodeMatchOnly8)(const LChar* input, unsigned start, unsigned length) YARR_CALL;
@@ -133,7 +132,7 @@ enum YarrJITCompileMode {
     MatchOnly,
     IncludeSubpatterns
 };
-void jitCompile(YarrPattern&, YarrCharSize, JSGlobalData*, YarrCodeBlock& jitObject, YarrJITCompileMode = IncludeSubpatterns);
+void jitCompile(YarrPattern&, YarrCharSize, VM*, YarrCodeBlock& jitObject, YarrJITCompileMode = IncludeSubpatterns);
 
 } } // namespace JSC::Yarr
 

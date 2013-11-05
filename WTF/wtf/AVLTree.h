@@ -66,7 +66,7 @@ namespace WTF {
 template<unsigned maxDepth>
 class AVLTreeDefaultBSet {
 public:
-    bool& operator[](unsigned i) { ASSERT(i < maxDepth); return m_data[i]; }
+    bool& operator[](unsigned i) { ASSERT_WITH_SECURITY_IMPLICATION(i < maxDepth); return m_data[i]; }
     void set() { for (unsigned i = 0; i < maxDepth; ++i) m_data[i] = true; }
     void reset() { for (unsigned i = 0; i < maxDepth; ++i) m_data[i] = false; }
 
@@ -124,7 +124,7 @@ private:
 // E.g., if, in a particular instantiation, the maximum number of nodes in a tree instance is 1,000,000, the maximum depth should be 28.
 // You pick 28 because MN(28) is 832,039, which is less than or equal to 1,000,000, and MN(29) is 1,346,268, which is strictly greater than 1,000,000.
 
-template <class Abstractor, unsigned maxDepth = 32, class BSet = AVLTreeDefaultBSet<maxDepth> >
+template <class Abstractor, unsigned maxDepth = 32, class BSet = AVLTreeDefaultBSet<maxDepth>>
 class AVLTree {
 public:
 

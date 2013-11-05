@@ -41,10 +41,8 @@ class StringBuffer {
 public:
     explicit StringBuffer(unsigned length)
         : m_length(length)
+        , m_data(m_length ? static_cast<CharType*>(fastMalloc((Checked<size_t>(m_length) * sizeof(CharType)).unsafeGet())) : nullptr)
     {
-        if (m_length > std::numeric_limits<unsigned>::max() / sizeof(CharType))
-            CRASH();
-        m_data = static_cast<CharType*>(fastMalloc(m_length * sizeof(CharType)));
     }
 
     ~StringBuffer()
@@ -71,9 +69,14 @@ public:
     unsigned length() const { return m_length; }
     CharType* characters() { return m_data; }
 
-    UChar& operator[](unsigned i) { ASSERT(i < m_length); return m_data[i]; }
+    CharType& operator[](unsigned i) { ASSERT_WITH_SECURITY_IMPLICATION(i < m_length); return m_data[i]; }
 
-    CharType* release() { CharType* data = m_data; m_data = 0; return data; }
+    MallocPtr<CharType> release()
+    {
+        CharType* data = m_data;
+        m_data = 0;
+        return adoptMallocPtr(data);
+    }
 
 private:
     unsigned m_length;

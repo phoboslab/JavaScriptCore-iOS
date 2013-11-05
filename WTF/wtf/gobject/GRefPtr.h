@@ -23,9 +23,8 @@
 #ifndef WTF_GRefPtr_h
 #define WTF_GRefPtr_h
 
-#if ENABLE(GLIB_SUPPORT)
+#if USE(GLIB)
 
-#include <wtf/AlwaysInline.h>
 #include <wtf/RefPtr.h>
 #include <algorithm>
 
@@ -84,6 +83,12 @@ public:
         T* ptr = m_ptr;
         m_ptr = 0;
         return ptr;
+    }
+
+    T*& outPtr()
+    {
+        ASSERT(!m_ptr);
+        return m_ptr;
     }
 
     // Hash table deleted values, which are only constructed and never copied or destroyed.
@@ -210,6 +215,12 @@ template <> GSource* refGPtr(GSource* ptr);
 template <> void derefGPtr(GSource* ptr);
 template <> GPtrArray* refGPtr(GPtrArray*);
 template <> void derefGPtr(GPtrArray*);
+template <> GByteArray* refGPtr(GByteArray*);
+template <> void derefGPtr(GByteArray*);
+template <> GBytes* refGPtr(GBytes*);
+template <> void derefGPtr(GBytes*);
+template <> GClosure* refGPtr(GClosure*);
+template <> void derefGPtr(GClosure*);
 
 template <typename T> inline T* refGPtr(T* ptr)
 {
@@ -229,6 +240,6 @@ template <typename T> inline void derefGPtr(T* ptr)
 using WTF::GRefPtr;
 using WTF::adoptGRef;
 
-#endif // ENABLE(GLIB_SUPPORT)
+#endif // USE(GLIB)
 
 #endif // WTF_GRefPtr_h

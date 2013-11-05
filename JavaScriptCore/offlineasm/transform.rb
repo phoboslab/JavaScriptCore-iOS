@@ -21,6 +21,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
+require "config"
 require "ast"
 
 #
@@ -228,6 +229,9 @@ class Sequence
                         mapping[myMacros[item.name].variables[idx]] = item.operands[idx]
                     end
                 }
+                if item.annotation
+                    newList << Instruction.new(item.codeOrigin, "localAnnotation", [], item.annotation)
+                end
                 newList += myMacros[item.name].body.substitute(mapping).demacroify(myMyMacros).renameLabels(item.name).list
             else
                 newList << item.demacroify(myMacros)
@@ -400,6 +404,17 @@ end
 class Sequence
     def validate
         validateChildren
+        
+        # Further verify that this list contains only instructions, labels, and skips.
+        @list.each {
+            | node |
+            unless node.is_a? Instruction or
+                    node.is_a? Label or
+                    node.is_a? LocalLabel or
+                    node.is_a? Skip
+                raise "Unexpected #{node.inspect} at #{node.codeOrigin}" 
+            end
+        }
     end
 end
 

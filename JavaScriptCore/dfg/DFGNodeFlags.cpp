@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,113 +28,83 @@
 
 #if ENABLE(DFG_JIT)
 
-#include <wtf/BoundsCheckedPointer.h>
+#include <wtf/CommaPrinter.h>
+#include <wtf/StringPrintStream.h>
 
 namespace JSC { namespace DFG {
 
-const char* nodeFlagsAsString(NodeFlags flags)
+void dumpNodeFlags(PrintStream& actualOut, NodeFlags flags)
 {
-    if (!flags)
-        return "<empty>";
-
-    static const int size = 128;
-    static char description[size];
-    BoundsCheckedPointer<char> ptr(description, size);
-    
-    bool hasPrinted = false;
+    StringPrintStream out;
+    CommaPrinter comma("|");
     
     if (flags & NodeResultMask) {
         switch (flags & NodeResultMask) {
         case NodeResultJS:
-            ptr.strcat("ResultJS");
+            out.print(comma, "JS");
             break;
         case NodeResultNumber:
-            ptr.strcat("ResultNumber");
+            out.print(comma, "Number");
             break;
         case NodeResultInt32:
-            ptr.strcat("ResultInt32");
+            out.print(comma, "Int32");
             break;
         case NodeResultBoolean:
-            ptr.strcat("ResultBoolean");
+            out.print(comma, "Boolean");
             break;
         case NodeResultStorage:
-            ptr.strcat("ResultStorage");
+            out.print(comma, "Storage");
             break;
         default:
-            ASSERT_NOT_REACHED();
+            RELEASE_ASSERT_NOT_REACHED();
             break;
         }
-        hasPrinted = true;
     }
     
-    if (flags & NodeMustGenerate) {
-        if (hasPrinted)
-            ptr.strcat("|");
-        ptr.strcat("MustGenerate");
-        hasPrinted = true;
+    if (flags & NodeMustGenerate)
+        out.print(comma, "MustGen");
+    
+    if (flags & NodeHasVarArgs)
+        out.print(comma, "VarArgs");
+    
+    if (flags & NodeClobbersWorld)
+        out.print(comma, "Clobbers");
+    
+    if (flags & NodeMightClobber)
+        out.print(comma, "MightClobber");
+    
+    if (flags & NodeResultMask) {
+        if (!(flags & NodeBytecodeUsesAsNumber) && !(flags & NodeBytecodeNeedsNegZero))
+            out.print(comma, "PureInt");
+        else if (!(flags & NodeBytecodeUsesAsNumber))
+            out.print(comma, "PureInt(w/ neg zero)");
+        else if (!(flags & NodeBytecodeNeedsNegZero))
+            out.print(comma, "PureNum");
+        if (flags & NodeBytecodeUsesAsOther)
+            out.print(comma, "UseAsOther");
     }
     
-    if (flags & NodeHasVarArgs) {
-        if (hasPrinted)
-            ptr.strcat("|");
-        ptr.strcat("HasVarArgs");
-        hasPrinted = true;
-    }
+    if (flags & NodeMayOverflow)
+        out.print(comma, "MayOverflow");
     
-    if (flags & NodeClobbersWorld) {
-        if (hasPrinted)
-            ptr.strcat("|");
-        ptr.strcat("ClobbersWorld");
-        hasPrinted = true;
-    }
+    if (flags & NodeMayNegZero)
+        out.print(comma, "MayNegZero");
     
-    if (flags & NodeMightClobber) {
-        if (hasPrinted)
-            ptr.strcat("|");
-        ptr.strcat("MightClobber");
-        hasPrinted = true;
-    }
+    if (flags & NodeBytecodeUsesAsInt)
+        out.print(comma, "UseAsInt");
     
-    if (flags & NodeUsedAsNumber) {
-        if (hasPrinted)
-            ptr.strcat("|");
-        ptr.strcat("UsedAsNum");
-        hasPrinted = true;
-    }
+    if (!(flags & NodeDoesNotExit))
+        out.print(comma, "CanExit");
     
-    if (flags & NodeNeedsNegZero) {
-        if (hasPrinted)
-            ptr.strcat("|");
-        ptr.strcat("NeedsNegZero");
-        hasPrinted = true;
-    }
+    if (flags & NodeExitsForward)
+        out.print(comma, "NodeExitsForward");
     
-    if (flags & NodeMayOverflow) {
-        if (hasPrinted)
-            ptr.strcat("|");
-        ptr.strcat("MayOverflow");
-        hasPrinted = true;
-    }
-    
-    if (flags & NodeMayNegZero) {
-        if (hasPrinted)
-            ptr.strcat("|");
-        ptr.strcat("MayNegZero");
-        hasPrinted = true;
-    }
-    
-    if (flags & NodeUsedAsInt) {
-        if (hasPrinted)
-            ptr.strcat("|");
-        ptr.strcat("UsedAsInt");
-        hasPrinted = true;
-    }
-    
-    *ptr++ = 0;
-    
-    return description;
+    CString string = out.toCString();
+    if (!string.length())
+        actualOut.print("<empty>");
+    else
+        actualOut.print(string);
 }
-
 
 } } // namespace JSC::DFG
 

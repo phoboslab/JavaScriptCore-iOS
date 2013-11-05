@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef CharacterNames_h
@@ -36,8 +36,10 @@ namespace Unicode {
 // Most of these are UChar constants, not UChar32, which makes them
 // more convenient for WebCore code that mostly uses UTF-16.
 
+const UChar AppleLogo = 0xF8FF;
 const UChar32 aegeanWordSeparatorLine = 0x10100;
 const UChar32 aegeanWordSeparatorDot = 0x10101;
+const UChar apostrophe = 0x0027;
 const UChar blackCircle = 0x25CF;
 const UChar blackSquare = 0x25A0;
 const UChar blackUpPointingTriangle = 0x25B2;
@@ -47,8 +49,10 @@ const UChar carriageReturn = 0x000D;
 const UChar ethiopicPrefaceColon = 0x1366;
 const UChar ethiopicWordspace = 0x1361;
 const UChar fisheye = 0x25C9;
+const UChar quotationMark = 0x0022;
 const UChar hebrewPunctuationGeresh = 0x05F3;
 const UChar hebrewPunctuationGershayim = 0x05F4;
+const UChar HiraganaLetterSmallA = 0x3041;
 const UChar horizontalEllipsis = 0x2026;
 const UChar hyphen = 0x2010;
 const UChar hyphenMinus = 0x002D;
@@ -91,6 +95,7 @@ const UChar zeroWidthNoBreakSpace = 0xFEFF;
 } // namespace Unicode
 } // namespace WTF
 
+using WTF::Unicode::AppleLogo;
 using WTF::Unicode::aegeanWordSeparatorLine;
 using WTF::Unicode::aegeanWordSeparatorDot;
 using WTF::Unicode::blackCircle;
@@ -104,6 +109,7 @@ using WTF::Unicode::ethiopicWordspace;
 using WTF::Unicode::fisheye;
 using WTF::Unicode::hebrewPunctuationGeresh;
 using WTF::Unicode::hebrewPunctuationGershayim;
+using WTF::Unicode::HiraganaLetterSmallA;
 using WTF::Unicode::horizontalEllipsis;
 using WTF::Unicode::hyphen;
 using WTF::Unicode::hyphenMinus;

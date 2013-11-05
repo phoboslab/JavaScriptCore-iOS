@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,78 +26,103 @@
 #include "config.h"
 #include "DFGDriver.h"
 
-#if ENABLE(DFG_JIT)
+#include "JSObject.h"
+#include "JSString.h"
 
-#include "DFGByteCodeParser.h"
-#include "DFGCFAPhase.h"
-#include "DFGCSEPhase.h"
-#include "DFGFixupPhase.h"
-#include "DFGJITCompiler.h"
-#include "DFGPredictionPropagationPhase.h"
-#include "DFGRedundantPhiEliminationPhase.h"
-#include "DFGVirtualRegisterAllocationPhase.h"
+#include "CodeBlock.h"
+#include "DFGJITCode.h"
+#include "DFGPlan.h"
+#include "DFGThunks.h"
+#include "DFGWorklist.h"
+#include "JITCode.h"
+#include "Operations.h"
+#include "Options.h"
+#include "SamplingTool.h"
+#include <wtf/Atomics.h>
+
+#if ENABLE(FTL_JIT)
+#include "FTLThunks.h"
+#endif
 
 namespace JSC { namespace DFG {
 
-enum CompileMode { CompileFunction, CompileOther };
-inline bool compile(CompileMode compileMode, JSGlobalData& globalData, CodeBlock* codeBlock, JITCode& jitCode, MacroAssemblerCodePtr* jitCodeWithArityCheck)
+static unsigned numCompilations;
+
+unsigned getNumCompilations()
+{
+    return numCompilations;
+}
+
+#if ENABLE(DFG_JIT)
+static CompilationResult compileImpl(
+    VM& vm, CodeBlock* codeBlock, CompilationMode mode, unsigned osrEntryBytecodeIndex,
+    const Operands<JSValue>& mustHandleValues,
+    PassRefPtr<DeferredCompilationCallback> callback, Worklist* worklist)
 {
     SamplingRegion samplingRegion("DFG Compilation (Driver)");
     
+    numCompilations++;
+    
     ASSERT(codeBlock);
     ASSERT(codeBlock->alternative());
-    ASSERT(codeBlock->alternative()->getJITType() == JITCode::BaselineJIT);
+    ASSERT(codeBlock->alternative()->jitType() == JITCode::BaselineJIT);
+    
+    if (!Options::useDFGJIT() || !MacroAssembler::supportsFloatingPoint())
+        return CompilationFailed;
 
-#if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLog("DFG compiling code block %p(%p), number of instructions = %u.\n", codeBlock, codeBlock->alternative(), codeBlock->instructionCount());
+    if (!Options::bytecodeRangeToDFGCompile().isInRange(codeBlock->instructionCount()))
+        return CompilationFailed;
+    
+    if (logCompilationChanges())
+        dataLog("DFG(Driver) compiling ", *codeBlock, " with ", mode, ", number of instructions = ", codeBlock->instructionCount(), "\n");
+    
+    // Make sure that any stubs that the DFG is going to use are initialized. We want to
+    // make sure that all JIT code generation does finalization on the main thread.
+    vm.getCTIStub(osrExitGenerationThunkGenerator);
+    vm.getCTIStub(throwExceptionFromCallSlowPathGenerator);
+    vm.getCTIStub(linkCallThunkGenerator);
+    vm.getCTIStub(linkConstructThunkGenerator);
+    vm.getCTIStub(linkClosureCallThunkGenerator);
+    vm.getCTIStub(virtualCallThunkGenerator);
+    vm.getCTIStub(virtualConstructThunkGenerator);
+#if ENABLE(FTL_JIT)
+    vm.getCTIStub(FTL::osrExitGenerationWithoutStackMapThunkGenerator);
 #endif
     
-    Graph dfg(globalData, codeBlock);
-    if (!parse(dfg))
-        return false;
+    RefPtr<Plan> plan = adoptRef(
+        new Plan(codeBlock, mode, osrEntryBytecodeIndex, mustHandleValues));
     
-    if (compileMode == CompileFunction)
-        dfg.predictArgumentTypes();
-
-    performRedundantPhiElimination(dfg);
-    performPredictionPropagation(dfg);
-    performFixup(dfg);
-    performCSE(dfg);
-    performVirtualRegisterAllocation(dfg);
-    performCFA(dfg);
-
-#if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLog("Graph after optimization:\n");
-    dfg.dump();
-#endif
-    
-    JITCompiler dataFlowJIT(dfg);
-    bool result;
-    if (compileMode == CompileFunction) {
-        ASSERT(jitCodeWithArityCheck);
-        
-        result = dataFlowJIT.compileFunction(jitCode, *jitCodeWithArityCheck);
-    } else {
-        ASSERT(compileMode == CompileOther);
-        ASSERT(!jitCodeWithArityCheck);
-        
-        result = dataFlowJIT.compile(jitCode);
+    if (worklist) {
+        plan->callback = callback;
+        if (logCompilationChanges())
+            dataLog("Deferring DFG compilation of ", *codeBlock, " with queue length ", worklist->queueLength(), ".\n");
+        worklist->enqueue(plan);
+        return CompilationDeferred;
     }
     
+    plan->compileInThread(*vm.dfgState);
+    return plan->finalizeWithoutNotifyingCallback();
+}
+#else // ENABLE(DFG_JIT)
+static CompilationResult compileImpl(
+    VM&, CodeBlock*, CompilationMode, unsigned, const Operands<JSValue>&,
+    PassRefPtr<DeferredCompilationCallback>, Worklist*)
+{
+    return CompilationFailed;
+}
+#endif // ENABLE(DFG_JIT)
+
+CompilationResult compile(
+    VM& vm, CodeBlock* codeBlock, CompilationMode mode, unsigned osrEntryBytecodeIndex,
+    const Operands<JSValue>& mustHandleValues,
+    PassRefPtr<DeferredCompilationCallback> passedCallback, Worklist* worklist)
+{
+    RefPtr<DeferredCompilationCallback> callback = passedCallback;
+    CompilationResult result = compileImpl(
+        vm, codeBlock, mode, osrEntryBytecodeIndex, mustHandleValues, callback, worklist);
+    if (result != CompilationDeferred)
+        callback->compilationDidComplete(codeBlock, result);
     return result;
 }
 
-bool tryCompile(JSGlobalData& globalData, CodeBlock* codeBlock, JITCode& jitCode)
-{
-    return compile(CompileOther, globalData, codeBlock, jitCode, 0);
-}
-
-bool tryCompileFunction(JSGlobalData& globalData, CodeBlock* codeBlock, JITCode& jitCode, MacroAssemblerCodePtr& jitCodeWithArityCheck)
-{
-    return compile(CompileFunction, globalData, codeBlock, jitCode, &jitCodeWithArityCheck);
-}
-
 } } // namespace JSC::DFG
-
-#endif // ENABLE(DFG_JIT)
-

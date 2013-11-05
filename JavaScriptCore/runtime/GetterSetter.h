@@ -38,33 +38,33 @@ namespace JSC {
         friend class JIT;
 
     private:        
-        GetterSetter(ExecState* exec)
-            : JSCell(exec->globalData(), exec->globalData().getterSetterStructure.get())
+        GetterSetter(VM& vm)
+            : JSCell(vm, vm.getterSetterStructure.get())
         {
         }
 
     public:
         typedef JSCell Base;
 
-        static GetterSetter* create(ExecState* exec)
+        static GetterSetter* create(VM& vm)
         {
-            GetterSetter* getterSetter = new (NotNull, allocateCell<GetterSetter>(*exec->heap())) GetterSetter(exec);
-            getterSetter->finishCreation(exec->globalData());
+            GetterSetter* getterSetter = new (NotNull, allocateCell<GetterSetter>(vm.heap)) GetterSetter(vm);
+            getterSetter->finishCreation(vm);
             return getterSetter;
         }
 
         static void visitChildren(JSCell*, SlotVisitor&);
 
         JSObject* getter() const { return m_getter.get(); }
-        void setGetter(JSGlobalData& globalData, JSObject* getter) { m_getter.setMayBeNull(globalData, this, getter); }
+        void setGetter(VM& vm, JSObject* getter) { m_getter.setMayBeNull(vm, this, getter); }
         JSObject* setter() const { return m_setter.get(); }
-        void setSetter(JSGlobalData& globalData, JSObject* setter) { m_setter.setMayBeNull(globalData, this, setter); }
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+        void setSetter(VM& vm, JSObject* setter) { m_setter.setMayBeNull(vm, this, setter); }
+        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
         {
-            return Structure::create(globalData, globalObject, prototype, TypeInfo(GetterSetterType, OverridesVisitChildren), &s_info);
+            return Structure::create(vm, globalObject, prototype, TypeInfo(GetterSetterType, OverridesVisitChildren), info());
         }
         
-        static const ClassInfo s_info;
+        DECLARE_INFO;
 
     private:
         WriteBarrier<JSObject> m_getter;
@@ -79,6 +79,8 @@ namespace JSC {
         return static_cast<GetterSetter*>(value.asCell());
     }
 
+    JSValue callGetter(ExecState*, JSValue base, JSValue getterSetter);
+    void callSetter(ExecState*, JSValue base, JSValue getterSetter, JSValue value, ECMAMode);
 
 } // namespace JSC
 

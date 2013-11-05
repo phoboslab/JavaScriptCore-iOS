@@ -43,14 +43,11 @@ template <class T> class Handle;
 // Creating a JSValue Handle is invalid
 template <> class Handle<JSValue>;
 
-// Forward declare WeakGCMap
-template<typename KeyType, typename MappedType, typename FinalizerCallback, typename HashArg, typename KeyTraitsArg> class WeakGCMap;
-
 class HandleBase {
     template <typename T> friend class Weak;
+    template <typename T> friend class Strong;
     friend class HandleSet;
     friend struct JSCallbackObjectData;
-    template <typename KeyType, typename MappedType, typename FinalizerCallback, typename HashArg, typename KeyTraitsArg> friend class WeakGCMap;
 
 public:
     bool operator!() const { return !m_slot || !*m_slot; }
@@ -102,7 +99,7 @@ template <typename Base> struct HandleConverter<Base, Unknown> {
     Handle<JSObject> asObject() const;
     bool isObject() const { return jsValue().isObject(); }
     bool getNumber(double number) const { return jsValue().getNumber(number); }
-    UString getString(ExecState*) const;
+    WTF::String getString(ExecState*) const;
     bool isUndefinedOrNull() const { return jsValue().isUndefinedOrNull(); }
 
 private:
@@ -114,7 +111,7 @@ private:
 
 template <typename T> class Handle : public HandleBase, public HandleConverter<Handle<T>, T> {
 public:
-    template <typename A, typename B> friend class HandleConverter;
+    template <typename A, typename B> friend struct HandleConverter;
     typedef typename HandleTypes<T>::ExternalType ExternalType;
     template <typename U> Handle(Handle<U> o)
     {

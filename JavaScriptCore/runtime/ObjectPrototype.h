@@ -29,35 +29,20 @@ namespace JSC {
     public:
         typedef JSNonFinalObject Base;
 
-        static ObjectPrototype* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
-        {
-            ObjectPrototype* prototype = new (NotNull, allocateCell<ObjectPrototype>(*exec->heap())) ObjectPrototype(exec, structure);
-            prototype->finishCreation(exec->globalData(), globalObject);
-            return prototype;
-        }
+        static ObjectPrototype* create(VM&, JSGlobalObject*, Structure*);
 
-        static const ClassInfo s_info;
+        DECLARE_INFO;
 
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
         {
-            return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+            return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
         }
 
     protected:
-        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | JSNonFinalObject::StructureFlags;
-
-        void finishCreation(JSGlobalData&, JSGlobalObject*);
+        void finishCreation(VM&, JSGlobalObject*);
 
     private:
-        ObjectPrototype(ExecState*, Structure*);
-        static void put(JSCell*, ExecState*, const Identifier&, JSValue, PutPropertySlot&);
-        static bool defineOwnProperty(JSObject*, ExecState*, const Identifier& propertyName, PropertyDescriptor&, bool shouldThrow);
-
-        static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier&, PropertySlot&);
-        static bool getOwnPropertySlotByIndex(JSCell*, ExecState*, unsigned propertyName, PropertySlot&);
-        static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&);
-
-        bool m_hasNoPropertiesWithUInt32Names;
+        ObjectPrototype(VM&, Structure*);
     };
 
     JS_EXPORT_PRIVATE EncodedJSValue JSC_HOST_CALL objectProtoFuncToString(ExecState*);

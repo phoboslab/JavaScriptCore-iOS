@@ -30,18 +30,17 @@
 #include "JSPropertyNameIterator.h"
 
 #include "JSGlobalObject.h"
+#include <wtf/StdLibExtras.h>
 
 namespace JSC {
-
-ASSERT_CLASS_FITS_IN_CELL(JSPropertyNameIterator);
 
 const ClassInfo JSPropertyNameIterator::s_info = { "JSPropertyNameIterator", 0, 0, 0, CREATE_METHOD_TABLE(JSPropertyNameIterator) };
 
 inline JSPropertyNameIterator::JSPropertyNameIterator(ExecState* exec, PropertyNameArrayData* propertyNameArrayData, size_t numCacheableSlots)
-    : JSCell(exec->globalData(), exec->globalData().propertyNameIteratorStructure.get())
+    : JSCell(exec->vm(), exec->vm().propertyNameIteratorStructure.get())
     , m_numCacheableSlots(numCacheableSlots)
     , m_jsStringsSize(propertyNameArrayData->propertyNameVector().size())
-    , m_jsStrings(adoptArrayPtr(new WriteBarrier<Unknown>[m_jsStringsSize]))
+    , m_jsStrings(m_jsStringsSize ? std::make_unique<WriteBarrier<Unknown>[]>(m_jsStringsSize) : nullptr)
 {
 }
 
@@ -51,20 +50,25 @@ JSPropertyNameIterator* JSPropertyNameIterator::create(ExecState* exec, JSObject
             o->structure()->enumerationCache()->cachedStructure() != o->structure() ||
             o->structure()->enumerationCache()->cachedPrototypeChain() != o->structure()->prototypeChain(exec));
 
+    VM& vm = exec->vm();
+
     PropertyNameArray propertyNames(exec);
     o->methodTable()->getPropertyNames(o, exec, propertyNames, ExcludeDontEnumProperties);
     size_t numCacheableSlots = 0;
     if (!o->structure()->hasNonEnumerableProperties() && !o->structure()->hasGetterSetterProperties()
         && !o->structure()->isUncacheableDictionary() && !o->structure()->typeInfo().overridesGetPropertyNames())
-        numCacheableSlots = o->structure()->propertyStorageSize();
+        numCacheableSlots = propertyNames.numCacheableSlots();
     
-    JSPropertyNameIterator* jsPropertyNameIterator = new (NotNull, allocateCell<JSPropertyNameIterator>(*exec->heap())) JSPropertyNameIterator(exec, propertyNames.data(), numCacheableSlots);
-    jsPropertyNameIterator->finishCreation(exec, propertyNames.data());
+    JSPropertyNameIterator* jsPropertyNameIterator = new (NotNull, allocateCell<JSPropertyNameIterator>(vm.heap)) JSPropertyNameIterator(exec, propertyNames.data(), numCacheableSlots);
+    jsPropertyNameIterator->finishCreation(vm, propertyNames.data(), o);
 
     if (o->structure()->isDictionary())
         return jsPropertyNameIterator;
 
     if (o->structure()->typeInfo().overridesGetPropertyNames())
+        return jsPropertyNameIterator;
+    
+    if (hasIndexedProperties(o->structure()->indexingType()))
         return jsPropertyNameIterator;
     
     size_t count = normalizePrototypeChain(exec, o);
@@ -75,15 +79,15 @@ JSPropertyNameIterator* JSPropertyNameIterator::create(ExecState* exec, JSObject
             return jsPropertyNameIterator;
     }
 
-    jsPropertyNameIterator->setCachedPrototypeChain(exec->globalData(), structureChain);
-    jsPropertyNameIterator->setCachedStructure(exec->globalData(), o->structure());
-    o->structure()->setEnumerationCache(exec->globalData(), jsPropertyNameIterator);
+    jsPropertyNameIterator->setCachedPrototypeChain(vm, structureChain);
+    jsPropertyNameIterator->setCachedStructure(vm, o->structure());
+    o->structure()->setEnumerationCache(vm, jsPropertyNameIterator);
     return jsPropertyNameIterator;
 }
 
 void JSPropertyNameIterator::destroy(JSCell* cell)
 {
-    jsCast<JSPropertyNameIterator*>(cell)->JSPropertyNameIterator::~JSPropertyNameIterator();
+    static_cast<JSPropertyNameIterator*>(cell)->JSPropertyNameIterator::~JSPropertyNameIterator();
 }
 
 JSValue JSPropertyNameIterator::get(ExecState* exec, JSObject* base, size_t i)
@@ -100,11 +104,10 @@ JSValue JSPropertyNameIterator::get(ExecState* exec, JSObject* base, size_t i)
 void JSPropertyNameIterator::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     JSPropertyNameIterator* thisObject = jsCast<JSPropertyNameIterator*>(cell);
-    ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
     visitor.appendValues(thisObject->m_jsStrings.get(), thisObject->m_jsStringsSize);
-    if (thisObject->m_cachedPrototypeChain)
-        visitor.append(&thisObject->m_cachedPrototypeChain);
+    visitor.append(&thisObject->m_cachedPrototypeChain);
 }
 
 } // namespace JSC

@@ -45,7 +45,8 @@ void Collator::setOrderLowerFirst(bool)
 {
 }
 
-OwnPtr<Collator> Collator::userDefault()
+//OwnPtr<Collator> Collator::userDefault() HACK
+std::unique_ptr<Collator> Collator::userDefault()
 {
     return std::make_unique<Collator>(nullptr);
 }

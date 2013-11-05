@@ -68,6 +68,17 @@
 			name = "Derived Sources iOS";
 			productName = "Derived Sources";
 		};
+		B6CDA155182942EC00190074 /* Combine iOS libs */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = B6CDA156182942EC00190074 /* Build configuration list for PBXAggregateTarget "Combine iOS libs" */;
+			buildPhases = (
+				B6CDA15B1829430D00190074 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = "Combine iOS libs";
+			productName = "Combine iOS libs";
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -6887,6 +6898,7 @@
 				B647975A1829146300CCF60F /* JavaScriptCore iOS */,
 				B65883611829174400CDA593 /* JSCLLIntOffsetsExtractor iOS */,
 				B6CDA145182917AA00190074 /* Derived Sources iOS */,
+				B6CDA155182942EC00190074 /* Combine iOS libs */,
 			);
 		};
 /* End PBXProject section */
@@ -7189,6 +7201,19 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "TRACING_D=\"$SRCROOT/runtime/Tracing.d\";\nTRACING_H=\"$BUILT_PRODUCTS_DIR/DerivedSources/JavaScriptCore/TracingDtrace.h\";\n\nif [[ \"$HAVE_DTRACE\" = \"1\" && \"$TRACING_D\" -nt \"$TRACING_H\" ]];\nthen\n\tdtrace -h -o \"$TRACING_H\" -s \"$TRACING_D\";\nfi;\n";
+		};
+		B6CDA15B1829430D00190074 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "lipo -create \"${BUILD_DIR%%/}/Release-iphoneos/libJavaScriptCore.a\" \"${BUILD_DIR%%/}/Release-iphonesimulator/libJavaScriptCore.a\" -output \"${SOURCE_ROOT}/../Build/libJavaScriptCore.a\"\n\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -8777,6 +8802,34 @@
 			};
 			name = Production;
 		};
+		B6CDA157182942EC00190074 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		B6CDA158182942EC00190074 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		B6CDA159182942EC00190074 /* Profiling */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Profiling;
+		};
+		B6CDA15A182942EC00190074 /* Production */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -8944,6 +8997,16 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;
+		};
+		B6CDA156182942EC00190074 /* Build configuration list for PBXAggregateTarget "Combine iOS libs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B6CDA157182942EC00190074 /* Debug */,
+				B6CDA158182942EC00190074 /* Release */,
+				B6CDA159182942EC00190074 /* Profiling */,
+				B6CDA15A182942EC00190074 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
 		};
 /* End XCConfigurationList section */
 	};

@@ -2214,6 +2214,7 @@
 		B65883601829170700CDA593 /* LLVMOverrides.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0FCEFAC01805D94100472CE4 /* LLVMOverrides.cpp */; };
 		B65883651829174400CDA593 /* LLIntOffsetsExtractor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F4680A114BA7F8200BFE272 /* LLIntOffsetsExtractor.cpp */; };
 		B6CDA15418293D8C00190074 /* libWTF.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B6CDA15318293D8C00190074 /* libWTF.a */; };
+		B6CDA15E1829441F00190074 /* JSTypedArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6CDA15C1829441400190074 /* JSTypedArray.cpp */; };
 		BC02E90D0E1839DB000F9297 /* ErrorConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = BC02E9050E1839DB000F9297 /* ErrorConstructor.h */; };
 		BC02E90F0E1839DB000F9297 /* ErrorPrototype.h in Headers */ = {isa = PBXBuildFile; fileRef = BC02E9070E1839DB000F9297 /* ErrorPrototype.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC02E9110E1839DB000F9297 /* NativeErrorConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = BC02E9090E1839DB000F9297 /* NativeErrorConstructor.h */; };
@@ -3532,6 +3533,8 @@
 		B6479BDD1829146400CCF60F /* JavaScriptCore copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "JavaScriptCore copy-Info.plist"; path = "/Users/dominic/xcode/JavaScriptCore/JavaScriptCore/JavaScriptCore copy-Info.plist"; sourceTree = "<absolute>"; };
 		B658836C1829174400CDA593 /* libJSCLLIntOffsetsExtractor.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJSCLLIntOffsetsExtractor.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6CDA15318293D8C00190074 /* libWTF.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libWTF.a; path = ../Build/libWTF.a; sourceTree = "<group>"; };
+		B6CDA15C1829441400190074 /* JSTypedArray.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSTypedArray.cpp; sourceTree = "<group>"; };
+		B6CDA15D1829441400190074 /* JSTypedArray.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSTypedArray.h; sourceTree = "<group>"; };
 		BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = ToolExecutable.xcconfig; sourceTree = "<group>"; };
 		BC02E9040E1839DB000F9297 /* ErrorConstructor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ErrorConstructor.cpp; sourceTree = "<group>"; };
 		BC02E9050E1839DB000F9297 /* ErrorConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ErrorConstructor.h; sourceTree = "<group>"; };
@@ -4281,6 +4284,8 @@
 		1432EBD70A34CAD400717B9F /* API */ = {
 			isa = PBXGroup;
 			children = (
+				B6CDA15C1829441400190074 /* JSTypedArray.cpp */,
+				B6CDA15D1829441400190074 /* JSTypedArray.h */,
 				C211B574176A224D000E2A23 /* APICallbackFunction.h */,
 				1482B78A0A4305AB00517CFC /* APICast.h */,
 				865F408710E7D56300947361 /* APIShims.h */,
@@ -7734,6 +7739,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B6CDA15E1829441F00190074 /* JSTypedArray.cpp in Sources */,
 				B6479A0B1829146300CCF60F /* A64DOpcode.cpp in Sources */,
 				B658835E1829170700CDA593 /* LLVMAnchor.cpp in Sources */,
 				B658835F1829170700CDA593 /* LLVMExports.cpp in Sources */,

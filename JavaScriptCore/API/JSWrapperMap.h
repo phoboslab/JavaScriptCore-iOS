@@ -25,7 +25,7 @@
 
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <JSValueInternal.h>
-#import <objc/objc-runtime.h>
+#include <objc/message.h>
 
 #if JSC_OBJC_API_ENABLED
 

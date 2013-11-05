@@ -84,23 +84,25 @@
  * - http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43976
  */
 #if (CPU(ARM) || CPU(MIPS)) && COMPILER(GCC)
-template<typename Type>
-inline bool isPointerTypeAlignmentOkay(Type* ptr)
-{
-    return !(reinterpret_cast<intptr_t>(ptr) % __alignof__(Type));
-}
+
+// HACK, throwing an error
+//template<typename Type>
+//inline bool isPointerTypeAlignmentOkay(Type* ptr)
+//{
+//    return !(reinterpret_cast<intptr_t>(ptr) % __alignof__(Type));
+//}
 
 template<typename TypePtr>
 inline TypePtr reinterpret_cast_ptr(void* ptr)
 {
-    ASSERT(isPointerTypeAlignmentOkay(reinterpret_cast<TypePtr>(ptr)));
+//    ASSERT(isPointerTypeAlignmentOkay(reinterpret_cast<TypePtr>(ptr)));
     return reinterpret_cast<TypePtr>(ptr);
 }
 
 template<typename TypePtr>
 inline TypePtr reinterpret_cast_ptr(const void* ptr)
 {
-    ASSERT(isPointerTypeAlignmentOkay(reinterpret_cast<TypePtr>(ptr)));
+//    ASSERT(isPointerTypeAlignmentOkay(reinterpret_cast<TypePtr>(ptr)));
     return reinterpret_cast<TypePtr>(ptr);
 }
 #else

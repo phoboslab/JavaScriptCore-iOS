@@ -3530,7 +3530,6 @@
 		A8E894330CD0603F00367179 /* JSGlobalObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSGlobalObject.h; sourceTree = "<group>"; };
 		AD1CF06816DCAB2D00B97123 /* PropertyTable.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PropertyTable.cpp; sourceTree = "<group>"; };
 		B6479BDC1829146300CCF60F /* libJavaScriptCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJavaScriptCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		B6479BDD1829146400CCF60F /* JavaScriptCore copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "JavaScriptCore copy-Info.plist"; path = "/Users/dominic/xcode/JavaScriptCore/JavaScriptCore/JavaScriptCore copy-Info.plist"; sourceTree = "<absolute>"; };
 		B658836C1829174400CDA593 /* libJSCLLIntOffsetsExtractor.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJSCLLIntOffsetsExtractor.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6CDA15318293D8C00190074 /* libWTF.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libWTF.a; path = ../Build/libWTF.a; sourceTree = "<group>"; };
 		B6CDA15C1829441400190074 /* JSTypedArray.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSTypedArray.cpp; sourceTree = "<group>"; };
@@ -3868,7 +3867,6 @@
 				141211000A48772600480255 /* tests */,
 				8603CEF014C753EF00AE59E3 /* tools */,
 				86EAC48C0F93E8B9008EC948 /* yarr */,
-				B6479BDD1829146400CCF60F /* JavaScriptCore copy-Info.plist */,
 			);
 			name = JavaScriptCore;
 			sourceTree = "<group>";
@@ -8646,10 +8644,7 @@
 				INFOPLIST_FILE = "JavaScriptCore copy-Info.plist";
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
 				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
-				LIBRARY_SEARCH_PATHS = (
-					"\\\"${SOURCE_ROOT}/../Build/\\\"",
-					/Users/dominic/xcode/JavaScriptCore/Build,
-				);
+				LIBRARY_SEARCH_PATHS = "\"${SOURCE_ROOT}/../Build/\"";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
@@ -8685,10 +8680,7 @@
 				INFOPLIST_FILE = "JavaScriptCore copy-Info.plist";
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
 				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
-				LIBRARY_SEARCH_PATHS = (
-					"\\\"${SOURCE_ROOT}/../Build/\\\"",
-					/Users/dominic/xcode/JavaScriptCore/Build,
-				);
+				LIBRARY_SEARCH_PATHS = "\"${SOURCE_ROOT}/../Build/\"";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
@@ -8724,10 +8716,7 @@
 				INFOPLIST_FILE = "JavaScriptCore copy-Info.plist";
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
 				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
-				LIBRARY_SEARCH_PATHS = (
-					"\\\"${SOURCE_ROOT}/../Build/\\\"",
-					/Users/dominic/xcode/JavaScriptCore/Build,
-				);
+				LIBRARY_SEARCH_PATHS = "\"${SOURCE_ROOT}/../Build/\"";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
@@ -8763,10 +8752,7 @@
 				);
 				INFOPLIST_FILE = "JavaScriptCore copy-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
-				LIBRARY_SEARCH_PATHS = (
-					"\\\"${SOURCE_ROOT}/../Build/\\\"",
-					/Users/dominic/xcode/JavaScriptCore/Build,
-				);
+				LIBRARY_SEARCH_PATHS = "\"${SOURCE_ROOT}/../Build/\"";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
@@ -9069,6 +9055,7 @@
 				B6CDA15A182942EC00190074 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
 		};
 /* End XCConfigurationList section */
 	};

@@ -1,3 +1,9 @@
+## The typed-arrays branch is obsolete
+
+The new JSC version used in the [master branch](https://github.com/phoboslab/JavaScriptCore-iOS) now contains support for Typed Arrays by default. This makes this branch obsolete.
+
+[Ejecta](https://github.com/phoboslab/Ejecta) has been updated to also use the master branch.
+
 # JavaScriptCore iOS
 
 The JavaScriptCore library is part of the [WebKit project](http://www.webkit.org/) and thus Open Source. However, in the sources you get from the [WebKit SVN](https://svn.webkit.org/repository/webkit/trunk), the XCode project files are curiously missing an iOS compile target. You can't compile it for iOS. The sources you get from [opensource.apple.com](http://opensource.apple.com/release/ios-601/) are missing the project files altogether. You can't compile it all. That's quite the Open Source spirit, Apple!

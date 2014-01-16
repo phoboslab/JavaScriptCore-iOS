@@ -572,6 +572,7 @@
 		0FFFC95E14EF90B700C72532 /* DFGPredictionPropagationPhase.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFFC95214EF909500C72532 /* DFGPredictionPropagationPhase.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0FFFC95F14EF90BB00C72532 /* DFGVirtualRegisterAllocationPhase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0FFFC95314EF909500C72532 /* DFGVirtualRegisterAllocationPhase.cpp */; };
 		0FFFC96014EF90BD00C72532 /* DFGVirtualRegisterAllocationPhase.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFFC95414EF909500C72532 /* DFGVirtualRegisterAllocationPhase.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		103660421887809F004A9A28 /* JSTypedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = B6CDA15D1829441400190074 /* JSTypedArray.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		140566C4107EC255005DBC8D /* JSAPIValueWrapper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC0894D50FAFBA2D00001865 /* JSAPIValueWrapper.cpp */; };
 		140566D6107EC271005DBC8D /* JSFunction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F692A85E0255597D01FF60F7 /* JSFunction.cpp */; };
 		140B7D1D0DC69AF7009C42B8 /* JSActivation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 14DA818F0D99FD2000B0A4FB /* JSActivation.cpp */; };
@@ -5333,6 +5334,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B64798901829146300CCF60F /* JavaScript.h in Headers */,
+				103660421887809F004A9A28 /* JSTypedArray.h in Headers */,
 				B64798911829146300CCF60F /* JavaScriptCore.h in Headers */,
 				B64798B11829146300CCF60F /* JSBase.h in Headers */,
 				B64798BF1829146300CCF60F /* JSContext.h in Headers */,

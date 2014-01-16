@@ -2213,7 +2213,6 @@
 		B658835F1829170700CDA593 /* LLVMExports.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0FCEFAC21805E74000472CE4 /* LLVMExports.cpp */; };
 		B65883601829170700CDA593 /* LLVMOverrides.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0FCEFAC01805D94100472CE4 /* LLVMOverrides.cpp */; };
 		B65883651829174400CDA593 /* LLIntOffsetsExtractor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F4680A114BA7F8200BFE272 /* LLIntOffsetsExtractor.cpp */; };
-		B6CDA15418293D8C00190074 /* libWTF.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B6CDA15318293D8C00190074 /* libWTF.a */; };
 		B6CDA15E1829441F00190074 /* JSTypedArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B6CDA15C1829441400190074 /* JSTypedArray.cpp */; };
 		BC02E90D0E1839DB000F9297 /* ErrorConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = BC02E9050E1839DB000F9297 /* ErrorConstructor.h */; };
 		BC02E90F0E1839DB000F9297 /* ErrorPrototype.h in Headers */ = {isa = PBXBuildFile; fileRef = BC02E9070E1839DB000F9297 /* ErrorPrototype.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3799,7 +3798,6 @@
 				B6479BCE1829146300CCF60F /* Foundation.framework in Frameworks */,
 				B6479BCF1829146300CCF60F /* libicucore.dylib in Frameworks */,
 				B6479BD01829146300CCF60F /* libobjc.dylib in Frameworks */,
-				B6CDA15418293D8C00190074 /* libWTF.a in Frameworks */,
 				B6479BD21829146300CCF60F /* libz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -7319,7 +7319,7 @@
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
 				STRIP_INSTALLED_PRODUCT = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				VALID_ARCHS = "i386 arm64 armv7s armv7";
 			};
 			name = Debug;
 		};
@@ -7358,7 +7358,7 @@
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
 				STRIP_INSTALLED_PRODUCT = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				VALID_ARCHS = "i386 arm64 armv7s armv7";
 			};
 			name = Release;
 		};
@@ -7397,7 +7397,7 @@
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
 				STRIP_INSTALLED_PRODUCT = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				VALID_ARCHS = "i386 arm64 armv7s armv7";
 			};
 			name = Profiling;
 		};
@@ -7436,7 +7436,7 @@
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
 				STRIP_INSTALLED_PRODUCT = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				VALID_ARCHS = "i386 arm64 armv7s armv7";
 			};
 			name = Production;
 		};

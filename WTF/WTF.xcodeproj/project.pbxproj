@@ -1992,7 +1992,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
 			buildSettings = {
-				ARCHS = armv7;
+				ARCHS = (
+					arm64,
+					armv7s,
+					armv7,
+				);
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(DEBUG_DEFINES)",
@@ -2008,7 +2012,6 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = armv7;
 			};
 			name = Debug;
 		};
@@ -2016,7 +2019,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
 			buildSettings = {
-				ARCHS = armv7;
+				ARCHS = (
+					arm64,
+					armv7s,
+					armv7,
+				);
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(DEBUG_DEFINES)",
@@ -2032,7 +2039,6 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = armv7;
 			};
 			name = Release;
 		};
@@ -2040,7 +2046,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5D247B7314689C4700E78B76 /* WTF.xcconfig */;
 			buildSettings = {
-				ARCHS = armv7;
+				ARCHS = (
+					arm64,
+					armv7s,
+					armv7,
+				);
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(DEBUG_DEFINES)",
@@ -2056,7 +2066,6 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = armv7;
 			};
 			name = Production;
 		};

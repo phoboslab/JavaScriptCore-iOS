@@ -8622,7 +8622,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
-				ARCHS = armv7;
+				ARCHS = (
+					arm64,
+					armv7s,
+					armv7,
+				);
 				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -8650,7 +8654,6 @@
 				SDKROOT = iphoneos;
 				STRIP_INSTALLED_PRODUCT = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				VALID_ARCHS = "i386 armv7";
 			};
 			name = Debug;
 		};
@@ -8658,7 +8661,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
-				ARCHS = armv7;
+				ARCHS = (
+					arm64,
+					armv7s,
+					armv7,
+				);
 				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -8686,7 +8693,6 @@
 				SDKROOT = iphoneos;
 				STRIP_INSTALLED_PRODUCT = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				VALID_ARCHS = "i386 armv7";
 			};
 			name = Release;
 		};
@@ -8694,7 +8700,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
-				ARCHS = armv7;
+				ARCHS = (
+					arm64,
+					armv7s,
+					armv7,
+				);
 				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -8722,7 +8732,6 @@
 				SDKROOT = iphoneos;
 				STRIP_INSTALLED_PRODUCT = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				VALID_ARCHS = "i386 armv7";
 			};
 			name = Profiling;
 		};
@@ -8730,7 +8739,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
-				ARCHS = armv7;
+				ARCHS = (
+					arm64,
+					armv7s,
+					armv7,
+				);
 				BUILD_VARIANTS = normal;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -8758,7 +8771,6 @@
 				SDKROOT = iphoneos;
 				STRIP_INSTALLED_PRODUCT = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				VALID_ARCHS = "i386 armv7";
 			};
 			name = Production;
 		};

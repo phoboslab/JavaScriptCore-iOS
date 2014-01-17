@@ -118,8 +118,9 @@ class XcodeBuild(object):
 
 
 class FrameworkBuild(object):
-    def __init__(self, project, scheme=None, conf="Release", outdir=None,
-                 name=None, derived_data_path=None):
+    def __init__(self, project=None, workspace=None, scheme=None,
+                 conf="Release", outdir=None, name=None,
+                 derived_data_path=None):
         self.scheme = scheme
         self.name = name
         self.devicebuild = XcodeBuild(project,

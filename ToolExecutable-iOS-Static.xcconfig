@@ -1,0 +1,12 @@
+//
+//  ToolExecutable-iOS-Static.xcconfig
+//  JavaScriptCore
+//
+//  Created by Martijn The on 1/17/14.
+//
+//
+
+#include "ToolExecutable.xcconfig"
+
+PRODUCT_NAME = JSCLLIntOffsetsExtractor;
+HEADER_SEARCH_PATHS = . icu "${BUILT_PRODUCTS_DIR}/usr/local/include" "${SOURCE_ROOT}/../WTF/" $(HEADER_SEARCH_PATHS);

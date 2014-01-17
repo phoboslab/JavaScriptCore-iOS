@@ -33,6 +33,7 @@
 #include "InitializeThreading.h"
 #include "Interpreter.h"
 #include "JSArray.h"
+#include "JSArrayBuffer.h"
 #include "JSFunction.h"
 #include "JSLock.h"
 #include "JSProxy.h"
@@ -46,6 +47,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <thread>
 #include <wtf/CurrentTime.h>
 #include <wtf/MainThread.h>
 #include <wtf/StringPrintStream.h>
@@ -83,10 +85,6 @@
 #include <arm/arch.h>
 #endif
 
-#if PLATFORM(BLACKBERRY)
-#include <BlackBerryPlatformLog.h>
-#endif
-
 #if PLATFORM(EFL)
 #include <Ecore.h>
 #endif
@@ -108,11 +106,13 @@ static EncodedJSValue JSC_HOST_CALL functionDumpCallFrame(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionVersion(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionRun(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionLoad(ExecState*);
+static EncodedJSValue JSC_HOST_CALL functionReadFile(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionCheckSyntax(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionReadline(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionPreciseTime(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionNeverInlineFunction(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionNumberOfDFGCompiles(ExecState*);
+static EncodedJSValue JSC_HOST_CALL functionTransferArrayBuffer(ExecState*);
 static NO_RETURN_WITH_VALUE EncodedJSValue JSC_HOST_CALL functionQuit(ExecState*);
 
 #if ENABLE(SAMPLING_FLAGS)
@@ -226,12 +226,15 @@ protected:
         addFunction(vm, "version", functionVersion, 1);
         addFunction(vm, "run", functionRun, 1);
         addFunction(vm, "load", functionLoad, 1);
+        addFunction(vm, "readFile", functionReadFile, 1);
         addFunction(vm, "checkSyntax", functionCheckSyntax, 1);
         addFunction(vm, "jscStack", functionJSCStack, 1);
         addFunction(vm, "readline", functionReadline, 0);
         addFunction(vm, "preciseTime", functionPreciseTime, 0);
         addFunction(vm, "neverInlineFunction", functionNeverInlineFunction, 1);
+        addFunction(vm, "noInline", functionNeverInlineFunction, 1);
         addFunction(vm, "numberOfDFGCompiles", functionNumberOfDFGCompiles, 1);
+        addFunction(vm, "transferArrayBuffer", functionTransferArrayBuffer, 1);
 #if ENABLE(SAMPLING_FLAGS)
         addFunction(vm, "setSamplingFlags", functionSetSamplingFlags, 1);
         addFunction(vm, "clearSamplingFlags", functionClearSamplingFlags, 1);
@@ -306,7 +309,7 @@ EncodedJSValue JSC_HOST_CALL functionPrint(ExecState* exec)
 #ifndef NDEBUG
 EncodedJSValue JSC_HOST_CALL functionDumpCallFrame(ExecState* exec)
 {
-    if (!exec->callerFrame()->hasHostCallFrameFlag())
+    if (!exec->callerFrame()->isVMEntrySentinel())
         exec->vm().interpreter->dumpCallFrame(exec->callerFrame());
     return JSValue::encode(jsUndefined());
 }
@@ -420,6 +423,16 @@ EncodedJSValue JSC_HOST_CALL functionLoad(ExecState* exec)
     return JSValue::encode(result);
 }
 
+EncodedJSValue JSC_HOST_CALL functionReadFile(ExecState* exec)
+{
+    String fileName = exec->argument(0).toString(exec)->value(exec);
+    Vector<char> script;
+    if (!fillBufferWithContentsOfFile(fileName, script))
+        return JSValue::encode(exec->vm().throwException(exec, createError(exec, "Could not open file.")));
+
+    return JSValue::encode(jsString(exec, stringFromUTF(script.data())));
+}
+
 EncodedJSValue JSC_HOST_CALL functionCheckSyntax(ExecState* exec)
 {
     String fileName = exec->argument(0).toString(exec)->value(exec);
@@ -492,6 +505,21 @@ EncodedJSValue JSC_HOST_CALL functionNumberOfDFGCompiles(ExecState* exec)
     return JSValue::encode(numberOfDFGCompiles(exec));
 }
 
+EncodedJSValue JSC_HOST_CALL functionTransferArrayBuffer(ExecState* exec)
+{
+    if (exec->argumentCount() < 1)
+        return JSValue::encode(exec->vm().throwException(exec, createError(exec, "Not enough arguments")));
+    
+    JSArrayBuffer* buffer = jsDynamicCast<JSArrayBuffer*>(exec->argument(0));
+    if (!buffer)
+        return JSValue::encode(exec->vm().throwException(exec, createError(exec, "Expected an array buffer")));
+    
+    ArrayBufferContents dummyContents;
+    buffer->impl()->transfer(dummyContents);
+    
+    return JSValue::encode(jsUndefined());
+}
+
 EncodedJSValue JSC_HOST_CALL functionQuit(ExecState*)
 {
     exit(EXIT_SUCCESS);
@@ -507,7 +535,7 @@ EncodedJSValue JSC_HOST_CALL functionQuit(ExecState*)
 // be in a separate main function because the jscmain function requires object
 // unwinding.
 
-#if COMPILER(MSVC) && !COMPILER(INTEL) && !defined(_DEBUG) && !OS(WINCE)
+#if COMPILER(MSVC) && !defined(_DEBUG) && !OS(WINCE)
 #define TRY       __try {
 #define EXCEPT(x) } __except (EXCEPTION_EXECUTE_HANDLER) { x; }
 #else
@@ -518,17 +546,11 @@ EncodedJSValue JSC_HOST_CALL functionQuit(ExecState*)
 int jscmain(int argc, char** argv);
 
 static double s_desiredTimeout;
-static double s_timeToWake;
 
 static NO_RETURN_DUE_TO_CRASH void timeoutThreadMain(void*)
 {
-    // WTF doesn't provide for a portable sleep(), so we use the ThreadCondition, which
-    // is close enough.
-    Mutex mutex;
-    ThreadCondition condition;
-    mutex.lock();
-    while (currentTime() < s_timeToWake)
-        condition.timedWait(mutex, s_timeToWake);
+    auto timeout = std::chrono::microseconds(static_cast<std::chrono::microseconds::rep>(s_desiredTimeout * 1000000));
+    std::this_thread::sleep_for(timeout);
     
     dataLog("Timed out after ", s_desiredTimeout, " seconds!\n");
     CRASH();
@@ -550,7 +572,6 @@ int main(int argc, char** argv)
     // testing/debugging, as it causes the post-mortem debugger not to be invoked. We reset the
     // error mode here to work around Cygwin's behavior. See <http://webkit.org/b/55222>.
     ::SetErrorMode(0);
-#endif
 
 #if defined(_DEBUG)
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
@@ -560,13 +581,9 @@ int main(int argc, char** argv)
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
 #endif
-
-    timeBeginPeriod(1);
 #endif
 
-#if PLATFORM(BLACKBERRY)
-    // Write all WTF logs to the system log
-    BlackBerry::Platform::setupApplicationLogging("jsc");
+    timeBeginPeriod(1);
 #endif
 
 #if PLATFORM(EFL)
@@ -585,10 +602,8 @@ int main(int argc, char** argv)
             dataLog(
                 "WARNING: timeout string is malformed, got ", timeoutString,
                 " but expected a number. Not using a timeout.\n");
-        } else {
-            s_timeToWake = currentTime() + s_desiredTimeout;
+        } else
             createThread(timeoutThreadMain, 0, "jsc Timeout Thread");
-        }
     }
 #endif
 

@@ -30,6 +30,7 @@
 #include "VM.h"
 
 #include "ArgList.h"
+#include "ArrayBufferNeuteringWatchpoint.h"
 #include "CallFrameInlines.h"
 #include "CodeBlock.h"
 #include "CodeCache.h"
@@ -56,6 +57,8 @@
 #include "JSLock.h"
 #include "JSNameScope.h"
 #include "JSNotAnObject.h"
+#include "JSPromiseDeferred.h"
+#include "JSPromiseReaction.h"
 #include "JSPropertyNameIterator.h"
 #include "JSWithScope.h"
 #include "Lexer.h"
@@ -113,7 +116,6 @@ extern const HashTable stringConstructorTable;
 #if ENABLE(PROMISES)
 extern const HashTable promisePrototypeTable;
 extern const HashTable promiseConstructorTable;
-extern const HashTable promiseResolverPrototypeTable;
 #endif
 
 // Note: Platform.h will enforce that ENABLE(ASSEMBLER) is true if either
@@ -163,7 +165,7 @@ VM::VM(VMType vmType, HeapType heapType)
     , heap(this, heapType)
     , vmType(vmType)
     , clientData(0)
-    , topCallFrame(CallFrame::noCaller()->removeHostCallFrameFlag())
+    , topCallFrame(CallFrame::noCaller())
     , arrayConstructorTable(adoptPtr(new HashTable(JSC::arrayConstructorTable)))
     , arrayPrototypeTable(adoptPtr(new HashTable(JSC::arrayPrototypeTable)))
     , booleanPrototypeTable(adoptPtr(new HashTable(JSC::booleanPrototypeTable)))
@@ -184,7 +186,6 @@ VM::VM(VMType vmType, HeapType heapType)
 #if ENABLE(PROMISES)
     , promisePrototypeTable(adoptPtr(new HashTable(JSC::promisePrototypeTable)))
     , promiseConstructorTable(adoptPtr(new HashTable(JSC::promiseConstructorTable)))
-    , promiseResolverPrototypeTable(adoptPtr(new HashTable(JSC::promiseResolverPrototypeTable)))
 #endif
     , identifierTable(vmType == Default ? wtfThreadData().currentIdentifierTable() : createIdentifierTable())
     , propertyNames(new CommonIdentifiers(this))
@@ -195,7 +196,7 @@ VM::VM(VMType vmType, HeapType heapType)
     , jsArrayClassInfo(JSArray::info())
     , jsFinalObjectClassInfo(JSFinalObject::info())
     , sizeOfLastScratchBuffer(0)
-    , dynamicGlobalObject(0)
+    , entryScope(0)
     , m_enabledProfiler(0)
     , m_regExpCache(new RegExpCache(this))
 #if ENABLE(REGEXP_TRACING)
@@ -215,10 +216,16 @@ VM::VM(VMType vmType, HeapType heapType)
 #if ENABLE(GC_VALIDATION)
     , m_initializingObjectClass(0)
 #endif
+    , m_stackLimit(0)
+#if USE(SEPARATE_C_AND_JS_STACK)
+    , m_jsStackLimit(0)
+#endif
     , m_inDefineOwnProperty(false)
     , m_codeCache(CodeCache::create())
 {
     interpreter = new Interpreter(*this);
+    StackBounds stack = wtfThreadData().stack();
+    setStackLimit(stack.recursionLimit());
 
     // Need to be careful to keep everything consistent here
     JSLockHolder lock(this);
@@ -239,9 +246,10 @@ VM::VM(VMType vmType, HeapType heapType)
     programExecutableStructure.set(*this, ProgramExecutable::createStructure(*this, 0, jsNull()));
     functionExecutableStructure.set(*this, FunctionExecutable::createStructure(*this, 0, jsNull()));
     regExpStructure.set(*this, RegExp::createStructure(*this, 0, jsNull()));
-    sharedSymbolTableStructure.set(*this, SharedSymbolTable::createStructure(*this, 0, jsNull()));
+    symbolTableStructure.set(*this, SymbolTable::createStructure(*this, 0, jsNull()));
     structureChainStructure.set(*this, StructureChain::createStructure(*this, 0, jsNull()));
     sparseArrayValueMapStructure.set(*this, SparseArrayValueMap::createStructure(*this, 0, jsNull()));
+    arrayBufferNeuteringWatchpointStructure.set(*this, ArrayBufferNeuteringWatchpoint::createStructure(*this));
     withScopeStructure.set(*this, JSWithScope::createStructure(*this, 0, jsNull()));
     unlinkedFunctionExecutableStructure.set(*this, UnlinkedFunctionExecutable::createStructure(*this, 0, jsNull()));
     unlinkedProgramCodeBlockStructure.set(*this, UnlinkedProgramCodeBlock::createStructure(*this, 0, jsNull()));
@@ -250,6 +258,8 @@ VM::VM(VMType vmType, HeapType heapType)
     propertyTableStructure.set(*this, PropertyTable::createStructure(*this, 0, jsNull()));
     mapDataStructure.set(*this, MapData::createStructure(*this, 0, jsNull()));
     weakMapDataStructure.set(*this, WeakMapData::createStructure(*this, 0, jsNull()));
+    promiseDeferredStructure.set(*this, JSPromiseDeferred::createStructure(*this, 0, jsNull()));
+    promiseReactionStructure.set(*this, JSPromiseReaction::createStructure(*this, 0, jsNull()));
     iterationTerminator.set(*this, JSFinalObject::create(*this, JSFinalObject::createStructure(*this, 0, jsNull(), 1)));
     smallStrings.initializeCommonStrings(*this);
 
@@ -342,7 +352,6 @@ VM::~VM()
 #if ENABLE(PROMISES)
     promisePrototypeTable->deleteTable();
     promiseConstructorTable->deleteTable();
-    promiseResolverPrototypeTable->deleteTable();
 #endif
 
     delete emptyList;
@@ -448,10 +457,15 @@ NativeExecutable* VM::getHostFunction(NativeFunction function, Intrinsic intrins
 }
 
 #else // !ENABLE(JIT)
+
 NativeExecutable* VM::getHostFunction(NativeFunction function, NativeFunction constructor)
 {
-    return NativeExecutable::create(*this, function, constructor);
+    return NativeExecutable::create(*this,
+        MacroAssemblerCodeRef::createLLIntCodeRef(llint_native_call_trampoline), function,
+        MacroAssemblerCodeRef::createLLIntCodeRef(llint_native_construct_trampoline), constructor,
+        NoIntrinsic);
 }
+
 #endif // !ENABLE(JIT)
 
 VM::ClientData::~ClientData()
@@ -532,7 +546,7 @@ void VM::releaseExecutableMemory()
 {
     prepareToDiscardCode();
     
-    if (dynamicGlobalObject) {
+    if (entryScope) {
         StackPreservingRecompiler recompiler;
         HeapIterationScope iterationScope(heap);
         HashSet<JSCell*> roots;
@@ -618,7 +632,7 @@ static void appendSourceToError(CallFrame* callFrame, ErrorInstance* exception, 
     
 JSValue VM::throwException(ExecState* exec, JSValue error)
 {
-    ASSERT(exec == topCallFrame || exec == exec->lexicalGlobalObject()->globalExec() || exec == exec->dynamicGlobalObject()->globalExec());
+    ASSERT(exec == topCallFrame || exec == exec->lexicalGlobalObject()->globalExec() || exec == exec->vmEntryGlobalObject()->globalExec());
     
     Vector<StackFrame> stackTrace;
     interpreter->getStackTrace(stackTrace);
@@ -650,8 +664,10 @@ JSValue VM::throwException(ExecState* exec, JSValue error)
     if (exception->isErrorInstance() && static_cast<ErrorInstance*>(exception)->appendSourceToMessage()) {
         unsigned stackIndex = 0;
         CallFrame* callFrame;
-        for (callFrame = exec; callFrame && !callFrame->codeBlock(); callFrame = callFrame->callerFrame()->removeHostCallFrameFlag())
+        for (callFrame = exec; callFrame && !callFrame->codeBlock(); ) {
             stackIndex++;
+            callFrame = callFrame->callerFrameSkippingVMEntrySentinel();
+        }
         if (callFrame && callFrame->codeBlock()) {
             stackFrame = stackTrace.at(stackIndex);
             bytecodeOffset = stackFrame.bytecodeOffset;
@@ -749,5 +765,19 @@ void VM::dumpRegExpTrace()
 {
 }
 #endif
+
+void VM::registerWatchpointForImpureProperty(const Identifier& propertyName, Watchpoint* watchpoint)
+{
+    auto result = m_impurePropertyWatchpointSets.add(propertyName.string(), nullptr);
+    if (result.isNewEntry)
+        result.iterator->value = adoptRef(new WatchpointSet(IsWatched));
+    result.iterator->value->add(watchpoint);
+}
+
+void VM::addImpureProperty(const String& propertyName)
+{
+    if (RefPtr<WatchpointSet> watchpointSet = m_impurePropertyWatchpointSets.take(propertyName))
+        watchpointSet->fireAll();
+}
 
 } // namespace JSC

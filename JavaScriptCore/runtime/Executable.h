@@ -36,7 +36,6 @@
 #include "Interpreter.h"
 #include "JITCode.h"
 #include "JSGlobalObject.h"
-#include "LLIntCLoop.h"
 #include "SamplingTool.h"
 #include "SourceCode.h"
 #include "UnlinkedCodeBlock.h"
@@ -93,9 +92,17 @@ public:
         
     CodeBlockHash hashFor(CodeSpecializationKind) const;
 
+    bool isEvalExecutable()
+    {
+        return structure()->typeInfo().type() == EvalExecutableType;
+    }
     bool isFunctionExecutable()
     {
         return structure()->typeInfo().type() == FunctionExecutableType;
+    }
+    bool isProgramExecutable()
+    {
+        return structure()->typeInfo().type() == ProgramExecutableType;
     }
 
     bool isHostFunction() const
@@ -118,7 +125,6 @@ protected:
 public:
     static void clearCodeVirtual(ExecutableBase*);
 
-#if ENABLE(JIT)
     PassRefPtr<JITCode> generatedJITCodeForCall()
     {
         ASSERT(m_jitCodeForCall);
@@ -176,7 +182,6 @@ public:
         ASSERT(kind == CodeForConstruct);
         return OBJECT_OFFSETOF(ExecutableBase, m_numParametersForConstruct);
     }
-#endif // ENABLE(JIT)
 
     bool hasJITCodeForCall() const
     {
@@ -206,46 +211,20 @@ public:
         return NoIntrinsic;
     }
         
-#if ENABLE(JIT) || ENABLE(LLINT_C_LOOP)
     MacroAssemblerCodePtr hostCodeEntryFor(CodeSpecializationKind kind)
     {
-#if ENABLE(JIT)
         return generatedJITCodeFor(kind)->addressForCall();
-#else
-        return LLInt::CLoop::hostCodeEntryFor(kind);
-#endif
     }
 
     MacroAssemblerCodePtr jsCodeEntryFor(CodeSpecializationKind kind)
     {
-#if ENABLE(JIT)
         return generatedJITCodeFor(kind)->addressForCall();
-#else
-        return LLInt::CLoop::jsCodeEntryFor(kind);
-#endif
     }
 
     MacroAssemblerCodePtr jsCodeWithArityCheckEntryFor(CodeSpecializationKind kind)
     {
-#if ENABLE(JIT)
         return generatedJITCodeWithArityCheckFor(kind);
-#else
-        return LLInt::CLoop::jsCodeEntryWithArityCheckFor(kind);
-#endif
     }
-
-    static void* catchRoutineFor(HandlerInfo* handler, Instruction* catchPCForInterpreter)
-    {
-#if ENABLE(JIT)
-        UNUSED_PARAM(catchPCForInterpreter);
-        return handler->nativeCode.executableAddress();
-#else
-        UNUSED_PARAM(handler);
-        return LLInt::CLoop::catchRoutineFor(catchPCForInterpreter);
-#endif
-    }
-    
-#endif // ENABLE(JIT || ENABLE(LLINT_C_LOOP)
 
 protected:
     ExecutableBase* m_prev;
@@ -263,30 +242,16 @@ class NativeExecutable : public ExecutableBase {
 public:
     typedef ExecutableBase Base;
 
-#if ENABLE(JIT)
     static NativeExecutable* create(VM& vm, MacroAssemblerCodeRef callThunk, NativeFunction function, MacroAssemblerCodeRef constructThunk, NativeFunction constructor, Intrinsic intrinsic)
     {
         NativeExecutable* executable;
-        if (!callThunk) {
-            executable = new (NotNull, allocateCell<NativeExecutable>(vm.heap)) NativeExecutable(vm, function, constructor);
+        executable = new (NotNull, allocateCell<NativeExecutable>(vm.heap)) NativeExecutable(vm, function, constructor);
+        if (!callThunk)
             executable->finishCreation(vm, 0, 0, intrinsic);
-        } else {
-            executable = new (NotNull, allocateCell<NativeExecutable>(vm.heap)) NativeExecutable(vm, function, constructor);
+        else
             executable->finishCreation(vm, JITCode::hostFunction(callThunk), JITCode::hostFunction(constructThunk), intrinsic);
-        }
         return executable;
     }
-#endif
-
-#if ENABLE(LLINT_C_LOOP)
-    static NativeExecutable* create(VM& vm, NativeFunction function, NativeFunction constructor)
-    {
-        ASSERT(!vm.canUseJIT());
-        NativeExecutable* executable = new (NotNull, allocateCell<NativeExecutable>(vm.heap)) NativeExecutable(vm, function, constructor);
-        executable->finishCreation(vm);
-        return executable;
-    }
-#endif
 
 #if ENABLE(JIT)
     static void destroy(JSCell*);
@@ -320,7 +285,6 @@ public:
     Intrinsic intrinsic() const;
 
 protected:
-#if ENABLE(JIT)
     void finishCreation(VM& vm, PassRefPtr<JITCode> callThunk, PassRefPtr<JITCode> constructThunk, Intrinsic intrinsic)
     {
         Base::finishCreation(vm);
@@ -330,7 +294,6 @@ protected:
         m_jitCodeForConstruct = constructThunk;
         m_intrinsic = intrinsic;
     }
-#endif
 
 private:
     NativeExecutable(VM& vm, NativeFunction function, NativeFunction constructor)
@@ -355,6 +318,8 @@ public:
         , m_source(source)
         , m_features(isInStrictContext ? StrictModeFeature : 0)
         , m_neverInline(false)
+        , m_startColumn(UINT_MAX)
+        , m_endColumn(UINT_MAX)
     {
     }
 
@@ -363,6 +328,8 @@ public:
         , m_source(source)
         , m_features(isInStrictContext ? StrictModeFeature : 0)
         , m_neverInline(false)
+        , m_startColumn(UINT_MAX)
+        , m_endColumn(UINT_MAX)
     {
     }
 
@@ -378,11 +345,13 @@ public:
     int lineNo() const { return m_firstLine; }
     int lastLine() const { return m_lastLine; }
     unsigned startColumn() const { return m_startColumn; }
+    unsigned endColumn() const { return m_endColumn; }
 
     bool usesEval() const { return m_features & EvalFeature; }
     bool usesArguments() const { return m_features & ArgumentsFeature; }
     bool needsActivation() const { return m_hasCapturedVariables || m_features & (EvalFeature | WithFeature | CatchFeature); }
     bool isStrictMode() const { return m_features & StrictModeFeature; }
+    ECMAMode ecmaMode() const { return isStrictMode() ? StrictMode : NotStrictMode; }
         
     void setNeverInline(bool value) { m_neverInline = value; }
     bool neverInline() const { return m_neverInline; }
@@ -394,13 +363,16 @@ public:
         
     DECLARE_INFO;
 
-    void recordParse(CodeFeatures features, bool hasCapturedVariables, int firstLine, int lastLine, unsigned startColumn)
+    void recordParse(CodeFeatures features, bool hasCapturedVariables, int firstLine, int lastLine, unsigned startColumn, unsigned endColumn)
     {
         m_features = features;
         m_hasCapturedVariables = hasCapturedVariables;
         m_firstLine = firstLine;
         m_lastLine = lastLine;
+        ASSERT(startColumn != UINT_MAX);
         m_startColumn = startColumn;
+        ASSERT(endColumn != UINT_MAX);
+        m_endColumn = endColumn;
     }
 
     void installCode(CodeBlock*);
@@ -436,6 +408,7 @@ protected:
     int m_firstLine;
     int m_lastLine;
     unsigned m_startColumn;
+    unsigned m_endColumn;
 };
 
 class EvalExecutable : public ScriptExecutable {
@@ -452,12 +425,11 @@ public:
 
     static EvalExecutable* create(ExecState*, const SourceCode&, bool isInStrictContext);
 
-#if ENABLE(JIT)
     PassRefPtr<JITCode> generatedJITCode()
     {
         return generatedJITCodeForCall();
     }
-#endif
+
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue proto)
     {
         return Structure::create(vm, globalObject, proto, TypeInfo(EvalExecutableType, StructureFlags), info());
@@ -509,12 +481,10 @@ public:
 
     JSObject* checkSyntax(ExecState*);
 
-#if ENABLE(JIT)
     PassRefPtr<JITCode> generatedJITCode()
     {
         return generatedJITCodeForCall();
     }
-#endif
         
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue proto)
     {
@@ -548,9 +518,9 @@ class FunctionExecutable : public ScriptExecutable {
 public:
     typedef ScriptExecutable Base;
 
-    static FunctionExecutable* create(VM& vm, const SourceCode& source, UnlinkedFunctionExecutable* unlinkedExecutable, unsigned firstLine, unsigned lastLine, unsigned startColumn)
+    static FunctionExecutable* create(VM& vm, const SourceCode& source, UnlinkedFunctionExecutable* unlinkedExecutable, unsigned firstLine, unsigned lastLine, unsigned startColumn, unsigned endColumn, bool bodyIncludesBraces = true)
     {
-        FunctionExecutable* executable = new (NotNull, allocateCell<FunctionExecutable>(vm.heap)) FunctionExecutable(vm, source, unlinkedExecutable, firstLine, lastLine, startColumn);
+        FunctionExecutable* executable = new (NotNull, allocateCell<FunctionExecutable>(vm.heap)) FunctionExecutable(vm, source, unlinkedExecutable, firstLine, lastLine, startColumn, endColumn, bodyIncludesBraces);
         executable->finishCreation(vm);
         return executable;
     }
@@ -621,7 +591,7 @@ public:
     JSString* nameValue() const { return m_unlinkedExecutable->nameValue(); }
     size_t parameterCount() const { return m_unlinkedExecutable->parameterCount(); } // Excluding 'this'!
     String paramString() const;
-    SharedSymbolTable* symbolTable(CodeSpecializationKind kind) const { return m_unlinkedExecutable->symbolTable(kind); }
+    SymbolTable* symbolTable(CodeSpecializationKind);
 
     void clearCodeIfNotCompiling();
     void clearUnlinkedCodeForRecompilationIfNotCompiling();
@@ -637,8 +607,10 @@ public:
 
     void clearCode();
 
+    bool bodyIncludesBraces() const { return m_bodyIncludesBraces; }
+
 private:
-    FunctionExecutable(VM&, const SourceCode&, UnlinkedFunctionExecutable*, unsigned firstLine, unsigned lastLine, unsigned startColumn);
+    FunctionExecutable(VM&, const SourceCode&, UnlinkedFunctionExecutable*, unsigned firstLine, unsigned lastLine, unsigned startColumn, unsigned endColumn, bool bodyIncludesBraces);
 
     bool isCompiling()
     {
@@ -657,6 +629,7 @@ private:
     WriteBarrier<UnlinkedFunctionExecutable> m_unlinkedExecutable;
     RefPtr<FunctionCodeBlock> m_codeBlockForCall;
     RefPtr<FunctionCodeBlock> m_codeBlockForConstruct;
+    bool m_bodyIncludesBraces;
 };
 
 inline bool isHostFunction(JSValue value, NativeFunction nativeFunction)

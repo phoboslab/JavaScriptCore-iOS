@@ -54,12 +54,12 @@
     return m_context;
 }
 
-- (id)init
+- (instancetype)init
 {
     return [self initWithVirtualMachine:[[[JSVirtualMachine alloc] init] autorelease]];
 }
 
-- (id)initWithVirtualMachine:(JSVirtualMachine *)virtualMachine
+- (instancetype)initWithVirtualMachine:(JSVirtualMachine *)virtualMachine
 {
     self = [super init];
     if (!self)
@@ -166,6 +166,22 @@
     return m_virtualMachine;
 }
 
+- (NSString *)name
+{
+    JSStringRef name = JSGlobalContextCopyName(m_context);
+    if (!name)
+        return nil;
+
+    return [(NSString *)JSStringCopyCFString(kCFAllocatorDefault, name) autorelease];
+}
+
+- (void)setName:(NSString *)name
+{
+    JSStringRef nameJS = JSStringCreateWithCFString((CFStringRef)[name copy]);
+    JSGlobalContextSetName(m_context, nameJS);
+    JSStringRelease(nameJS);
+}
+
 @end
 
 @implementation JSContext(SubscriptSupport)
@@ -182,9 +198,9 @@
 
 @end
 
-@implementation JSContext(Internal)
+@implementation JSContext (Internal)
 
-- (id)initWithGlobalContextRef:(JSGlobalContextRef)context
+- (instancetype)initWithGlobalContextRef:(JSGlobalContextRef)context
 {
     self = [super init];
     if (!self)

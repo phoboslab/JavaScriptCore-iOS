@@ -47,6 +47,7 @@ public:
     using MacroAssemblerX86Common::sub32;
     using MacroAssemblerX86Common::or32;
     using MacroAssemblerX86Common::load32;
+    using MacroAssemblerX86Common::load8;
     using MacroAssemblerX86Common::store32;
     using MacroAssemblerX86Common::store8;
     using MacroAssemblerX86Common::branch32;
@@ -56,6 +57,7 @@ public:
     using MacroAssemblerX86Common::loadDouble;
     using MacroAssemblerX86Common::storeDouble;
     using MacroAssemblerX86Common::convertInt32ToDouble;
+    using MacroAssemblerX86Common::branch8;
     using MacroAssemblerX86Common::branchTest8;
 
     void add32(TrustedImm32 imm, RegisterID src, RegisterID dest)
@@ -103,6 +105,11 @@ public:
     {
         m_assembler.movl_mr(address, dest);
     }
+    
+    void load8(const void* address, RegisterID dest)
+    {
+        m_assembler.movzbl_mr(address, dest);
+    }
 
     ConvertibleLoadLabel convertibleLoadPtr(Address address, RegisterID dest)
     {
@@ -136,6 +143,11 @@ public:
     void store32(RegisterID src, void* address)
     {
         m_assembler.movl_rm(src, address);
+    }
+    
+    void store8(RegisterID src, void* address)
+    {
+        m_assembler.movb_rm(src, address);
     }
 
     void store8(TrustedImm32 imm, void* address)
@@ -213,6 +225,12 @@ public:
         return DataLabelPtr(this);
     }
     
+    Jump branch8(RelationalCondition cond, AbsoluteAddress left, TrustedImm32 right)
+    {
+        m_assembler.cmpb_im(right.m_value, left.m_ptr);
+        return Jump(m_assembler.jCC(x86Condition(cond)));
+    }
+
     Jump branchTest8(ResultCondition cond, AbsoluteAddress address, TrustedImm32 mask = TrustedImm32(-1))
     {
         ASSERT(mask.m_value >= -128 && mask.m_value <= 255);

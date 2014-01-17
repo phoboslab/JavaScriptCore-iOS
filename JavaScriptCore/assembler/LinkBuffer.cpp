@@ -29,6 +29,7 @@
 #if ENABLE(ASSEMBLER)
 
 #include "Options.h"
+#include "VM.h"
 #include <wtf/CompilationThread.h>
 
 namespace JSC {
@@ -49,7 +50,8 @@ LinkBuffer::CodeRef LinkBuffer::finalizeCodeWithDisassembly(const char* format, 
     ASSERT(Options::showDisassembly() || Options::showDFGDisassembly());
     
     CodeRef result = finalizeCodeWithoutDisassembly();
-    
+
+#if ENABLE(DISASSEMBLER)
     dataLogF("Generated JIT code for ");
     va_list argList;
     va_start(argList, format);
@@ -59,6 +61,9 @@ LinkBuffer::CodeRef LinkBuffer::finalizeCodeWithDisassembly(const char* format, 
     
     dataLogF("    Code at [%p, %p):\n", result.code().executableAddress(), static_cast<char*>(result.code().executableAddress()) + result.size());
     disassemble(result.code(), m_size, "    ", WTF::dataFile());
+#else
+    UNUSED_PARAM(format);
+#endif // ENABLE(DISASSEMBLER)
     
     return result;
 }
@@ -151,6 +156,9 @@ void LinkBuffer::linkCode(void* ownerUID, JITCompilationEffort effort)
     m_assembler->m_assembler.prepareExecutableCopy(m_code);
 #endif
     memcpy(m_code, buffer.data(), buffer.codeSize());
+#if CPU(MIPS)
+    m_assembler->m_assembler.relocateJumps(buffer.data(), m_code);
+#endif
 #elif CPU(ARM_THUMB2)
     copyCompactAndLinkCode<uint16_t>(ownerUID, effort);
 #elif CPU(ARM64)

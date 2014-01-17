@@ -108,11 +108,6 @@ void JITCompiler::compileBody()
     // We generate the speculative code path, followed by OSR exit code to return
     // to the old JIT code if speculations fail.
 
-#if DFG_ENABLE(JIT_BREAK_ON_EVERY_FUNCTION)
-    // Handy debug tool!
-    breakpoint();
-#endif
-    
     bool compiledSpeculative = m_speculative->compile();
     ASSERT_UNUSED(compiledSpeculative, compiledSpeculative);
 }
@@ -125,10 +120,8 @@ void JITCompiler::compileExceptionHandlers()
     Jump doLookup;
 
     if (!m_exceptionChecksWithCallFrameRollback.empty()) {
-        // Remove hostCallFrameFlag from caller.
         m_exceptionChecksWithCallFrameRollback.link(this);
         emitGetCallerFrameFromCallFrameHeaderPtr(GPRInfo::argumentGPR0);
-        andPtr(TrustedImm32(safeCast<int32_t>(~CallFrame::hostCallFrameFlag())), GPRInfo::argumentGPR0);
         doLookup = jump();
     }
 
@@ -152,10 +145,9 @@ void JITCompiler::compileExceptionHandlers()
 void JITCompiler::link(LinkBuffer& linkBuffer)
 {
     // Link the code, populate data in CodeBlock data structures.
-#if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLogF("JIT code for %p start at [%p, %p). Size = %zu.\n", m_codeBlock, linkBuffer.debugAddress(), static_cast<char*>(linkBuffer.debugAddress()) + linkBuffer.debugSize(), linkBuffer.debugSize());
-#endif
-    
+    m_jitCode->common.frameRegisterCount = m_graph.frameRegisterCount();
+    m_jitCode->common.requiredRegisterCountForExit = m_graph.requiredRegisterCountForExit();
+
     if (!m_graph.m_inlineCallFrames->isEmpty())
         m_jitCode->common.inlineCallFrames = m_graph.m_inlineCallFrames.release();
     
@@ -229,9 +221,9 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
 
     for (unsigned i = 0; i < m_ins.size(); ++i) {
         StructureStubInfo& info = *m_ins[i].m_stubInfo;
-        CodeLocationLabel jump = linkBuffer.locationOf(m_ins[i].m_jump);
         CodeLocationCall callReturnLocation = linkBuffer.locationOf(m_ins[i].m_slowPathGenerator->call());
-        info.hotPathBegin = jump;
+        info.patch.deltaCallToDone = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_ins[i].m_done));
+        info.patch.deltaCallToJump = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_ins[i].m_jump));
         info.callReturnLocation = callReturnLocation;
         info.patch.deltaCallToSlowCase = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_ins[i].m_slowPathGenerator->label()));
     }
@@ -333,9 +325,8 @@ void JITCompiler::compileFunction()
     // so enter after this.
     Label fromArityCheck(this);
     // Plant a check that sufficient space is available in the JSStack.
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=56291
-    addPtr(TrustedImm32(virtualRegisterForLocal(m_codeBlock->m_numCalleeRegisters).offset() * sizeof(Register)), GPRInfo::callFrameRegister, GPRInfo::regT1);
-    Jump stackCheck = branchPtr(Above, AbsoluteAddress(m_vm->interpreter->stack().addressOfEnd()), GPRInfo::regT1);
+    addPtr(TrustedImm32(virtualRegisterForLocal(m_graph.requiredRegisterCountForExecutionAndExit()).offset() * sizeof(Register)), GPRInfo::callFrameRegister, GPRInfo::regT1);
+    Jump stackCheck = branchPtr(Above, AbsoluteAddress(m_vm->addressOfJSStackLimit()), GPRInfo::regT1);
     // Return here after stack check.
     Label fromStackCheck = label();
 
@@ -404,9 +395,11 @@ void JITCompiler::linkFunction()
     linkBuffer->link(m_callArityFixup, FunctionPtr((m_vm->getCTIStub(arityFixup)).code().executableAddress()));
     
     disassemble(*linkBuffer);
-    
+
+    MacroAssemblerCodePtr withArityCheck = linkBuffer->locationOf(m_arityCheck);
+
     m_graph.m_plan.finalizer = adoptPtr(new JITFinalizer(
-        m_graph.m_plan, m_jitCode.release(), linkBuffer.release(), m_arityCheck));
+        m_graph.m_plan, m_jitCode.release(), linkBuffer.release(), withArityCheck));
 }
 
 void JITCompiler::disassemble(LinkBuffer& linkBuffer)

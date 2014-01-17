@@ -241,11 +241,6 @@ void callOnMainThread(std::function<void ()> function)
     callOnMainThread(callFunctionObject, std::make_unique<std::function<void ()>>(std::move(function)).release());
 }
 
-void callOnMainThread(const Function<void ()>& function)
-{
-    callOnMainThread(std::function<void ()>(function));
-}
-
 void setMainThreadCallbacksPaused(bool paused)
 {
     ASSERT(isMainThread());
@@ -263,6 +258,13 @@ void setMainThreadCallbacksPaused(bool paused)
 bool isMainThread()
 {
     return currentThread() == mainThreadIdentifier;
+}
+#endif
+
+#if !USE(WEB_THREAD)
+bool canAccessThreadLocalDataForThread(ThreadIdentifier threadId)
+{
+    return threadId == currentThread();
 }
 #endif
 

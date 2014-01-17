@@ -532,7 +532,8 @@ public:
     Vector()
     {
     }
-    
+
+    // Unlike in std::vector, this constructor does not initialize POD types.
     explicit Vector(size_t size)
         : Base(size, size)
     {
@@ -546,6 +547,15 @@ public:
         if (begin())
             TypeOperations::uninitializedFill(begin(), end(), val);
     }
+
+#if COMPILER_SUPPORTS(CXX_GENERALIZED_INITIALIZERS)
+    Vector(std::initializer_list<T> initializerList)
+    {
+        reserveInitialCapacity(initializerList.size());
+        for (const auto& element : initializerList)
+            uncheckedAppend(element);
+    }
+#endif
 
     ~Vector()
     {

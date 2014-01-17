@@ -5,7 +5,6 @@ set(WTF_HEADERS
     Atomics.h
     Bag.h
     BagToHashMap.h
-    BitArray.h
     BitVector.h
     Bitmap.h
     BoundsCheckedPointer.h
@@ -29,7 +28,6 @@ set(WTF_HEADERS
     FastMalloc.h
     FeatureDefines.h
     FilePrintStream.h
-    FixedArray.h
     FlipBytes.h
     Forward.h
     FunctionDispatcher.h
@@ -44,6 +42,8 @@ set(WTF_HEADERS
     HashTable.h
     HashTraits.h
     HexNumber.h
+    IteratorAdaptors.h
+    IteratorRange.h
     ListHashSet.h
     Locker.h
     MD5.h
@@ -86,6 +86,7 @@ set(WTF_HEADERS
     RefPtr.h
     RefPtrHashMap.h
     RetainPtr.h
+    RunLoop.h
     SHA1.h
     SaturatedArithmetic.h
     SegmentedVector.h
@@ -100,7 +101,6 @@ set(WTF_HEADERS
     TCSpinLock.h
     TCSystemAlloc.h
     ThreadIdentifierDataPthreads.h
-    ThreadRestrictionVerifier.h
     ThreadSafeRefCounted.h
     ThreadSpecific.h
     Threading.h
@@ -133,6 +133,7 @@ set(WTF_HEADERS
     text/StringBuffer.h
     text/StringHash.h
     text/StringImpl.h
+    text/StringView.h
     text/WTFString.h
 
     threads/BinarySemaphore.h
@@ -155,6 +156,7 @@ set(WTF_SOURCES
     DateMath.cpp
     DecimalNumber.cpp
     DynamicAnnotations.cpp
+    FastBitVector.cpp
     FastMalloc.cpp
     FilePrintStream.cpp
     FunctionDispatcher.cpp
@@ -173,6 +175,7 @@ set(WTF_SOURCES
     RAMSize.cpp
     RandomNumber.cpp
     RefCountedLeakCounter.cpp
+    RunLoop.cpp
     SHA1.cpp
     SixCharacterHash.cpp
     StackBounds.cpp

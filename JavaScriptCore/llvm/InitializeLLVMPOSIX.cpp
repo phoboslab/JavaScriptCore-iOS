@@ -33,7 +33,7 @@
 
 namespace JSC {
 
-typedef LLVMAPI* (*InitializerFunction)();
+typedef LLVMAPI* (*InitializerFunction)(void (*)(const char*, ...));
 
 void initializeLLVMPOSIX(const char* libraryName)
 {
@@ -44,7 +44,7 @@ void initializeLLVMPOSIX(const char* libraryName)
         dlsym(library, "initializeAndGetJSCLLVMAPI"));
     ASSERT_WITH_MESSAGE(initializer, "%s", dlerror());
     
-    llvm = initializer();
+    llvm = initializer(WTFLogAlwaysAndCrash);
 }
 
 } // namespace JSC

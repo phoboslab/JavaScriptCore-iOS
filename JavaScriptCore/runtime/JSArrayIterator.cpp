@@ -73,7 +73,6 @@ void JSArrayIterator::visitChildren(JSCell* cell, SlotVisitor& visitor)
 
 static EncodedJSValue createIteratorResult(CallFrame* callFrame, ArrayIterationKind kind, size_t index, JSValue result, bool done)
 {
-    callFrame->setArgument(callFrame->argumentCount() - 1, jsBoolean(done));
     if (done)
         return JSValue::encode(callFrame->vm().iterationTerminator.get());
     
@@ -101,8 +100,10 @@ static EncodedJSValue createIteratorResult(CallFrame* callFrame, ArrayIterationK
 static inline EncodedJSValue JSC_HOST_CALL arrayIteratorNext(CallFrame* callFrame)
 {
     JSArrayIterator* iterator = jsDynamicCast<JSArrayIterator*>(callFrame->thisValue());
-    if (!iterator)
-        throwTypeError(callFrame, ASCIILiteral("Cannot call ArrayIterator.next() on a non-ArrayIterator object"));
+    if (!iterator) {
+        ASSERT_NOT_REACHED();
+        return JSValue::encode(throwTypeError(callFrame, ASCIILiteral("Cannot call ArrayIterator.next() on a non-ArrayIterator object")));
+    }
     JSObject* iteratedObject = iterator->iteratedObject();
     size_t index = iterator->nextIndex();
     ArrayIterationKind kind = iterator->iterationKind();

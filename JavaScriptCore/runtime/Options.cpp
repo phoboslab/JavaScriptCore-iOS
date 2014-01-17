@@ -29,7 +29,6 @@
 #include "HeapStatistics.h"
 #include <algorithm>
 #include <limits>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wtf/NumberOfCores.h>
@@ -212,7 +211,7 @@ void Options::initialize()
 #if !ENABLE(YARR_JIT)
     useRegExpJIT() = false;
 #endif
-    
+
     // Do range checks where needed and make corrections to the options:
     ASSERT(thresholdForOptimizeAfterLongWarmUp() >= thresholdForOptimizeAfterWarmUp());
     ASSERT(thresholdForOptimizeAfterWarmUp() >= thresholdForOptimizeSoon());

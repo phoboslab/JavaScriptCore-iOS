@@ -47,6 +47,7 @@ public:
     using MacroAssemblerX86Common::branchAdd32;
     using MacroAssemblerX86Common::or32;
     using MacroAssemblerX86Common::sub32;
+    using MacroAssemblerX86Common::load8;
     using MacroAssemblerX86Common::load32;
     using MacroAssemblerX86Common::store32;
     using MacroAssemblerX86Common::store8;
@@ -91,6 +92,12 @@ public:
         move(TrustedImmPtr(address.m_ptr), scratchRegister);
         sub32(imm, Address(scratchRegister));
     }
+    
+    void load8(const void* address, RegisterID dest)
+    {
+        move(TrustedImmPtr(address), dest);
+        load8(dest, dest);
+    }
 
     void load32(const void* address, RegisterID dest)
     {
@@ -124,6 +131,12 @@ public:
     {
         move(TrustedImmPtr(address), scratchRegister);
         store8(imm, Address(scratchRegister));
+    }
+
+    void store8(RegisterID reg, void* address)
+    {
+        move(TrustedImmPtr(address), scratchRegister);
+        store8(reg, Address(scratchRegister));
     }
 
     Call call()
@@ -213,6 +226,11 @@ public:
     {
         move(TrustedImmPtr(address.m_ptr), scratchRegister);
         add64(imm, Address(scratchRegister));
+    }
+
+    void addPtrNoFlags(TrustedImm32 imm, RegisterID srcDest)
+    {
+        m_assembler.leaq_mr(imm.m_value, srcDest, srcDest);
     }
 
     void and64(RegisterID src, RegisterID dest)
@@ -468,6 +486,23 @@ public:
         return branch64(cond, left, scratchRegister);
     }
 
+    Jump branch64(RelationalCondition cond, BaseIndex address, RegisterID right)
+    {
+        m_assembler.cmpq_rm(right, address.offset, address.base, address.index, address.scale);
+        return Jump(m_assembler.jCC(x86Condition(cond)));
+    }
+
+    Jump branchPtr(RelationalCondition cond, BaseIndex left, RegisterID right)
+    {
+        return branch64(cond, left, right);
+    }
+
+    Jump branchPtr(RelationalCondition cond, BaseIndex left, TrustedImmPtr right)
+    {
+        move(right, scratchRegister);
+        return branchPtr(cond, left, scratchRegister);
+    }
+
     Jump branchTest64(ResultCondition cond, RegisterID reg, RegisterID mask)
     {
         m_assembler.testq_rr(reg, mask);
@@ -611,6 +646,13 @@ public:
         return label;
     }
     
+    using MacroAssemblerX86Common::branch8;
+    Jump branch8(RelationalCondition cond, AbsoluteAddress left, TrustedImm32 right)
+    {
+        MacroAssemblerX86Common::move(TrustedImmPtr(left.m_ptr), scratchRegister);
+        return MacroAssemblerX86Common::branch8(cond, Address(scratchRegister), right);
+    }
+    
     using MacroAssemblerX86Common::branchTest8;
     Jump branchTest8(ResultCondition cond, ExtendedAddress address, TrustedImm32 mask = TrustedImm32(-1))
     {
@@ -641,6 +683,7 @@ public:
         return FunctionPtr(X86Assembler::readPointer(call.dataLabelPtrAtOffset(-REPTACH_OFFSET_CALL_R11).dataLocation()));
     }
 
+    static bool haveScratchRegisterForBlinding() { return true; }
     static RegisterID scratchRegisterForBlinding() { return scratchRegister; }
 
     static bool canJumpReplacePatchableBranchPtrWithPatch() { return true; }

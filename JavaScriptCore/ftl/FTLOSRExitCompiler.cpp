@@ -30,11 +30,11 @@
 
 #include "DFGOSRExitCompilerCommon.h"
 #include "DFGOSRExitPreparation.h"
-#include "FTLCArgumentGetter.h"
 #include "FTLExitArgumentForOperand.h"
 #include "FTLJITCode.h"
 #include "FTLOSRExit.h"
 #include "FTLSaveRestore.h"
+#include "OperandsInlines.h"
 #include "Operations.h"
 #include "RepatchBuffer.h"
 
@@ -42,11 +42,7 @@ namespace JSC { namespace FTL {
 
 using namespace DFG;
 
-// This implements two flavors of OSR exit: one that involves having LLVM intrinsics to help
-// OSR exit, and one that doesn't. The one that doesn't will get killed off, so we don't attempt
-// to share code between the two.
-
-static void compileStubWithOSRExitStackmap(
+static void compileStub(
     unsigned exitID, JITCode* jitCode, OSRExit& exit, VM* vm, CodeBlock* codeBlock)
 {
     StackMaps::Record* record;
@@ -59,6 +55,9 @@ static void compileStubWithOSRExitStackmap(
     
     RELEASE_ASSERT(record->patchpointID == exit.m_stackmapID);
     
+    // This code requires framePointerRegister is the same as callFrameRegister
+    static_assert(MacroAssembler::framePointerRegister == GPRInfo::callFrameRegister, "MacroAssembler::framePointerRegister and GPRInfo::callFrameRegister must be the same");
+
     CCallHelpers jit(vm, codeBlock);
     
     // We need scratch space to save all registers and to build up the JSStack.
@@ -80,7 +79,8 @@ static void compileStubWithOSRExitStackmap(
     // call frame.
     
     // Get the call frame and tag thingies.
-    record->locations[0].restoreInto(jit, jitCode->stackmaps, registerScratch, GPRInfo::callFrameRegister);
+    // Restore the exiting function's callFrame value into a regT4
+    record->locations[0].restoreInto(jit, jitCode->stackmaps, registerScratch, GPRInfo::regT4);
     jit.move(MacroAssembler::TrustedImm64(TagTypeNumber), GPRInfo::tagTypeNumberRegister);
     jit.move(MacroAssembler::TrustedImm64(TagMask), GPRInfo::tagMaskRegister);
     
@@ -130,7 +130,7 @@ static void compileStubWithOSRExitStackmap(
         case ExitValueInJSStackAsInt32:
         case ExitValueInJSStackAsInt52:
         case ExitValueInJSStackAsDouble:
-            jit.load64(AssemblyHelpers::addressFor(value.virtualRegister()), GPRInfo::regT0);
+            jit.load64(AssemblyHelpers::addressFor(value.virtualRegister(), GPRInfo::regT4), GPRInfo::regT0);
             break;
             
         default:
@@ -150,195 +150,32 @@ static void compileStubWithOSRExitStackmap(
         jit.load64(scratch + index, GPRInfo::regT0);
         reboxAccordingToFormat(
             value.valueFormat(), jit, GPRInfo::regT0, GPRInfo::regT1, GPRInfo::regT2);
-        jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
+        jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(static_cast<VirtualRegister>(operand), GPRInfo::regT4));
     }
+    
+    // Restore the old stack pointer and then put regT4 into callFrameRegister. The idea is
+    // that the FTL call frame is pushed onto the JS call frame and we can recover the old
+    // value of the stack pointer by popping the FTL call frame. We already know what the
+    // frame pointer in the JS call frame was because it would have been passed as an argument
+    // to the FTL call frame.
+    jit.move(MacroAssembler::framePointerRegister, MacroAssembler::stackPointerRegister);
+    jit.pop(GPRInfo::nonArgGPR0);
+    jit.pop(GPRInfo::nonArgGPR0);
+    jit.move(GPRInfo::regT4, GPRInfo::callFrameRegister);
     
     handleExitCounts(jit, exit);
     reifyInlinedCallFrames(jit, exit);
-    
-    jit.move(MacroAssembler::framePointerRegister, MacroAssembler::stackPointerRegister);
-    jit.pop(MacroAssembler::framePointerRegister);
-    jit.pop(GPRInfo::nonArgGPR0); // ignore the result.
-    
-    if (exit.m_lastSetOperand.isValid()) {
-        jit.load64(
-            AssemblyHelpers::addressFor(exit.m_lastSetOperand), GPRInfo::cachedResultRegister);
-    }
-    
     adjustAndJumpToTarget(jit, exit);
     
     LinkBuffer patchBuffer(*vm, &jit, codeBlock);
     exit.m_code = FINALIZE_CODE_IF(
         shouldShowDisassembly(),
         patchBuffer,
-        ("FTL OSR exit #%u (bc#%u, %s) from %s, with operands = %s, and record = %s",
-            exitID, exit.m_codeOrigin.bytecodeIndex,
+        ("FTL OSR exit #%u (%s, %s) from %s, with operands = %s, and record = %s",
+            exitID, toCString(exit.m_codeOrigin).data(),
             exitKindToString(exit.m_kind), toCString(*codeBlock).data(),
             toCString(ignoringContext<DumpContext>(exit.m_values)).data(),
             toCString(*record).data()));
-}
-
-static void compileStubWithoutOSRExitStackmap(
-    unsigned exitID, OSRExit& exit, VM* vm, CodeBlock* codeBlock)
-{
-    CCallHelpers jit(vm, codeBlock);
-    
-    // Make ourselves look like a real C function.
-    jit.push(MacroAssembler::framePointerRegister);
-    jit.move(MacroAssembler::stackPointerRegister, MacroAssembler::framePointerRegister);
-    
-    // This is actually fairly easy, even though it is horribly gross. We know that
-    // LLVM would have passes us all of the state via arguments. We know how to get
-    // the arguments. And, we know how to pop stack back to the JIT stack frame, sort
-    // of: we know that it's two frames beneath us. This is terrible and I feel
-    // ashamed of it, but it will work for now.
-    
-    CArgumentGetter arguments(jit, 2);
-    
-    // First recover our call frame and tag thingies.
-    arguments.loadNextPtr(GPRInfo::callFrameRegister);
-    jit.move(MacroAssembler::TrustedImm64(TagTypeNumber), GPRInfo::tagTypeNumberRegister);
-    jit.move(MacroAssembler::TrustedImm64(TagMask), GPRInfo::tagMaskRegister);
-    
-    // Do some value profiling.
-    if (exit.m_profileValueFormat != InvalidValueFormat) {
-        arguments.loadNextAndBox(exit.m_profileValueFormat, GPRInfo::nonArgGPR0);
-        
-        if (exit.m_kind == BadCache || exit.m_kind == BadIndexingType) {
-            CodeOrigin codeOrigin = exit.m_codeOriginForExitProfile;
-            if (ArrayProfile* arrayProfile = jit.baselineCodeBlockFor(codeOrigin)->getArrayProfile(codeOrigin.bytecodeIndex)) {
-                jit.loadPtr(MacroAssembler::Address(GPRInfo::nonArgGPR0, JSCell::structureOffset()), GPRInfo::nonArgGPR1);
-                jit.storePtr(GPRInfo::nonArgGPR1, arrayProfile->addressOfLastSeenStructure());
-                jit.load8(MacroAssembler::Address(GPRInfo::nonArgGPR1, Structure::indexingTypeOffset()), GPRInfo::nonArgGPR1);
-                jit.move(MacroAssembler::TrustedImm32(1), GPRInfo::nonArgGPR2);
-                jit.lshift32(GPRInfo::nonArgGPR1, GPRInfo::nonArgGPR2);
-                jit.or32(GPRInfo::nonArgGPR2, MacroAssembler::AbsoluteAddress(arrayProfile->addressOfArrayModes()));
-            }
-        }
-        
-        if (!!exit.m_valueProfile)
-            jit.store64(GPRInfo::nonArgGPR0, exit.m_valueProfile.getSpecFailBucket(0));
-    }
-    
-    // Use a scratch buffer to transfer all values.
-    ScratchBuffer* scratchBuffer = vm->scratchBufferForSize(sizeof(EncodedJSValue) * exit.m_values.size());
-    EncodedJSValue* scratch = scratchBuffer ? static_cast<EncodedJSValue*>(scratchBuffer->dataBuffer()) : 0;
-    
-    // Start by dumping all argument exit values to the stack.
-    
-    Vector<ExitArgumentForOperand, 16> sortedArguments;
-    for (unsigned i = exit.m_values.size(); i--;) {
-        ExitValue value = exit.m_values[i];
-        int operand = exit.m_values.operandForIndex(i);
-        
-        if (!value.isArgument())
-            continue;
-        
-        sortedArguments.append(ExitArgumentForOperand(value.exitArgument(), VirtualRegister(operand)));
-    }
-    std::sort(sortedArguments.begin(), sortedArguments.end(), lesserArgumentIndex);
-    
-    for (unsigned i = 0; i < sortedArguments.size(); ++i) {
-        ExitArgumentForOperand argument = sortedArguments[i];
-        
-        arguments.loadNextAndBox(argument.exitArgument().format(), GPRInfo::nonArgGPR0);
-        jit.store64(
-            GPRInfo::nonArgGPR0, scratch + exit.m_values.indexForOperand(argument.operand()));
-    }
-    
-    // All temp registers are free at this point.
-    
-    // Move anything on the stack into the appropriate place in the scratch buffer.
-    
-    for (unsigned i = exit.m_values.size(); i--;) {
-        ExitValue value = exit.m_values[i];
-        
-        switch (value.kind()) {
-        case ExitValueInJSStack:
-            jit.load64(AssemblyHelpers::addressFor(value.virtualRegister()), GPRInfo::regT0);
-            break;
-        case ExitValueInJSStackAsInt32:
-            jit.load32(
-                AssemblyHelpers::addressFor(value.virtualRegister()).withOffset(
-                    OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.payload)),
-                GPRInfo::regT0);
-            jit.or64(GPRInfo::tagTypeNumberRegister, GPRInfo::regT0);
-            break;
-        case ExitValueInJSStackAsInt52:
-            jit.load64(AssemblyHelpers::addressFor(value.virtualRegister()), GPRInfo::regT0);
-            jit.rshift64(
-                AssemblyHelpers::TrustedImm32(JSValue::int52ShiftAmount), GPRInfo::regT0);
-            jit.boxInt52(GPRInfo::regT0, GPRInfo::regT0, GPRInfo::regT1, FPRInfo::fpRegT0);
-            break;
-        case ExitValueInJSStackAsDouble:
-            jit.loadDouble(AssemblyHelpers::addressFor(value.virtualRegister()), FPRInfo::fpRegT0);
-            jit.boxDouble(FPRInfo::fpRegT0, GPRInfo::regT0);
-            break;
-        case ExitValueDead:
-        case ExitValueConstant:
-        case ExitValueArgument:
-            // Don't do anything for these.
-            continue;
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-            break;
-        }
-        
-        jit.store64(GPRInfo::regT0, scratch + i);
-    }
-    
-    // Move everything from the scratch buffer to the stack; this also reifies constants.
-    
-    for (unsigned i = exit.m_values.size(); i--;) {
-        ExitValue value = exit.m_values[i];
-        int operand = exit.m_values.operandForIndex(i);
-        
-        MacroAssembler::Address address = AssemblyHelpers::addressFor(operand);
-        
-        switch (value.kind()) {
-        case ExitValueDead:
-            jit.store64(MacroAssembler::TrustedImm64(JSValue::encode(jsUndefined())), address);
-            break;
-        case ExitValueConstant:
-            jit.store64(MacroAssembler::TrustedImm64(JSValue::encode(value.constant())), address);
-            break;
-        case ExitValueInJSStack:
-        case ExitValueInJSStackAsInt32:
-        case ExitValueInJSStackAsInt52:
-        case ExitValueInJSStackAsDouble:
-        case ExitValueArgument:
-            jit.load64(scratch + i, GPRInfo::regT0);
-            jit.store64(GPRInfo::regT0, address);
-            break;
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-            break;
-        }
-    }
-    
-    handleExitCounts(jit, exit);
-    reifyInlinedCallFrames(jit, exit);
-    
-    jit.pop(MacroAssembler::framePointerRegister);
-    jit.move(MacroAssembler::framePointerRegister, MacroAssembler::stackPointerRegister);
-    jit.pop(MacroAssembler::framePointerRegister);
-    jit.pop(GPRInfo::nonArgGPR0); // ignore the result.
-    
-    if (exit.m_lastSetOperand.isValid()) {
-        jit.load64(
-            AssemblyHelpers::addressFor(exit.m_lastSetOperand), GPRInfo::cachedResultRegister);
-    }
-    
-    adjustAndJumpToTarget(jit, exit);
-    
-    LinkBuffer patchBuffer(*vm, &jit, codeBlock);
-    exit.m_code = FINALIZE_CODE_IF(
-        shouldShowDisassembly(),
-        patchBuffer,
-        ("FTL OSR exit #%u (bc#%u, %s) from %s, with operands = %s",
-            exitID, exit.m_codeOrigin.bytecodeIndex,
-            exitKindToString(exit.m_kind), toCString(*codeBlock).data(),
-            toCString(ignoringContext<DumpContext>(exit.m_values)).data()));
 }
 
 extern "C" void* compileFTLOSRExit(ExecState* exec, unsigned exitID)
@@ -361,10 +198,7 @@ extern "C" void* compileFTLOSRExit(ExecState* exec, unsigned exitID)
     
     prepareCodeOriginForOSRExit(exec, exit.m_codeOrigin);
     
-    if (Options::ftlUsesStackmaps())
-        compileStubWithOSRExitStackmap(exitID, jitCode, exit, vm, codeBlock);
-    else
-        compileStubWithoutOSRExitStackmap(exitID, exit, vm, codeBlock);
+    compileStub(exitID, jitCode, exit, vm, codeBlock);
     
     RepatchBuffer repatchBuffer(codeBlock);
     repatchBuffer.relink(

@@ -37,6 +37,15 @@
 namespace JSC { namespace DFG {
 
 template<typename ReadFunctor, typename WriteFunctor>
+void clobberizeForAllocation(ReadFunctor& read, WriteFunctor& write)
+{
+    read(GCState);
+    read(BarrierState);
+    write(GCState);
+    write(BarrierState);
+}
+
+template<typename ReadFunctor, typename WriteFunctor>
 void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write)
 {
     // Some notes:
@@ -97,6 +106,8 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
     case ArithMin:
     case ArithMax:
     case ArithSqrt:
+    case ArithSin:
+    case ArithCos:
     case GetScope:
     case SkipScope:
     case CheckFunction:
@@ -114,9 +125,13 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
     case ExtractOSREntryLocal:
     case Int52ToDouble:
     case Int52ToValue:
+    case CheckInBounds:
+    case ConstantStoragePointer:
+    case UInt32ToNumber:
+    case DoubleAsInt32:
+    case Check:
         return;
         
-    case MovHintAndCheck:
     case MovHint:
     case ZombieHint:
     case Upsilon:
@@ -140,28 +155,33 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
     case InvalidationPoint:
         write(SideState);
         return;
-
-    case CreateActivation:
-    case CreateArguments:
-        write(SideState);
-        read(GCState);
-        write(GCState);
-        return;
-
-    // These are forward-exiting nodes that assume that the subsequent instruction
-    // is a MovHint, and they try to roll forward over this MovHint in their
-    // execution. This makes hoisting them impossible without additional magic. We
-    // may add such magic eventually, but just not yet.
-    case UInt32ToNumber:
-    case DoubleAsInt32:
+        
+    case VariableWatchpoint:
+    case TypedArrayWatchpoint:
+        read(Watchpoint_fire);
         write(SideState);
         return;
         
+    case NotifyWrite:
+        write(Watchpoint_fire);
+        write(SideState);
+        return;
+
+    case CreateActivation:
+    case CreateArguments:
+        clobberizeForAllocation(read, write);
+        write(SideState);
+        write(Watchpoint_fire);
+        return;
+        
+    case FunctionReentryWatchpoint:
+        read(Watchpoint_fire);
+        return;
+
     case ToThis:
     case CreateThis:
         read(MiscFields);
-        read(GCState);
-        write(GCState);
+        clobberizeForAllocation(read, write);
         return;
 
     case VarInjectionWatchpoint:
@@ -184,24 +204,10 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
     case In:
     case GetMyArgumentsLengthSafe:
     case GetMyArgumentByValSafe:
+    case ValueAdd:
         read(World);
         write(World);
         return;
-        
-    case ValueAdd:
-        switch (node->binaryUseKind()) {
-        case Int32Use:
-        case NumberUse:
-        case MachineIntUse:
-            return;
-        case UntypedUse:
-            read(World);
-            write(World);
-            return;
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-            return;
-        }
         
     case GetCallee:
         read(AbstractHeap(Variables, JSStack::Callee));
@@ -422,15 +428,13 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
         
     case AllocatePropertyStorage:
         write(JSObject_butterfly);
-        read(GCState);
-        write(GCState);
+        clobberizeForAllocation(read, write);
         return;
         
     case ReallocatePropertyStorage:
         read(JSObject_butterfly);
         write(JSObject_butterfly);
-        read(GCState);
-        write(GCState);
+        clobberizeForAllocation(read, write);
         return;
         
     case GetButterfly:
@@ -443,8 +447,7 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
         read(JSObject_butterfly);
         write(JSCell_structure);
         write(JSObject_butterfly);
-        read(GCState);
-        write(GCState);
+        clobberizeForAllocation(read, write);
         return;
         
     case GetIndexedPropertyStorage:
@@ -514,7 +517,6 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
         return;
         
     case GetGlobalVar:
-    case GlobalVarWatchpoint:
         read(AbstractHeap(Absolute, node->registerPointer()));
         return;
         
@@ -532,15 +534,13 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
     case NewFunctionNoCheck:
     case NewFunction:
     case NewFunctionExpression:
-        read(GCState);
-        write(GCState);
+        clobberizeForAllocation(read, write);
         return;
         
     case NewTypedArray:
+        clobberizeForAllocation(read, write);
         switch (node->child1().useKind()) {
         case Int32Use:
-            read(GCState);
-            write(GCState);
             return;
         case UntypedUse:
             read(World);
@@ -565,26 +565,13 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
         }
         return;
         
+    case CompareEq:
     case CompareLess:
     case CompareLessEq:
     case CompareGreater:
     case CompareGreaterEq:
-        if (graph.isPredictedNumerical(node))
+        if (!node->isBinaryUseKind(UntypedUse))
             return;
-        read(World);
-        write(World);
-        return;
-        
-    case CompareEq:
-        if (graph.isPredictedNumerical(node)
-            || node->isBinaryUseKind(StringUse)
-            || node->isBinaryUseKind(StringIdentUse))
-            return;
-        
-        if ((node->child1().useKind() == ObjectUse || node->child1().useKind() == ObjectOrOtherUse)
-            && (node->child2().useKind() == ObjectUse || node->child2().useKind() == ObjectOrOtherUse))
-            return;
-        
         read(World);
         write(World);
         return;
@@ -629,14 +616,20 @@ void clobberize(Graph& graph, Node* node, ReadFunctor& read, WriteFunctor& write
 
     case ThrowReferenceError:
         write(SideState);
-        read(GCState);
-        write(GCState);
+        clobberizeForAllocation(read, write);
         return;
         
     case CountExecution:
     case CheckWatchdogTimer:
         read(InternalState);
         write(InternalState);
+        return;
+
+    case StoreBarrier:
+    case ConditionalStoreBarrier:
+    case StoreBarrierWithNullCheck:
+        read(BarrierState);
+        write(BarrierState);
         return;
         
     case LastNodeType:

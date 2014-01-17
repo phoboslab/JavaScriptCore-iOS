@@ -34,11 +34,12 @@
 namespace JSC {
 
 class MacroAssemblerX86Common : public AbstractMacroAssembler<X86Assembler> {
-protected:
+public:
 #if CPU(X86_64)
     static const X86Registers::RegisterID scratchRegister = X86Registers::r11;
 #endif
 
+protected:
     static const int DoubleConditionBitInvert = 0x10;
     static const int DoubleConditionBitSpecial = 0x20;
     static const int DoubleConditionBits = DoubleConditionBitInvert | DoubleConditionBitSpecial;
@@ -95,13 +96,9 @@ public:
     static const RegisterID stackPointerRegister = X86Registers::esp;
     static const RegisterID framePointerRegister = X86Registers::ebp;
     
+    static bool canBlind() { return true; }
     static bool shouldBlindForSpecificArch(uint32_t value) { return value >= 0x00ffffff; }
-#if CPU(X86_64)
     static bool shouldBlindForSpecificArch(uint64_t value) { return value >= 0x00ffffff; }
-#if OS(DARWIN) // On 64-bit systems other than DARWIN uint64_t and uintptr_t are the same type so overload is prohibited.
-    static bool shouldBlindForSpecificArch(uintptr_t value) { return value >= 0x00ffffff; }
-#endif
-#endif
 
     // Integer arithmetic operations:
     //
@@ -609,6 +606,15 @@ public:
         return X86Registers::ecx;
     }
 
+    static ALWAYS_INLINE RegisterID getUnusedRegister(Address address)
+    {
+        if (address.base != X86Registers::eax)
+            return X86Registers::eax;
+
+        ASSERT(address.base != X86Registers::edx);
+        return X86Registers::edx;
+    }
+
     void store8(RegisterID src, BaseIndex address)
     {
 #if CPU(X86)
@@ -626,6 +632,25 @@ public:
         }
 #endif
         m_assembler.movb_rm(src, address.offset, address.base, address.index, address.scale);
+    }
+    
+    void store8(RegisterID src, Address address)
+    {
+#if CPU(X86)
+        // On 32-bit x86 we can only store from the first 4 registers;
+        // esp..edi are mapped to the 'h' registers!
+        if (src >= 4) {
+            // Pick a temporary register.
+            RegisterID temp = getUnusedRegister(address);
+
+            // Swap to the temporary register to perform the store.
+            swap(src, temp);
+            m_assembler.movb_rm(temp, address.offset, address.base);
+            swap(src, temp);
+            return;
+        }
+#endif
+        m_assembler.movb_rm(src, address.offset, address.base);
     }
 
     void store16(RegisterID src, BaseIndex address)
@@ -858,13 +883,6 @@ public:
         ASSERT(isSSE2Present());
         m_assembler.cvttsd2si_rr(src, dest);
         return branch32(branchType ? NotEqual : Equal, dest, TrustedImm32(0x80000000));
-    }
-
-    Jump branchTruncateDoubleToUint32(FPRegisterID src, RegisterID dest, BranchTruncateType branchType = BranchIfTruncateFailed)
-    {
-        ASSERT(isSSE2Present());
-        m_assembler.cvttsd2si_rr(src, dest);
-        return branch32(branchType ? GreaterThanOrEqual : LessThan, dest, TrustedImm32(0));
     }
 
     void truncateDoubleToInt32(FPRegisterID src, RegisterID dest)
@@ -1127,7 +1145,7 @@ public:
         return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
-    Jump branchTest32(ResultCondition cond, RegisterID reg, TrustedImm32 mask = TrustedImm32(-1))
+    void test32(RegisterID reg, TrustedImm32 mask = TrustedImm32(-1))
     {
         if (mask.m_value == -1)
             m_assembler.testl_rr(reg, reg);
@@ -1135,7 +1153,17 @@ public:
             m_assembler.testb_i8r(mask.m_value, reg);
         else
             m_assembler.testl_i32r(mask.m_value, reg);
+    }
+
+    Jump branch(ResultCondition cond)
+    {
         return Jump(m_assembler.jCC(x86Condition(cond)));
+    }
+
+    Jump branchTest32(ResultCondition cond, RegisterID reg, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        test32(reg, mask);
+        return branch(cond);
     }
 
     Jump branchTest32(ResultCondition cond, Address address, TrustedImm32 mask = TrustedImm32(-1))
@@ -1421,6 +1449,11 @@ public:
     void nop()
     {
         m_assembler.nop();
+    }
+    
+    void memoryFence()
+    {
+        m_assembler.mfence();
     }
 
     static void replaceWithJump(CodeLocationLabel instructionStart, CodeLocationLabel destination)

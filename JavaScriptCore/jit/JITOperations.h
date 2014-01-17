@@ -35,7 +35,7 @@
 #include "MacroAssembler.h"
 #include "PutKind.h"
 #include "StructureStubInfo.h"
-#include "Watchpoint.h"
+#include "VariableWatchpointSet.h"
 
 namespace JSC {
 
@@ -76,10 +76,12 @@ extern "C" {
     St: Structure*
     V: void
     Vm: VM*
-    W: WatchpointSet*
+    Vws: VariableWatchpointSet*
     Z: int32_t
 */
-typedef CallFrame* JIT_OPERATION (*F_JITOperation_EJJZ)(ExecState*, EncodedJSValue, EncodedJSValue, int32_t);
+
+typedef CallFrame* JIT_OPERATION (*F_JITOperation_EFJJ)(ExecState*, CallFrame*, EncodedJSValue, EncodedJSValue);
+typedef CallFrame* JIT_OPERATION (*F_JITOperation_EJZ)(ExecState*, EncodedJSValue, int32_t);
 typedef EncodedJSValue JIT_OPERATION (*J_JITOperation_E)(ExecState*);
 typedef EncodedJSValue JIT_OPERATION (*J_JITOperation_EA)(ExecState*, JSArray*);
 typedef EncodedJSValue JIT_OPERATION (*J_JITOperation_EAZ)(ExecState*, JSArray*, int32_t);
@@ -120,6 +122,7 @@ typedef JSCell* JIT_OPERATION (*C_JITOperation_EO)(ExecState*, JSObject*);
 typedef JSCell* JIT_OPERATION (*C_JITOperation_EOZ)(ExecState*, JSObject*, int32_t);
 typedef JSCell* JIT_OPERATION (*C_JITOperation_ESt)(ExecState*, Structure*);
 typedef JSCell* JIT_OPERATION (*C_JITOperation_EZ)(ExecState*, int32_t);
+typedef double JIT_OPERATION (*D_JITOperation_D)(double);
 typedef double JIT_OPERATION (*D_JITOperation_DD)(double, double);
 typedef double JIT_OPERATION (*D_JITOperation_ZZ)(int32_t, int32_t);
 typedef double JIT_OPERATION (*D_JITOperation_EJ)(ExecState*, EncodedJSValue);
@@ -138,6 +141,7 @@ typedef void JIT_OPERATION (*V_JITOperation_ECIcf)(ExecState*, JSCell*, InlineCa
 typedef void JIT_OPERATION (*V_JITOperation_ECICC)(ExecState*, JSCell*, Identifier*, JSCell*, JSCell*);
 typedef void JIT_OPERATION (*V_JITOperation_ECCIcf)(ExecState*, JSCell*, JSCell*, InlineCallFrame*);
 typedef void JIT_OPERATION (*V_JITOperation_ECJJ)(ExecState*, JSCell*, EncodedJSValue, EncodedJSValue);
+typedef void JIT_OPERATION (*V_JITOperation_ECPSPS)(ExecState*, JSCell*, void*, size_t, void*, size_t);
 typedef void JIT_OPERATION (*V_JITOperation_ECZ)(ExecState*, JSCell*, int32_t);
 typedef void JIT_OPERATION (*V_JITOperation_ECC)(ExecState*, JSCell*, JSCell*);
 typedef void JIT_OPERATION (*V_JITOperation_EIdJZ)(ExecState*, Identifier*, EncodedJSValue, int32_t);
@@ -153,7 +157,7 @@ typedef void JIT_OPERATION (*V_JITOperation_EOZJ)(ExecState*, JSObject*, int32_t
 typedef void JIT_OPERATION (*V_JITOperation_EPc)(ExecState*, Instruction*);
 typedef void JIT_OPERATION (*V_JITOperation_EPZJ)(ExecState*, void*, int32_t, EncodedJSValue);
 typedef void JIT_OPERATION (*V_JITOperation_ESsiJJI)(ExecState*, StructureStubInfo*, EncodedJSValue, EncodedJSValue, StringImpl*);
-typedef void JIT_OPERATION (*V_JITOperation_W)(WatchpointSet*);
+typedef void JIT_OPERATION (*V_JITOperation_EVws)(ExecState*, VariableWatchpointSet*);
 typedef void JIT_OPERATION (*V_JITOperation_EZ)(ExecState*, int32_t);
 typedef void JIT_OPERATION (*V_JITOperation_EVm)(ExecState*, VM*);
 typedef char* JIT_OPERATION (*P_JITOperation_E)(ExecState*);
@@ -263,7 +267,8 @@ void JIT_OPERATION operationTearOffArguments(ExecState*, JSCell*, JSCell*) WTF_I
 EncodedJSValue JIT_OPERATION operationDeleteById(ExecState*, EncodedJSValue base, const Identifier*) WTF_INTERNAL;
 JSCell* JIT_OPERATION operationGetPNames(ExecState*, JSObject*) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationInstanceOf(ExecState*, EncodedJSValue, EncodedJSValue proto) WTF_INTERNAL;
-CallFrame* JIT_OPERATION operationLoadVarargs(ExecState*, EncodedJSValue thisValue, EncodedJSValue arguments, int32_t firstFreeRegister) WTF_INTERNAL;
+CallFrame* JIT_OPERATION operationSizeAndAllocFrameForVarargs(ExecState*, EncodedJSValue arguments, int32_t firstFreeRegister) WTF_INTERNAL;
+CallFrame* JIT_OPERATION operationLoadVarargs(ExecState*, CallFrame*, EncodedJSValue thisValue, EncodedJSValue arguments) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationToObject(ExecState*, EncodedJSValue) WTF_INTERNAL;
 
 char* JIT_OPERATION operationSwitchCharWithUnknownKeyType(ExecState*, EncodedJSValue key, size_t tableIndex) WTF_INTERNAL;
@@ -272,6 +277,13 @@ char* JIT_OPERATION operationSwitchStringWithUnknownKeyType(ExecState*, EncodedJ
 EncodedJSValue JIT_OPERATION operationResolveScope(ExecState*, int32_t identifierIndex) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationGetFromScope(ExecState*, Instruction* bytecodePC) WTF_INTERNAL;
 void JIT_OPERATION operationPutToScope(ExecState*, Instruction* bytecodePC) WTF_INTERNAL;
+
+void JIT_OPERATION operationFlushWriteBarrierBuffer(ExecState*, JSCell*);
+void JIT_OPERATION operationWriteBarrier(ExecState*, JSCell*, JSCell*);
+void JIT_OPERATION operationUnconditionalWriteBarrier(ExecState*, JSCell*);
+void JIT_OPERATION operationOSRWriteBarrier(ExecState*, JSCell*);
+
+void JIT_OPERATION operationInitGlobalConst(ExecState*, Instruction*);
 
 } // extern "C"
 

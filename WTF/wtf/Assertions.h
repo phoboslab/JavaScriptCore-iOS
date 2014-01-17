@@ -36,13 +36,10 @@
    Defining any of the symbols explicitly prevents this from having any effect.
 */
 
-#include <wtf/Platform.h>
-
-#include <stddef.h>
-
-#if !COMPILER(MSVC)
 #include <inttypes.h>
-#endif
+#include <stdarg.h>
+#include <stddef.h>
+#include <wtf/Platform.h>
 
 #ifdef NDEBUG
 /* Disable ASSERT* macros in release mode. */
@@ -107,6 +104,20 @@
 extern "C" {
 #endif
 
+/* CRASH() - Raises a fatal error resulting in program termination and triggering either the debugger or the crash reporter.
+
+   Use CRASH() in response to known, unrecoverable errors like out-of-memory.
+   Macro is enabled in both debug and release mode.
+   To test for unknown errors and verify assumptions, use ASSERT instead, to avoid impacting performance in release builds.
+
+   Signals are ignored by the crash reporter on OS X so we must do better.
+*/
+#if COMPILER(CLANG)
+#define NO_RETURN_DUE_TO_CRASH NO_RETURN
+#else
+#define NO_RETURN_DUE_TO_CRASH
+#endif
+
 typedef enum { WTFLogChannelOff, WTFLogChannelOn } WTFLogChannelState;
 
 typedef struct {
@@ -121,7 +132,9 @@ WTF_EXPORT_PRIVATE void WTFReportFatalError(const char* file, int line, const ch
 WTF_EXPORT_PRIVATE void WTFReportError(const char* file, int line, const char* function, const char* format, ...) WTF_ATTRIBUTE_PRINTF(4, 5);
 WTF_EXPORT_PRIVATE void WTFLog(WTFLogChannel*, const char* format, ...) WTF_ATTRIBUTE_PRINTF(2, 3);
 WTF_EXPORT_PRIVATE void WTFLogVerbose(const char* file, int line, const char* function, WTFLogChannel*, const char* format, ...) WTF_ATTRIBUTE_PRINTF(5, 6);
+WTF_EXPORT_PRIVATE void WTFLogAlwaysV(const char* format, va_list);
 WTF_EXPORT_PRIVATE void WTFLogAlways(const char* format, ...) WTF_ATTRIBUTE_PRINTF(1, 2);
+WTF_EXPORT_PRIVATE void WTFLogAlwaysAndCrash(const char* format, ...) WTF_ATTRIBUTE_PRINTF(1, 2) NO_RETURN_DUE_TO_CRASH;
 WTF_EXPORT_PRIVATE WTFLogChannel* WTFLogChannelByName(WTFLogChannel*[], size_t count, const char*);
 WTF_EXPORT_PRIVATE void WTFInitializeLogChannelStatesFromString(WTFLogChannel*[], size_t count, const char*);
 
@@ -139,20 +152,6 @@ WTF_EXPORT_PRIVATE void WTFInvokeCrashHook();
 }
 #endif
 
-/* CRASH() - Raises a fatal error resulting in program termination and triggering either the debugger or the crash reporter.
-
-   Use CRASH() in response to known, unrecoverable errors like out-of-memory.
-   Macro is enabled in both debug and release mode.
-   To test for unknown errors and verify assumptions, use ASSERT instead, to avoid impacting performance in release builds.
-
-   Signals are ignored by the crash reporter on OS X so we must do better.
-*/
-#if COMPILER(CLANG)
-#define NO_RETURN_DUE_TO_CRASH NO_RETURN
-#else
-#define NO_RETURN_DUE_TO_CRASH
-#endif
-
 #ifndef CRASH
 #define CRASH() WTFCrash()
 #endif
@@ -161,6 +160,18 @@ WTF_EXPORT_PRIVATE void WTFInvokeCrashHook();
 extern "C" {
 #endif
 WTF_EXPORT_PRIVATE void WTFCrash() NO_RETURN_DUE_TO_CRASH;
+#ifdef __cplusplus
+}
+#endif
+
+#ifndef CRASH_WITH_SECURITY_IMPLICATION
+#define CRASH_WITH_SECURITY_IMPLICATION() WTFCrashWithSecurityImplication()
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+    WTF_EXPORT_PRIVATE void WTFCrashWithSecurityImplication() NO_RETURN_DUE_TO_CRASH;
 #ifdef __cplusplus
 }
 #endif
@@ -208,12 +219,19 @@ WTF_EXPORT_PRIVATE void WTFCrash() NO_RETURN_DUE_TO_CRASH;
 #define ASSERT_NOT_REACHED() ((void)0)
 #define NO_RETURN_DUE_TO_ASSERT
 
-#if COMPILER(INTEL) && !OS(WINDOWS) || COMPILER(RVCT)
-template<typename T>
-inline void assertUnused(T& x) { (void)x; }
-#define ASSERT_UNUSED(variable, assertion) (assertUnused(variable))
-#else
 #define ASSERT_UNUSED(variable, assertion) ((void)variable)
+
+#ifdef ADDRESS_SANITIZER
+#define ASSERT_WITH_SECURITY_IMPLICATION(assertion) \
+    (!(assertion) ? \
+        (WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, #assertion), \
+         CRASH_WITH_SECURITY_IMPLICATION()) : \
+        (void)0)
+
+#define ASSERT_WITH_SECURITY_IMPLICATION_DISABLED 0
+#else
+#define ASSERT_WITH_SECURITY_IMPLICATION(assertion) ((void)0)
+#define ASSERT_WITH_SECURITY_IMPLICATION_DISABLED 1
 #endif
 
 #else
@@ -239,28 +257,20 @@ inline void assertUnused(T& x) { (void)x; }
 
 #define NO_RETURN_DUE_TO_ASSERT NO_RETURN_DUE_TO_CRASH
 
-#endif
-
 /* ASSERT_WITH_SECURITY_IMPLICATION
-   
+ 
    Failure of this assertion indicates a possible security vulnerability.
    Class of vulnerabilities that it tests include bad casts, out of bounds
    accesses, use-after-frees, etc. Please file a bug using the security
    template - https://bugs.webkit.org/enter_bug.cgi?product=Security.
-
+ 
 */
-#ifdef ADDRESS_SANITIZER
-
 #define ASSERT_WITH_SECURITY_IMPLICATION(assertion) \
     (!(assertion) ? \
         (WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, #assertion), \
-         CRASH()) : \
+         CRASH_WITH_SECURITY_IMPLICATION()) : \
         (void)0)
-
-#else
-
-#define ASSERT_WITH_SECURITY_IMPLICATION(assertion) ASSERT(assertion)
-
+#define ASSERT_WITH_SECURITY_IMPLICATION_DISABLED 0
 #endif
 
 /* ASSERT_WITH_MESSAGE */
@@ -279,13 +289,7 @@ while (0)
 /* ASSERT_WITH_MESSAGE_UNUSED */
 
 #if ASSERT_MSG_DISABLED
-#if COMPILER(INTEL) && !OS(WINDOWS) || COMPILER(RVCT)
-template<typename T>
-inline void assertWithMessageUnused(T& x) { (void)x; }
-#define ASSERT_WITH_MESSAGE_UNUSED(variable, assertion, ...) (assertWithMessageUnused(variable))
-#else
 #define ASSERT_WITH_MESSAGE_UNUSED(variable, assertion, ...) ((void)variable)
-#endif
 #else
 #define ASSERT_WITH_MESSAGE_UNUSED(variable, assertion, ...) do \
     if (!(assertion)) { \

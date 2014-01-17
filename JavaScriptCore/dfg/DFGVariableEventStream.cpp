@@ -136,10 +136,6 @@ void VariableEventStream::reconstruct(
     while (at(startIndex).kind() != Reset)
         startIndex--;
     
-#if DFG_ENABLE(DEBUG_VERBOSE)
-    dataLogF("Computing OSR exit recoveries starting at seq#%u.\n", startIndex);
-#endif
-
     // Step 2: Create a mock-up of the DFG's state and execute the events.
     Operands<ValueSource> operandSources(codeBlock->numParameters(), numVariables);
     for (unsigned i = operandSources.size(); i--;)
@@ -196,70 +192,8 @@ void VariableEventStream::reconstruct(
         
         MinifiedGenerationInfo info = generationInfos.get(source.id());
         if (info.format == DataFormatNone) {
-            // Try to see if there is an alternate node that would contain the value we want.
-            //
-            // Backward rewiring refers to:
-            //
-            //     a: Something(...)
-            //     b: Id(@a) // some identity function
-            //     c: SetLocal(@b)
-            //
-            // Where we find @b being dead, but @a is still alive.
-            //
-            // Forward rewiring refers to:
-            //
-            //     a: Something(...)
-            //     b: SetLocal(@a)
-            //     c: Id(@a) // some identity function
-            //
-            // Where we find @a being dead, but @b is still alive.
-            
-            bool found = false;
-            
-            if (node && permitsOSRBackwardRewiring(node->op())) {
-                MinifiedID id = node->child1();
-                if (tryToSetConstantRecovery(valueRecoveries[i], codeBlock, graph.at(id)))
-                    continue;
-                info = generationInfos.get(id);
-                if (info.format != DataFormatNone)
-                    found = true;
-            }
-            
-            if (!found) {
-                MinifiedID bestID;
-                unsigned bestScore = 0;
-                
-                HashMap<MinifiedID, MinifiedGenerationInfo>::iterator iter = generationInfos.begin();
-                HashMap<MinifiedID, MinifiedGenerationInfo>::iterator end = generationInfos.end();
-                for (; iter != end; ++iter) {
-                    MinifiedID id = iter->key;
-                    node = graph.at(id);
-                    if (!node)
-                        continue;
-                    if (!node->hasChild1())
-                        continue;
-                    if (node->child1() != source.id())
-                        continue;
-                    if (iter->value.format == DataFormatNone)
-                        continue;
-                    unsigned myScore = forwardRewiringSelectionScore(node->op());
-                    if (myScore <= bestScore)
-                        continue;
-                    bestID = id;
-                    bestScore = myScore;
-                }
-                
-                if (!!bestID) {
-                    info = generationInfos.get(bestID);
-                    ASSERT(info.format != DataFormatNone);
-                    found = true;
-                }
-            }
-            
-            if (!found) {
-                valueRecoveries[i] = ValueRecovery::constant(jsUndefined());
-                continue;
-            }
+            valueRecoveries[i] = ValueRecovery::constant(jsUndefined());
+            continue;
         }
         
         ASSERT(info.format != DataFormatNone);

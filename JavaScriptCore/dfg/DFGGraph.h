@@ -416,9 +416,28 @@ public:
         return executableFor(codeOrigin.inlineCallFrame);
     }
     
+    CodeBlock* baselineCodeBlockFor(InlineCallFrame* inlineCallFrame)
+    {
+        if (!inlineCallFrame)
+            return m_profiledBlock;
+        return baselineCodeBlockForInlineCallFrame(inlineCallFrame);
+    }
+    
     CodeBlock* baselineCodeBlockFor(const CodeOrigin& codeOrigin)
     {
         return baselineCodeBlockForOriginAndBaselineCodeBlock(codeOrigin, m_profiledBlock);
+    }
+    
+    bool isStrictModeFor(CodeOrigin codeOrigin)
+    {
+        if (!codeOrigin.inlineCallFrame)
+            return m_codeBlock->isStrictMode();
+        return jsCast<FunctionExecutable*>(codeOrigin.inlineCallFrame->executable.get())->isStrictMode();
+    }
+    
+    ECMAMode ecmaModeFor(CodeOrigin codeOrigin)
+    {
+        return isStrictModeFor(codeOrigin) ? StrictMode : NotStrictMode;
     }
     
     bool masqueradesAsUndefinedWatchpointIsStillValid(const CodeOrigin& codeOrigin)
@@ -629,13 +648,6 @@ public:
         if (!(node->flags() & NodeMightClobber))
             return false;
         switch (node->op()) {
-        case ValueAdd:
-        case CompareLess:
-        case CompareLessEq:
-        case CompareGreater:
-        case CompareGreaterEq:
-        case CompareEq:
-            return !isPredictedNumerical(node);
         case GetByVal:
         case PutByValDirect:
         case PutByVal:
@@ -776,6 +788,21 @@ public:
     DesiredWatchpoints& watchpoints() { return m_plan.watchpoints; }
     DesiredStructureChains& chains() { return m_plan.chains; }
     
+    FullBytecodeLiveness& livenessFor(CodeBlock*);
+    FullBytecodeLiveness& livenessFor(InlineCallFrame*);
+    bool isLiveInBytecode(VirtualRegister, CodeOrigin);
+    
+    unsigned frameRegisterCount();
+    unsigned requiredRegisterCountForExit();
+    unsigned requiredRegisterCountForExecutionAndExit();
+    
+    JSActivation* tryGetActivation(Node*);
+    WriteBarrierBase<Unknown>* tryGetRegisters(Node*);
+    
+    JSArrayBufferView* tryGetFoldableView(Node*);
+    JSArrayBufferView* tryGetFoldableView(Node*, ArrayMode);
+    JSArrayBufferView* tryGetFoldableViewForChild1(Node*);
+    
     VM& m_vm;
     Plan& m_plan;
     CodeBlock* m_codeBlock;
@@ -797,6 +824,7 @@ public:
     SegmentedVector<SwitchData, 4> m_switchData;
     Vector<InlineVariableData, 4> m_inlineVariableData;
     OwnPtr<InlineCallFrameSet> m_inlineCallFrames;
+    HashMap<CodeBlock*, std::unique_ptr<FullBytecodeLiveness>> m_bytecodeLiveness;
     bool m_hasArguments;
     HashSet<ExecutableBase*> m_executablesWhoseArgumentsEscaped;
     BitVector m_lazyVars;

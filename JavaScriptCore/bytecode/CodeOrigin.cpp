@@ -59,6 +59,11 @@ Vector<CodeOrigin> CodeOrigin::inlineStack() const
 
 void CodeOrigin::dump(PrintStream& out) const
 {
+    if (!isSet()) {
+        out.print("<none>");
+        return;
+    }
+    
     Vector<CodeOrigin> stack = inlineStack();
     for (unsigned i = 0; i < stack.size(); ++i) {
         if (i)
@@ -116,7 +121,7 @@ void InlineCallFrame::dumpInContext(PrintStream& out, DumpContext* context) cons
     else
         out.print(", known callee: ", inContext(calleeRecovery.constant(), context));
     out.print(", numArgs+this = ", arguments.size());
-    out.print(", stack >= r", stackOffset);
+    out.print(", stack < loc", VirtualRegister(stackOffset).toLocal());
     out.print(">");
 }
 

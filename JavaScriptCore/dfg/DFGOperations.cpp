@@ -110,7 +110,7 @@ ALWAYS_INLINE static void JIT_OPERATION operationPutByValInternal(ExecState* exe
     }
 
     if (isName(property)) {
-        PutPropertySlot slot(strict);
+        PutPropertySlot slot(baseValue, strict);
         if (direct) {
             RELEASE_ASSERT(baseValue.isObject());
             asObject(baseValue)->putDirect(*vm, jsCast<NameInstance*>(property.asCell())->privateName(), value, slot);
@@ -122,7 +122,7 @@ ALWAYS_INLINE static void JIT_OPERATION operationPutByValInternal(ExecState* exe
     // Don't put to an object if toString throws an exception.
     Identifier ident(exec, property.toString(exec)->value(exec));
     if (!vm->exception()) {
-        PutPropertySlot slot(strict);
+        PutPropertySlot slot(baseValue, strict);
         if (direct) {
             RELEASE_ASSERT(baseValue.isObject());
             asObject(baseValue)->putDirect(*vm, jsCast<NameInstance*>(property.asCell())->privateName(), value, slot);
@@ -399,7 +399,7 @@ void JIT_OPERATION operationPutByValBeyondArrayBoundsStrict(ExecState* exec, JSO
         return;
     }
     
-    PutPropertySlot slot(true);
+    PutPropertySlot slot(array, true);
     array->methodTable()->put(
         array, exec, Identifier::from(exec, index), JSValue::decode(encodedValue), slot);
 }
@@ -414,7 +414,7 @@ void JIT_OPERATION operationPutByValBeyondArrayBoundsNonStrict(ExecState* exec, 
         return;
     }
     
-    PutPropertySlot slot(false);
+    PutPropertySlot slot(array, false);
     array->methodTable()->put(
         array, exec, Identifier::from(exec, index), JSValue::decode(encodedValue), slot);
 }
@@ -431,7 +431,7 @@ void JIT_OPERATION operationPutDoubleByValBeyondArrayBoundsStrict(ExecState* exe
         return;
     }
     
-    PutPropertySlot slot(true);
+    PutPropertySlot slot(array, true);
     array->methodTable()->put(
         array, exec, Identifier::from(exec, index), jsValue, slot);
 }
@@ -448,7 +448,7 @@ void JIT_OPERATION operationPutDoubleByValBeyondArrayBoundsNonStrict(ExecState* 
         return;
     }
     
-    PutPropertySlot slot(false);
+    PutPropertySlot slot(array, false);
     array->methodTable()->put(
         array, exec, Identifier::from(exec, index), jsValue, slot);
 }
@@ -494,7 +494,7 @@ void JIT_OPERATION operationPutByValDirectBeyondArrayBoundsStrict(ExecState* exe
         return;
     }
     
-    PutPropertySlot slot(true);
+    PutPropertySlot slot(array, true);
     array->putDirect(exec->vm(), Identifier::from(exec, index), JSValue::decode(encodedValue), slot);
 }
 
@@ -508,7 +508,7 @@ void JIT_OPERATION operationPutByValDirectBeyondArrayBoundsNonStrict(ExecState* 
         return;
     }
     
-    PutPropertySlot slot(false);
+    PutPropertySlot slot(array, false);
     array->putDirect(exec->vm(), Identifier::from(exec, index), JSValue::decode(encodedValue), slot);
 }
 
@@ -614,7 +614,7 @@ char* JIT_OPERATION operationNewArray(ExecState* exec, Structure* arrayStructure
     VM* vm = &exec->vm();
     NativeCallFrameTracer tracer(vm, exec);
     
-    return bitwise_cast<char*>(constructArrayNegativeIndexed(exec, arrayStructure, static_cast<JSValue*>(buffer), size));
+    return bitwise_cast<char*>(constructArray(exec, arrayStructure, static_cast<JSValue*>(buffer), size));
 }
 
 char* JIT_OPERATION operationNewEmptyArray(ExecState* exec, Structure* arrayStructure)
@@ -640,7 +640,7 @@ char* JIT_OPERATION operationNewArrayBuffer(ExecState* exec, Structure* arrayStr
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
-    return bitwise_cast<char*>(constructArrayNegativeIndexed(exec, arrayStructure, exec->codeBlock()->constantBuffer(start), size));
+    return bitwise_cast<char*>(constructArray(exec, arrayStructure, exec->codeBlock()->constantBuffer(start), size));
 }
 
 char* JIT_OPERATION operationNewInt8ArrayWithSize(
@@ -850,8 +850,9 @@ char* JIT_OPERATION operationReallocateButterflyToHavePropertyStorageWithInitial
     NativeCallFrameTracer tracer(&vm, exec);
 
     ASSERT(!object->structure()->outOfLineCapacity());
+    DeferGC deferGC(vm.heap);
     Butterfly* result = object->growOutOfLineStorage(vm, 0, initialOutOfLineCapacity);
-    object->setButterflyWithoutChangingStructure(result);
+    object->setButterflyWithoutChangingStructure(vm, result);
     return reinterpret_cast<char*>(result);
 }
 
@@ -860,8 +861,9 @@ char* JIT_OPERATION operationReallocateButterflyToGrowPropertyStorage(ExecState*
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
 
+    DeferGC deferGC(vm.heap);
     Butterfly* result = object->growOutOfLineStorage(vm, object->structure()->outOfLineCapacity(), newSize);
-    object->setButterflyWithoutChangingStructure(result);
+    object->setButterflyWithoutChangingStructure(vm, result);
     return reinterpret_cast<char*>(result);
 }
 
@@ -996,6 +998,14 @@ char* JIT_OPERATION operationSwitchString(ExecState* exec, size_t tableIndex, JS
     NativeCallFrameTracer tracer(&vm, exec);
 
     return static_cast<char*>(exec->codeBlock()->stringSwitchJumpTable(tableIndex).ctiForValue(string->value(exec).impl()).executableAddress());
+}
+
+void JIT_OPERATION operationInvalidate(ExecState* exec, VariableWatchpointSet* set)
+{
+    VM& vm = exec->vm();
+    NativeCallFrameTracer tracer(&vm, exec);
+
+    set->invalidate();
 }
 
 double JIT_OPERATION operationFModOnInts(int32_t a, int32_t b)

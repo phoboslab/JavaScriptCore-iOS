@@ -30,12 +30,13 @@
 #define DebuggerCallFrame_h
 
 #include "CallFrame.h"
+#include "DebuggerPrimitives.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/TextPosition.h>
 
 namespace JSC {
-    
+
 class DebuggerCallFrame : public RefCounted<DebuggerCallFrame> {
 public:
     enum Type { ProgramType, FunctionType };
@@ -50,14 +51,14 @@ public:
     CallFrame* callFrame() const { return m_callFrame; }
     JS_EXPORT_PRIVATE PassRefPtr<DebuggerCallFrame> callerFrame();
     ExecState* exec() const { return m_callFrame; }
-    JS_EXPORT_PRIVATE intptr_t sourceId() const;
+    JS_EXPORT_PRIVATE SourceID sourceID() const;
 
     // line and column are in base 0 e.g. the first line is line 0.
     int line() const { return m_position.m_line.zeroBasedInt(); }
     int column() const { return m_position.m_column.zeroBasedInt(); }
     JS_EXPORT_PRIVATE const TextPosition& position() const { return m_position; }
 
-    JS_EXPORT_PRIVATE JSGlobalObject* dynamicGlobalObject() const;
+    JS_EXPORT_PRIVATE JSGlobalObject* vmEntryGlobalObject() const;
     JS_EXPORT_PRIVATE JSScope* scope() const;
     JS_EXPORT_PRIVATE String functionName() const;
     JS_EXPORT_PRIVATE Type type() const;
@@ -72,7 +73,7 @@ public:
 
     JS_EXPORT_PRIVATE static JSValue evaluateWithCallFrame(CallFrame*, const String& script, JSValue& exception);
     JS_EXPORT_PRIVATE static TextPosition positionForCallFrame(CallFrame*);
-    JS_EXPORT_PRIVATE static intptr_t sourceIdForCallFrame(CallFrame*);
+    JS_EXPORT_PRIVATE static SourceID sourceIDForCallFrame(CallFrame*);
     static JSValue thisValueForCallFrame(CallFrame*);
 
 private:

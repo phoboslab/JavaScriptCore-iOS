@@ -10,7 +10,6 @@ wtf_sources += \
     Source/WTF/wtf/AutodrainedPool.h \
     Source/WTF/wtf/Bag.h \
     Source/WTF/wtf/BagToHashMap.h \
-    Source/WTF/wtf/BitArray.h \
     Source/WTF/wtf/BitVector.cpp \
     Source/WTF/wtf/BitVector.h \
     Source/WTF/wtf/Bitmap.h \
@@ -46,15 +45,14 @@ wtf_sources += \
     Source/WTF/wtf/DynamicAnnotations.cpp \
     Source/WTF/wtf/DynamicAnnotations.h \
     Source/WTF/wtf/Encoder.h \
-    Source/WTF/wtf/EnumClass.h \
     Source/WTF/wtf/ExportMacros.h \
+    Source/WTF/wtf/FastBitVector.cpp \
     Source/WTF/wtf/FastBitVector.h \
     Source/WTF/wtf/FastMalloc.cpp \
     Source/WTF/wtf/FastMalloc.h \
     Source/WTF/wtf/FeatureDefines.h \
     Source/WTF/wtf/FilePrintStream.cpp \
     Source/WTF/wtf/FilePrintStream.h \
-    Source/WTF/wtf/FixedArray.h \
     Source/WTF/wtf/FlipBytes.h \
     Source/WTF/wtf/Forward.h \
     Source/WTF/wtf/FunctionDispatcher.cpp \
@@ -74,6 +72,8 @@ wtf_sources += \
     Source/WTF/wtf/HexNumber.h \
     Source/WTF/wtf/InlineASM.h \
     Source/WTF/wtf/Insertion.h \
+    Source/WTF/wtf/IteratorAdaptors.h \
+    Source/WTF/wtf/IteratorRange.h \
     Source/WTF/wtf/ListDump.h \
     Source/WTF/wtf/ListHashSet.h \
     Source/WTF/wtf/Locker.h \
@@ -137,6 +137,8 @@ wtf_sources += \
     Source/WTF/wtf/RefPtr.h \
     Source/WTF/wtf/RefPtrHashMap.h \
     Source/WTF/wtf/RetainPtr.h \
+    Source/WTF/wtf/RunLoop.cpp \
+    Source/WTF/wtf/RunLoop.h \
     Source/WTF/wtf/SHA1.cpp \
     Source/WTF/wtf/SHA1.h \
     Source/WTF/wtf/SaturatedArithmetic.h \
@@ -155,9 +157,9 @@ wtf_sources += \
     Source/WTF/wtf/StreamBuffer.h \
     Source/WTF/wtf/StringExtras.h \
     Source/WTF/wtf/StringHashDumpContext.h \
+    Source/WTF/wtf/StringHasher.h \
     Source/WTF/wtf/StringPrintStream.cpp \
     Source/WTF/wtf/StringPrintStream.h \
-    Source/WTF/wtf/StringHasher.h \
     Source/WTF/wtf/TCPackedCache.h \
     Source/WTF/wtf/TCPageMap.h \
     Source/WTF/wtf/TCSpinLock.h \
@@ -167,7 +169,6 @@ wtf_sources += \
     Source/WTF/wtf/ThreadFunctionInvocation.h \
     Source/WTF/wtf/ThreadIdentifierDataPthreads.cpp \
     Source/WTF/wtf/ThreadIdentifierDataPthreads.h \
-    Source/WTF/wtf/ThreadRestrictionVerifier.h \
     Source/WTF/wtf/ThreadSafeRefCounted.h \
     Source/WTF/wtf/ThreadSpecific.h \
     Source/WTF/wtf/ThreadSpecificWin.cpp \
@@ -216,6 +217,7 @@ wtf_sources += \
     Source/WTF/wtf/gobject/GlibUtilities.cpp \
     Source/WTF/wtf/gobject/GlibUtilities.h \
     Source/WTF/wtf/gtk/MainThreadGtk.cpp \
+    Source/WTF/wtf/gtk/RunLoopGtk.cpp \
     Source/WTF/wtf/text/ASCIIFastPath.h \
     Source/WTF/wtf/text/AtomicString.cpp \
     Source/WTF/wtf/text/AtomicString.h \
@@ -238,6 +240,7 @@ wtf_sources += \
     Source/WTF/wtf/text/StringImpl.h \
     Source/WTF/wtf/text/StringOperators.h \
     Source/WTF/wtf/text/StringStatics.cpp \
+    Source/WTF/wtf/text/StringView.h \
     Source/WTF/wtf/text/TextPosition.h \
     Source/WTF/wtf/text/WTFString.cpp \
     Source/WTF/wtf/text/WTFString.h \

@@ -124,7 +124,6 @@ namespace JSC {
         END_IMPL();                       \
     } while (false)
 
-#if ENABLE(VALUE_PROFILER)
 #define RETURN_PROFILED(opcode, value) do {                  \
         JSValue rpPeturnValue = (value);                     \
         CHECK_EXCEPTION();                                   \
@@ -137,13 +136,6 @@ namespace JSC {
         pc[OPCODE_LENGTH(opcode) - 1].u.profile->m_buckets[0] = \
         JSValue::encode(value);                  \
     } while (false)
-
-#else // ENABLE(VALUE_PROFILER)
-#define RETURN_PROFILED(opcode, value) RETURN(value)
-
-#define PROFILE_VALUE(opcode, value) do { } while (false)
-
-#endif // ENABLE(VALUE_PROFILER)
 
 #define CALL_END_IMPL(exec, callTarget) RETURN_TWO((callTarget), (exec))
 
@@ -193,6 +185,13 @@ SLOW_PATH_DECL(slow_path_construct_arityCheck)
     RETURN_TWO(0, reinterpret_cast<ExecState*>(SlotsToAdd));
 }
 
+SLOW_PATH_DECL(slow_path_touch_entry)
+{
+    BEGIN();
+    exec->codeBlock()->symbolTable()->m_functionEnteredOnce.touch();
+    END();
+}
+
 SLOW_PATH_DECL(slow_path_get_callee)
 {
     BEGIN();
@@ -235,6 +234,29 @@ SLOW_PATH_DECL(slow_path_to_this)
     else
         pc[2].u.structure.clear();
     RETURN(v1.toThis(exec, exec->codeBlock()->isStrictMode() ? StrictMode : NotStrictMode));
+}
+
+SLOW_PATH_DECL(slow_path_captured_mov)
+{
+    BEGIN();
+    JSValue value = OP_C(2).jsValue();
+    if (VariableWatchpointSet* set = pc[3].u.watchpointSet)
+        set->notifyWrite(value);
+    RETURN(value);
+}
+
+SLOW_PATH_DECL(slow_path_new_captured_func)
+{
+    BEGIN();
+    CodeBlock* codeBlock = exec->codeBlock();
+    ASSERT(
+        codeBlock->codeType() != FunctionCode
+        || !codeBlock->needsFullScopeChain()
+        || exec->uncheckedR(codeBlock->activationRegister().offset()).jsValue());
+    JSValue value = JSFunction::create(vm, codeBlock->functionDecl(pc[2].u.operand), exec->scope());
+    if (VariableWatchpointSet* set = pc[3].u.watchpointSet)
+        set->notifyWrite(value);
+    RETURN(value);
 }
 
 SLOW_PATH_DECL(slow_path_not)
@@ -387,7 +409,14 @@ SLOW_PATH_DECL(slow_path_urshift)
     BEGIN();
     uint32_t a = OP_C(2).jsValue().toUInt32(exec);
     uint32_t b = OP_C(3).jsValue().toUInt32(exec);
-    RETURN(jsNumber(a >> (b & 31)));
+    RETURN(jsNumber(static_cast<int32_t>(a >> (b & 31))));
+}
+
+SLOW_PATH_DECL(slow_path_unsigned)
+{
+    BEGIN();
+    uint32_t a = OP_C(2).jsValue().toUInt32(exec);
+    RETURN(jsNumber(a));
 }
 
 SLOW_PATH_DECL(slow_path_bitand)
@@ -476,6 +505,14 @@ SLOW_PATH_DECL(slow_path_to_primitive)
 {
     BEGIN();
     RETURN(OP_C(2).jsValue().toPrimitive(exec));
+}
+
+SLOW_PATH_DECL(slow_path_enter)
+{
+    BEGIN();
+    ScriptExecutable* ownerExecutable = exec->codeBlock()->ownerExecutable();
+    Heap::heap(ownerExecutable)->writeBarrier(ownerExecutable);
+    END();
 }
 
 } // namespace JSC

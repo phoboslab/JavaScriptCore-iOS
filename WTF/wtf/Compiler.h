@@ -54,50 +54,37 @@
 #define WTF_COMPILER_SUPPORTS_CXX_STRONG_ENUMS __has_feature(cxx_strong_enums)
 #define WTF_COMPILER_SUPPORTS_CXX_REFERENCE_QUALIFIED_FUNCTIONS __has_feature(cxx_reference_qualified_functions)
 #define WTF_COMPILER_SUPPORTS_CXX_AUTO_TYPE __has_feature(cxx_auto_type)
-
-/* Disable final on versions of Apple clang earlier than 4.2 to avoid bugs like http://webkit.org/b/119165 */
-#if defined(__APPLE__) && (__clang_major__ < 4 || (__clang_major__ == 4 && __clang_minor__ < 2))
-#define WTF_COMPILER_QUIRK_FINAL_IS_BUGGY 1
-// #error "Please use a newer version of Xcode, this version has code generation bugs when using 'final' in C++ code"
-#endif
+#define WTF_COMPILER_SUPPORTS_CXX_GENERALIZED_INITIALIZERS __has_feature(cxx_generalized_initializers)
 
 #endif
 
 /* COMPILER(MSVC) - Microsoft Visual C++ */
-/* COMPILER(MSVC9_OR_LOWER) - Microsoft Visual C++ 2008 or lower*/
 #if defined(_MSC_VER)
-#define WTF_COMPILER_MSVC 1
-#if _MSC_VER < 1600
-#define WTF_COMPILER_MSVC9_OR_LOWER 1
+#if _MSC_VER < 1800
+#error "Please use a newer version of Visual Studio. WebKit requires VS2013 or newere to compile."
 #endif
+#define WTF_COMPILER_MSVC 1
 
 /* Specific compiler features */
-#if !COMPILER(CLANG) && _MSC_VER >= 1600
+#if !COMPILER(CLANG)
 #define WTF_COMPILER_SUPPORTS_CXX_NULLPTR 1
 #endif
 
 #if !COMPILER(CLANG)
 #define WTF_COMPILER_SUPPORTS_CXX_OVERRIDE_CONTROL 1
-#define WTF_COMPILER_QUIRK_FINAL_IS_CALLED_SEALED 1
 #endif
 
-/* Check for VS2010 or newer */
-#if _MSC_VER >= 1600
 #define WTF_COMPILER_SUPPORTS_CXX_RVALUE_REFERENCES 1
 #define WTF_COMPILER_SUPPORTS_CXX_STATIC_ASSERT 1
 #define WTF_COMPILER_SUPPORTS_CXX_AUTO_TYPE 1
-#endif
+#define WTF_COMPILER_SUPPORTS_CXX_STRONG_ENUMS 1
+#define WTF_COMPILER_SUPPORTS_CXX_OVERRIDE_CONTROL 1
+#define WTF_COMPILER_SUPPORTS_CXX_DELETED_FUNCTIONS 1
+#define WTF_COMPILER_SUPPORTS_CXX_EXPLICIT_CONVERSIONS 1
+#define WTF_COMPILER_SUPPORTS_CXX_GENERALIZED_INITIALIZERS 1
+#define WTF_COMPILER_SUPPORTS_CXX_VARIADIC_TEMPLATES 1
 
 #endif /* defined(_MSC_VER) */
-
-/* COMPILER(RVCT) - ARM RealView Compilation Tools */
-#if defined(__CC_ARM) || defined(__ARMCC__)
-#define WTF_COMPILER_RVCT 1
-#define RVCT_VERSION_AT_LEAST(major, minor, patch, build) (__ARMCC_VERSION >= (major * 100000 + minor * 10000 + patch * 1000 + build))
-#else
-/* Define this for !RVCT compilers, just so we can write things like RVCT_VERSION_AT_LEAST(3, 0, 0, 0). */
-#define RVCT_VERSION_AT_LEAST(major, minor, patch, build) 0
-#endif
 
 /* COMPILER(GCCE) - GNU Compiler Collection for Embedded */
 #if defined(__GCCE__)
@@ -107,8 +94,7 @@
 #endif
 
 /* COMPILER(GCC) - GNU Compiler Collection */
-/* --gnu option of the RVCT compiler also defines __GNUC__ */
-#if defined(__GNUC__) && !COMPILER(RVCT)
+#if defined(__GNUC__)
 #define WTF_COMPILER_GCC 1
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 #define GCC_VERSION_AT_LEAST(major, minor, patch) (GCC_VERSION >= (major * 10000 + minor * 100 + patch))
@@ -120,7 +106,6 @@
 /* Specific compiler features */
 #if COMPILER(GCC) && !COMPILER(CLANG)
 #if GCC_VERSION_AT_LEAST(4, 8, 0)
-#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
@@ -147,6 +132,7 @@
 #define WTF_COMPILER_SUPPORTS_CXX_STRONG_ENUMS 1
 #endif
 #if GCC_VERSION_AT_LEAST(4, 7, 0)
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #define WTF_COMPILER_SUPPORTS_CXX_OVERRIDE_CONTROL 1
 #endif
 #endif /* defined(__GXX_EXPERIMENTAL_CXX0X__) || (defined(__cplusplus) && __cplusplus >= 201103L) */
@@ -161,11 +147,6 @@
         #define WTF_COMPILER_MINGW64 1
     #endif /* __MINGW64_VERSION_MAJOR */
 #endif /* __MINGW32__ */
-
-/* COMPILER(INTEL) - Intel C++ Compiler */
-#if defined(__INTEL_COMPILER)
-#define WTF_COMPILER_INTEL 1
-#endif
 
 /* COMPILER(SUNCC) */
 #if defined(__SUNPRO_CC) || defined(__SUNPRO_C)
@@ -191,6 +172,9 @@
 #if !COMPILER_SUPPORTS(CXX_AUTO_TYPE)
 #error "Please use a compiler that supports C++11 auto."
 #endif
+#if !COMPILER_SUPPORTS(CXX_VARIADIC_TEMPLATES)
+#error "Please use a compiler that supports C++11 variadic templates."
+#endif
 #endif
 
 /* PURE_FUNCTION */
@@ -206,7 +190,7 @@
 #ifndef ALWAYS_INLINE
 #if COMPILER(GCC) && defined(NDEBUG) && !COMPILER(MINGW)
 #define ALWAYS_INLINE inline __attribute__((__always_inline__))
-#elif (COMPILER(MSVC) || COMPILER(RVCT)) && defined(NDEBUG)
+#elif COMPILER(MSVC) && defined(NDEBUG)
 #define ALWAYS_INLINE __forceinline
 #else
 #define ALWAYS_INLINE inline
@@ -219,7 +203,7 @@
 #ifndef NEVER_INLINE
 #if COMPILER(GCC)
 #define NEVER_INLINE __attribute__((__noinline__))
-#elif COMPILER(RVCT)
+#elif COMPILER(MSVC) || COMPILER(RVCT)
 #define NEVER_INLINE __declspec(noinline)
 #else
 #define NEVER_INLINE
@@ -230,7 +214,7 @@
 /* UNLIKELY */
 
 #ifndef UNLIKELY
-#if COMPILER(GCC) || (COMPILER(RVCT) && defined(__GNUC__))
+#if COMPILER(GCC)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #else
 #define UNLIKELY(x) (x)
@@ -241,7 +225,7 @@
 /* LIKELY */
 
 #ifndef LIKELY
-#if COMPILER(GCC) || (COMPILER(RVCT) && defined(__GNUC__))
+#if COMPILER(GCC)
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 #else
 #define LIKELY(x) (x)
@@ -255,7 +239,7 @@
 #ifndef NO_RETURN
 #if COMPILER(GCC)
 #define NO_RETURN __attribute((__noreturn__))
-#elif COMPILER(MSVC) || COMPILER(RVCT)
+#elif COMPILER(MSVC)
 #define NO_RETURN __declspec(noreturn)
 #else
 #define NO_RETURN
@@ -329,11 +313,7 @@
 
 /* UNUSED_PARAM */
 
-#if COMPILER(INTEL) && !(defined(WIN32) || defined(_WIN32)) || COMPILER(RVCT)
-template<typename T>
-inline void unusedParam(T& x) { (void)x; }
-#define UNUSED_PARAM(variable) unusedParam(variable)
-#elif COMPILER(MSVC)
+#if COMPILER(MSVC)
 #define UNUSED_PARAM(variable) (void)&variable
 #else
 #define UNUSED_PARAM(variable) (void)variable
@@ -350,7 +330,5 @@ inline void unusedParam(T& x) { (void)x; }
 #else
 #define UNUSED_LABEL(label) UNUSED_PARAM(&& label)
 #endif
-
-
 
 #endif /* WTF_Compiler_h */

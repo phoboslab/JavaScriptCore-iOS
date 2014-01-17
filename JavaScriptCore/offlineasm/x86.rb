@@ -74,11 +74,11 @@ X64_SCRATCH_REGISTER = SpecialRegister.new("r11")
 class RegisterID
     def supports8BitOnX86
         case name
-        when "t0", "a0", "r0", "t1", "a1", "r1", "t2", "t3"
+        when "t0", "a0", "r0", "t1", "a1", "r1", "t2", "t3", "t4", "t5"
             true
         when "cfr", "ttnr", "tmr"
             false
-        when "t4", "t5"
+        when "t6"
             isX64
         else
             raise
@@ -100,7 +100,7 @@ class RegisterID
             when :quad
                 isX64 ? "%rax" : raise
             else
-                raise
+                raise "Invalid kind #{kind} for name #{name}"
             end
         when "t1", "a1", "r1"
             case kind
@@ -166,26 +166,24 @@ class RegisterID
             if isX64
                 case kind
                 when :half
-                    "%r13w"
+                    "%bp"
                 when :int
-                    "%r13d"
+                    "%ebp"
                 when :ptr
-                    "%r13"
+                    "%rbp"
                 when :quad
-                    "%r13"
+                    "%rbp"
                 else
                     raise
                 end
             else
                 case kind
-                when :byte
-                    "%dil"
                 when :half
-                    "%di"
+                    "%bp"
                 when :int
-                    "%edi"
+                    "%ebp"
                 when :ptr
-                    "%edi"
+                    "%ebp"
                 else
                     raise
                 end
@@ -206,7 +204,6 @@ class RegisterID
                 raise
             end
         when "t5"
-            raise "Cannot use #{name} in 32-bit X86 at #{codeOriginString}" unless isX64
             case kind
             when :byte
                 "%dil"
@@ -215,9 +212,9 @@ class RegisterID
             when :int
                 "%edi"
             when :ptr
-                "%rdi"
+                isX64 ? "%rdi" : "%edi"
             when :quad
-                "%rdi"
+                isX64 ? "%rdi" : raise
             end
         when "t6"
             raise "Cannot use #{name} in 32-bit X86 at #{codeOriginString}" unless isX64
@@ -981,9 +978,39 @@ class Instruction
                 $asm.puts "xorpd #{operands[0].x86Operand(:double)}, #{operands[0].x86Operand(:double)}"
             end
         when "pop"
-            $asm.puts "pop #{operands[0].x86Operand(:ptr)}"
+            operands.each {
+                | op |
+                $asm.puts "pop #{op.x86Operand(:ptr)}"
+            }
         when "push"
-            $asm.puts "push #{operands[0].x86Operand(:ptr)}"
+            operands.each {
+                | op |
+                $asm.puts "push #{op.x86Operand(:ptr)}"
+            }
+        when "popCalleeSaves"
+            if isX64
+                $asm.puts "pop %rbx"
+                $asm.puts "pop %r15"
+                $asm.puts "pop %r14"
+                $asm.puts "pop %r13"
+                $asm.puts "pop %r12"
+            else
+                $asm.puts "pop %ebx"
+                $asm.puts "pop %edi"
+                $asm.puts "pop %esi"
+            end
+        when "pushCalleeSaves"
+            if isX64
+                $asm.puts "push %r12"
+                $asm.puts "push %r13"
+                $asm.puts "push %r14"
+                $asm.puts "push %r15"
+                $asm.puts "push %rbx"
+            else
+                $asm.puts "push %esi"
+                $asm.puts "push %edi"
+                $asm.puts "push %ebx"
+            end
         when "move"
             handleMove
         when "sxi2q"
@@ -1265,15 +1292,9 @@ class Instruction
         when "peek"
             sp = RegisterID.new(nil, "sp")
             $asm.puts "mov#{x86Suffix(:ptr)} #{operands[0].value * x86Bytes(:ptr)}(#{sp.x86Operand(:ptr)}), #{operands[1].x86Operand(:ptr)}"
-        when "peekq"
-            sp = RegisterID.new(nil, "sp")
-            $asm.puts "mov#{x86Suffix(:quad)} #{operands[0].value * x86Bytes(:quad)}(#{sp.x86Operand(:ptr)}), #{operands[1].x86Operand(:quad)}"
         when "poke"
             sp = RegisterID.new(nil, "sp")
             $asm.puts "mov#{x86Suffix(:ptr)} #{operands[0].x86Operand(:ptr)}, #{operands[1].value * x86Bytes(:ptr)}(#{sp.x86Operand(:ptr)})"
-        when "pokeq"
-            sp = RegisterID.new(nil, "sp")
-            $asm.puts "mov#{x86Suffix(:quad)} #{operands[0].x86Operand(:quad)}, #{operands[1].value * x86Bytes(:quad)}(#{sp.x86Operand(:ptr)})"
         when "cdqi"
             $asm.puts "cdq"
         when "idivi"
@@ -1342,6 +1363,8 @@ class Instruction
             $asm.puts "leal #{operands[0].x86AddressOperand(:int)}, #{operands[1].x86Operand(:int)}"
         when "leap"
             $asm.puts "lea#{x86Suffix(:ptr)} #{operands[0].x86AddressOperand(:ptr)}, #{operands[1].x86Operand(:ptr)}"
+        when "memfence"
+            $asm.puts "mfence"
         else
             lowerDefault
         end

@@ -74,9 +74,8 @@ JIT::CodeRef JIT::privateCompileCTINativeCall(VM* vm, NativeFunction func)
 
     addPtr(TrustedImm32(16 - sizeof(void*)), stackPointerRegister);
 
-#elif CPU(ARM)
-    // Load caller frame's scope chain into this callframe so that whatever we call can
-    // get to its global data.
+#elif CPU(ARM) || CPU(SH4) || CPU(MIPS)
+    // Load caller frame's scope chain into this callframe so that whatever we call can get to its global data.
     emitGetCallerFrameFromCallFrameHeaderPtr(regT2);
     emitGetFromCallFrameHeaderPtr(JSStack::ScopeChain, regT1, regT2);
     emitPutCellToCallFrameHeader(regT1, JSStack::ScopeChain);
@@ -84,71 +83,26 @@ JIT::CodeRef JIT::privateCompileCTINativeCall(VM* vm, NativeFunction func)
     preserveReturnAddressAfterCall(regT3); // Callee preserved
     emitPutReturnPCToCallFrameHeader(regT3);
 
-    // Calling convention:      f(r0 == regT0, r1 == regT1, ...);
-    // Host function signature: f(ExecState*);
-    move(callFrameRegister, ARMRegisters::r0);
-
-    emitGetFromCallFrameHeaderPtr(JSStack::Callee, ARMRegisters::r1);
-    move(regT2, callFrameRegister); // Eagerly restore caller frame register to avoid loading from stack.
-    loadPtr(Address(ARMRegisters::r1, OBJECT_OFFSETOF(JSFunction, m_executable)), regT2);
-
-    // call the function
-    nativeCall = call();
-
-    restoreReturnAddressBeforeReturn(regT3);
-
-#elif CPU(MIPS)
-    // Load caller frame's scope chain into this callframe so that whatever we call can
-    // get to its global data.
-    emitGetCallerFrameFromCallFrameHeaderPtr(regT0);
-    emitGetFromCallFrameHeaderPtr(JSStack::ScopeChain, regT1, regT0);
-    emitPutCellToCallFrameHeader(regT1, JSStack::ScopeChain);
-
-    preserveReturnAddressAfterCall(regT3); // Callee preserved
-    emitPutReturnPCToCallFrameHeader(regT3);
-
-    // Calling convention:      f(a0, a1, a2, a3);
-    // Host function signature: f(ExecState*);
-
-    // Allocate stack space for 16 bytes (8-byte aligned)
-    // 16 bytes (unused) for 4 arguments
+#if CPU(MIPS)
+    // Allocate stack space for (unused) 16 bytes (8-byte aligned) for 4 arguments.
     subPtr(TrustedImm32(16), stackPointerRegister);
+#endif
 
-    // Setup arg0
-    move(callFrameRegister, MIPSRegisters::a0);
+    // Calling convention is f(argumentGPR0, argumentGPR1, ...).
+    // Host function signature is f(ExecState*).
+    move(callFrameRegister, argumentGPR0);
 
-    // Call
-    emitGetFromCallFrameHeaderPtr(JSStack::Callee, MIPSRegisters::a2);
-    loadPtr(Address(MIPSRegisters::a2, OBJECT_OFFSETOF(JSFunction, m_executable)), regT2);
-    move(regT0, callFrameRegister); // Eagerly restore caller frame register to avoid loading from stack.
-    
+    emitGetFromCallFrameHeaderPtr(JSStack::Callee, argumentGPR1);
+    move(regT2, callFrameRegister); // Eagerly restore caller frame register to avoid loading from stack.
+    loadPtr(Address(argumentGPR1, OBJECT_OFFSETOF(JSFunction, m_executable)), regT2);
+
     // call the function
     nativeCall = call();
 
+#if CPU(MIPS)
     // Restore stack space
     addPtr(TrustedImm32(16), stackPointerRegister);
-
-    restoreReturnAddressBeforeReturn(regT3);
-#elif CPU(SH4)
-    // Load caller frame's scope chain into this callframe so that whatever we call can
-    // get to its global data.
-    emitGetCallerFrameFromCallFrameHeaderPtr(regT2);
-    emitGetFromCallFrameHeaderPtr(JSStack::ScopeChain, regT1, regT2);
-    emitPutCellToCallFrameHeader(regT1, JSStack::ScopeChain);
-
-    preserveReturnAddressAfterCall(regT3); // Callee preserved
-    emitPutReturnPCToCallFrameHeader(regT3);
-
-    // Calling convention: f(r0 == regT4, r1 == regT5, ...);
-    // Host function signature: f(ExecState*);
-    move(callFrameRegister, regT4);
-
-    emitGetFromCallFrameHeaderPtr(JSStack::Callee, regT5);
-    move(regT2, callFrameRegister); // Eagerly restore caller frame register to avoid loading from stack.
-    loadPtr(Address(regT5, OBJECT_OFFSETOF(JSFunction, m_executable)), regT2);
-
-    // call the function
-    nativeCall = call();
+#endif
 
     restoreReturnAddressBeforeReturn(regT3);
 #else
@@ -176,7 +130,7 @@ JIT::CodeRef JIT::privateCompileCTINativeCall(VM* vm, NativeFunction func)
     addPtr(TrustedImm32(-12), stackPointerRegister);
     push(callFrameRegister);
 #else
-    move(callFrameRegister, firstArgumentRegister);
+    move(callFrameRegister, argumentGPR0);
 #endif
     move(TrustedImmPtr(FunctionPtr(operationVMHandleException).value()), regT3);
     call(regT3);
@@ -198,19 +152,28 @@ void JIT::emit_op_mov(Instruction* currentInstruction)
 {
     int dst = currentInstruction[1].u.operand;
     int src = currentInstruction[2].u.operand;
-
+    
     if (m_codeBlock->isConstantRegisterIndex(src))
         emitStore(dst, getConstantOperand(src));
     else {
         emitLoad(src, regT1, regT0);
         emitStore(dst, regT1, regT0);
-        map(m_bytecodeOffset + OPCODE_LENGTH(op_mov), dst, regT1, regT0);
     }
+}
+
+void JIT::emit_op_captured_mov(Instruction* currentInstruction)
+{
+    int dst = currentInstruction[1].u.operand;
+    int src = currentInstruction[2].u.operand;
+
+    emitLoad(src, regT1, regT0);
+    emitNotifyWrite(regT1, regT0, regT2, currentInstruction[3].u.watchpointSet);
+    emitStore(dst, regT1, regT0);
 }
 
 void JIT::emit_op_end(Instruction* currentInstruction)
 {
-    ASSERT(returnValueRegister != callFrameRegister);
+    ASSERT(returnValueGPR != callFrameRegister);
     emitLoad(currentInstruction[1].u.operand, regT1, regT0);
     restoreReturnAddressBeforeReturn(Address(callFrameRegister, CallFrame::returnPCOffset()));
     ret();
@@ -243,7 +206,7 @@ void JIT::emitSlow_op_new_object(Instruction* currentInstruction, Vector<SlowCas
     int dst = currentInstruction[1].u.operand;
     Structure* structure = currentInstruction[3].u.objectAllocationProfile->structure();
     callOperation(operationNewObject, structure);
-    emitStoreCell(dst, returnValueRegister);
+    emitStoreCell(dst, returnValueGPR);
 }
 
 void JIT::emit_op_check_has_instance(Instruction* currentInstruction)
@@ -432,18 +395,14 @@ void JIT::emit_op_to_primitive(Instruction* currentInstruction)
 
     if (dst != src)
         emitStore(dst, regT1, regT0);
-    map(m_bytecodeOffset + OPCODE_LENGTH(op_to_primitive), dst, regT1, regT0);
 }
 
 void JIT::emitSlow_op_to_primitive(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    int dst = currentInstruction[1].u.operand;
-
     linkSlowCase(iter);
 
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_to_primitive);
     slowPathCall.call();
-    emitLoad(dst, regT1, regT0, callFrameRegister);
 }
 
 void JIT::emit_op_strcat(Instruction* currentInstruction)
@@ -468,13 +427,10 @@ void JIT::emit_op_not(Instruction* currentInstruction)
 
 void JIT::emitSlow_op_not(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    int dst = currentInstruction[1].u.operand;
-
     linkSlowCase(iter);
 
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_not);
     slowPathCall.call();
-    emitLoad(dst, regT1, regT0, callFrameRegister);
 }
 
 void JIT::emit_op_jfalse(Instruction* currentInstruction)
@@ -508,7 +464,7 @@ void JIT::emitSlow_op_jfalse(Instruction* currentInstruction, Vector<SlowCaseEnt
     }
 
     callOperation(operationConvertJSValueToBoolean, regT1, regT0);
-    emitJumpSlowToHot(branchTest32(Zero, returnValueRegister), target); // Inverted.
+    emitJumpSlowToHot(branchTest32(Zero, returnValueGPR), target); // Inverted.
 }
 
 void JIT::emit_op_jtrue(Instruction* currentInstruction)
@@ -542,7 +498,7 @@ void JIT::emitSlow_op_jtrue(Instruction* currentInstruction, Vector<SlowCaseEntr
     }
 
     callOperation(operationConvertJSValueToBoolean, regT1, regT0);
-    emitJumpSlowToHot(branchTest32(NonZero, returnValueRegister), target);
+    emitJumpSlowToHot(branchTest32(NonZero, returnValueGPR), target);
 }
 
 void JIT::emit_op_jeq_null(Instruction* currentInstruction)
@@ -651,7 +607,7 @@ void JIT::emitSlow_op_eq(Instruction* currentInstruction, Vector<SlowCaseEntry>:
     callOperation(operationCompareEq, regT1, regT0, regT3, regT2);
 
     storeResult.link(this);
-    emitStoreBool(dst, returnValueRegister);
+    emitStoreBool(dst, returnValueGPR);
 }
 
 void JIT::emit_op_neq(Instruction* currentInstruction)
@@ -693,8 +649,8 @@ void JIT::emitSlow_op_neq(Instruction* currentInstruction, Vector<SlowCaseEntry>
     callOperation(operationCompareEq, regT1, regT0, regT3, regT2);
 
     storeResult.link(this);
-    xor32(TrustedImm32(0x1), returnValueRegister);
-    emitStoreBool(dst, returnValueRegister);
+    xor32(TrustedImm32(0x1), returnValueGPR);
+    emitStoreBool(dst, returnValueGPR);
 }
 
 void JIT::compileOpStrictEq(Instruction* currentInstruction, CompileOpStrictEqType type)
@@ -732,15 +688,12 @@ void JIT::emit_op_stricteq(Instruction* currentInstruction)
 
 void JIT::emitSlow_op_stricteq(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    int dst = currentInstruction[1].u.operand;
-
     linkSlowCase(iter);
     linkSlowCase(iter);
     linkSlowCase(iter);
 
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_stricteq);
     slowPathCall.call();
-    emitLoad(dst, regT1, regT0, callFrameRegister);
 }
 
 void JIT::emit_op_nstricteq(Instruction* currentInstruction)
@@ -750,15 +703,12 @@ void JIT::emit_op_nstricteq(Instruction* currentInstruction)
 
 void JIT::emitSlow_op_nstricteq(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    int dst = currentInstruction[1].u.operand;
-
     linkSlowCase(iter);
     linkSlowCase(iter);
     linkSlowCase(iter);
 
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_nstricteq);
     slowPathCall.call();
-    emitLoad(dst, regT1, regT0, callFrameRegister);
 }
 
 void JIT::emit_op_eq_null(Instruction* currentInstruction)
@@ -825,7 +775,7 @@ void JIT::emit_op_neq_null(Instruction* currentInstruction)
 
 void JIT::emit_op_throw(Instruction* currentInstruction)
 {
-    ASSERT(regT0 == returnValueRegister);
+    ASSERT(regT0 == returnValueGPR);
     emitLoad(currentInstruction[1].u.operand, regT1, regT0);
     callOperationNoExceptionCheck(operationThrow, regT1, regT0);
     jumpToExceptionHandler();
@@ -853,7 +803,7 @@ void JIT::emit_op_get_pnames(Instruction* currentInstruction)
     // this call doesn't seem to be hot.
     Label isObject(this);
     callOperation(operationGetPNames, regT0);
-    emitStoreCell(dst, returnValueRegister);
+    emitStoreCell(dst, returnValueGPR);
     load32(Address(regT0, OBJECT_OFFSETOF(JSPropertyNameIterator, m_jsStringsSize)), regT3);
     store32(TrustedImm32(Int32Tag), intTagFor(i));
     store32(TrustedImm32(0), intPayloadFor(i));
@@ -956,18 +906,14 @@ void JIT::emit_op_to_number(Instruction* currentInstruction)
 
     if (src != dst)
         emitStore(dst, regT1, regT0);
-    map(m_bytecodeOffset + OPCODE_LENGTH(op_to_number), dst, regT1, regT0);
 }
 
 void JIT::emitSlow_op_to_number(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    int dst = currentInstruction[1].u.operand;
-
     linkSlowCase(iter);
 
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_to_number);
     slowPathCall.call();
-    emitLoad(dst, regT1, regT0, callFrameRegister);
 }
 
 void JIT::emit_op_push_name_scope(Instruction* currentInstruction)
@@ -978,11 +924,10 @@ void JIT::emit_op_push_name_scope(Instruction* currentInstruction)
 
 void JIT::emit_op_catch(Instruction* currentInstruction)
 {
-    // operationThrow returns the callFrame for the handler.
-    move(regT0, callFrameRegister);
-
-    // Now store the exception returned by operationThrow.
     move(TrustedImmPtr(m_vm), regT3);
+    // operationThrow returns the callFrame for the handler.
+    load32(Address(regT3, VM::callFrameForThrowOffset()), callFrameRegister);
+    // Now store the exception returned by operationThrow.
     load32(Address(regT3, VM::exceptionOffset() + OBJECT_OFFSETOF(JSValue, u.asBits.payload)), regT0);
     load32(Address(regT3, VM::exceptionOffset() + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), regT1);
     store32(TrustedImm32(JSValue().payload()), Address(regT3, VM::exceptionOffset() + OBJECT_OFFSETOF(JSValue, u.asBits.payload)));
@@ -990,7 +935,6 @@ void JIT::emit_op_catch(Instruction* currentInstruction)
 
     unsigned exception = currentInstruction[1].u.operand;
     emitStore(exception, regT1, regT0);
-    map(m_bytecodeOffset + OPCODE_LENGTH(op_catch), exception, regT1, regT0);
 }
 
 void JIT::emit_op_switch_imm(Instruction* currentInstruction)
@@ -1006,7 +950,7 @@ void JIT::emit_op_switch_imm(Instruction* currentInstruction)
 
     emitLoad(scrutinee, regT1, regT0);
     callOperation(operationSwitchImmWithUnknownKeyType, regT1, regT0, tableIndex);
-    jump(returnValueRegister);
+    jump(returnValueGPR);
 }
 
 void JIT::emit_op_switch_char(Instruction* currentInstruction)
@@ -1022,7 +966,7 @@ void JIT::emit_op_switch_char(Instruction* currentInstruction)
 
     emitLoad(scrutinee, regT1, regT0);
     callOperation(operationSwitchCharWithUnknownKeyType, regT1, regT0, tableIndex);
-    jump(returnValueRegister);
+    jump(returnValueGPR);
 }
 
 void JIT::emit_op_switch_string(Instruction* currentInstruction)
@@ -1037,7 +981,7 @@ void JIT::emit_op_switch_string(Instruction* currentInstruction)
 
     emitLoad(scrutinee, regT1, regT0);
     callOperation(operationSwitchStringWithUnknownKeyType, regT1, regT0, tableIndex);
-    jump(returnValueRegister);
+    jump(returnValueGPR);
 }
 
 void JIT::emit_op_throw_static_error(Instruction* currentInstruction)
@@ -1051,7 +995,7 @@ void JIT::emit_op_debug(Instruction* currentInstruction)
 #if ENABLE(DEBUG_WITH_BREAKPOINT)
     UNUSED_PARAM(currentInstruction);
     breakpoint();
-#else
+#elif ENABLE(JAVASCRIPT_DEBUGGER)
     JSGlobalObject* globalObject = codeBlock()->globalObject();
     Debugger* debugger = globalObject->debugger();
     char* debuggerAddress = reinterpret_cast<char*>(globalObject) + JSGlobalObject::debuggerOffset();
@@ -1062,11 +1006,13 @@ void JIT::emit_op_debug(Instruction* currentInstruction)
     callOperation(operationDebug, currentInstruction[1].u.operand);
     skipDebugHook.link(this);
     noDebugger.link(this);
+#else
+    UNUSED_PARAM(currentInstruction);
 #endif
 }
 
 
-void JIT::emit_op_enter(Instruction*)
+void JIT::emit_op_enter(Instruction* currentInstruction)
 {
     emitEnterOptimizationCheck();
     
@@ -1075,6 +1021,9 @@ void JIT::emit_op_enter(Instruction*)
     // object lifetime and increasing GC pressure.
     for (int i = 0; i < m_codeBlock->m_numVars; ++i)
         emitStore(virtualRegisterForLocal(i).offset(), jsUndefined());
+
+    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_enter);
+    slowPathCall.call();
 }
 
 void JIT::emit_op_create_activation(Instruction* currentInstruction)
@@ -1083,7 +1032,7 @@ void JIT::emit_op_create_activation(Instruction* currentInstruction)
     
     Jump activationCreated = branch32(NotEqual, tagFor(activation), TrustedImm32(JSValue::EmptyValueTag));
     callOperation(operationCreateActivation, 0);
-    emitStoreCell(activation, returnValueRegister);
+    emitStoreCell(activation, returnValueGPR);
     activationCreated.link(this);
 }
 
@@ -1093,8 +1042,8 @@ void JIT::emit_op_create_arguments(Instruction* currentInstruction)
 
     Jump argsCreated = branch32(NotEqual, tagFor(dst), TrustedImm32(JSValue::EmptyValueTag));
     callOperation(operationCreateArguments);
-    emitStoreCell(dst, returnValueRegister);
-    emitStoreCell(unmodifiedArgumentsRegister(VirtualRegister(dst)).offset(), returnValueRegister);
+    emitStoreCell(dst, returnValueGPR);
+    emitStoreCell(unmodifiedArgumentsRegister(VirtualRegister(dst)).offset(), returnValueGPR);
     argsCreated.link(this);
 }
 
@@ -1124,7 +1073,6 @@ void JIT::emitSlow_op_get_callee(Instruction* currentInstruction, Vector<SlowCas
 
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_get_callee);
     slowPathCall.call();
-    emitLoad(currentInstruction[1].u.operand, regT1, regT0);
 }
 
 void JIT::emit_op_create_this(Instruction* currentInstruction)
@@ -1147,13 +1095,11 @@ void JIT::emit_op_create_this(Instruction* currentInstruction)
 
 void JIT::emitSlow_op_create_this(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    int dst = currentInstruction[1].u.operand;
     linkSlowCase(iter); // doesn't have an allocation profile
     linkSlowCase(iter); // allocation failed
 
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_create_this);
     slowPathCall.call();
-    emitLoad(dst, regT1, regT0);
 }
 
 void JIT::emit_op_to_this(Instruction* currentInstruction)
@@ -1172,13 +1118,11 @@ void JIT::emit_op_to_this(Instruction* currentInstruction)
 
 void JIT::emitSlow_op_to_this(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    int dst = currentInstruction[1].u.operand;
     linkSlowCase(iter);
     linkSlowCase(iter);
     linkSlowCase(iter);
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_to_this);
     slowPathCall.call();
-    emitLoad(dst, regT1, regT0);
 }
 
 void JIT::emit_op_profile_will_call(Instruction* currentInstruction)
@@ -1226,7 +1170,7 @@ void JIT::emit_op_get_argument_by_val(Instruction* currentInstruction)
     
     loadPtr(BaseIndex(callFrameRegister, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.payload) + CallFrame::thisArgumentOffset() * static_cast<int>(sizeof(Register))), regT0);
     loadPtr(BaseIndex(callFrameRegister, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.tag) + CallFrame::thisArgumentOffset() * static_cast<int>(sizeof(Register))), regT1);
-    emitValueProfilingSite(regT4);
+    emitValueProfilingSite();
     emitStore(dst, regT1, regT0);
 }
 
@@ -1243,8 +1187,8 @@ void JIT::emitSlow_op_get_argument_by_val(Instruction* currentInstruction, Vecto
     linkSlowCase(iter);
 
     callOperation(operationCreateArguments);
-    emitStoreCell(arguments, returnValueRegister);
-    emitStoreCell(unmodifiedArgumentsRegister(VirtualRegister(arguments)).offset(), returnValueRegister);
+    emitStoreCell(arguments, returnValueGPR);
+    emitStoreCell(unmodifiedArgumentsRegister(VirtualRegister(arguments)).offset(), returnValueGPR);
     
     skipArgumentsCreation.link(this);
     emitLoad(arguments, regT1, regT0);

@@ -32,6 +32,7 @@
 #include "DFGGraph.h"
 #include "DFGPhase.h"
 #include "JSCellInlines.h"
+#include <array>
 #include <wtf/FastBitVector.h>
 
 namespace JSC { namespace DFG {
@@ -48,15 +49,62 @@ public:
     
     bool run()
     {
-        ASSERT((cseMode == NormalCSE) == (m_graph.m_fixpointState == FixpointNotConverged));
         ASSERT(m_graph.m_fixpointState != BeforeFixpoint);
         
         m_changed = false;
         
         m_graph.clearReplacements();
         
-        for (unsigned blockIndex = 0; blockIndex < m_graph.numBlocks(); ++blockIndex)
-            performBlockCSE(m_graph.block(blockIndex));
+        for (BlockIndex blockIndex = m_graph.numBlocks(); blockIndex--;) {
+            BasicBlock* block = m_graph.block(blockIndex);
+            if (!block)
+                continue;
+            
+            // All Phis need to already be marked as relevant to OSR.
+            if (!ASSERT_DISABLED) {
+                for (unsigned i = 0; i < block->phis.size(); ++i)
+                    ASSERT(block->phis[i]->flags() & NodeRelevantToOSR);
+            }
+            
+            for (unsigned i = block->size(); i--;) {
+                Node* node = block->at(i);
+                
+                switch (node->op()) {
+                case SetLocal:
+                case GetLocal: // FIXME: The GetLocal case is only necessary until we do https://bugs.webkit.org/show_bug.cgi?id=106707.
+                    node->mergeFlags(NodeRelevantToOSR);
+                    break;
+                default:
+                    node->clearFlags(NodeRelevantToOSR);
+                    break;
+                }
+            }
+        }
+        
+        for (BlockIndex blockIndex = m_graph.numBlocks(); blockIndex--;) {
+            BasicBlock* block = m_graph.block(blockIndex);
+            if (!block)
+                continue;
+            
+            for (unsigned i = block->size(); i--;) {
+                Node* node = block->at(i);
+                if (!node->containsMovHint())
+                    continue;
+                
+                ASSERT(node->op() != ZombieHint);
+                node->child1()->mergeFlags(NodeRelevantToOSR);
+            }
+        }
+        
+        if (m_graph.m_form == SSA) {
+            Vector<BasicBlock*> depthFirst;
+            m_graph.getBlocksInDepthFirstOrder(depthFirst);
+            for (unsigned i = 0; i < depthFirst.size(); ++i)
+                performBlockCSE(depthFirst[i]);
+        } else {
+            for (unsigned blockIndex = 0; blockIndex < m_graph.numBlocks(); ++blockIndex)
+                performBlockCSE(m_graph.block(blockIndex));
+        }
         
         return m_changed;
     }
@@ -71,9 +119,6 @@ private:
         else
             result++;
         ASSERT(result <= m_indexInBlock);
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLogF("  limit %u: ", result);
-#endif
         return result;
     }
 
@@ -91,8 +136,10 @@ private:
             if (node->op() != otherNode->op())
                 continue;
             
-            if (node->arithNodeFlags() != otherNode->arithNodeFlags())
-                continue;
+            if (node->hasArithMode()) {
+                if (node->arithMode() != otherNode->arithMode())
+                    continue;
+            }
             
             Edge otherChild = otherNode->child1();
             if (!otherChild)
@@ -165,6 +212,21 @@ private:
         return 0;
     }
     
+    Node* constantStoragePointerCSE(Node* node)
+    {
+        for (unsigned i = endIndexForPureCSE(); i--;) {
+            Node* otherNode = m_currentBlock->at(i);
+            if (otherNode->op() != ConstantStoragePointer)
+                continue;
+            
+            if (otherNode->storagePointer() != node->storagePointer())
+                continue;
+            
+            return otherNode;
+        }
+        return 0;
+    }
+    
     Node* getCalleeLoadElimination()
     {
         for (unsigned i = m_indexInBlock; i--;) {
@@ -227,7 +289,7 @@ private:
         return 0;
     }
     
-    Node* scopedVarLoadElimination(Node* registers, unsigned varNumber)
+    Node* scopedVarLoadElimination(Node* registers, int varNumber)
     {
         for (unsigned i = m_indexInBlock; i--;) {
             Node* node = m_currentBlock->at(i);
@@ -260,28 +322,6 @@ private:
         return 0;
     }
     
-    bool globalVarWatchpointElimination(WriteBarrier<Unknown>* registerPointer)
-    {
-        for (unsigned i = m_indexInBlock; i--;) {
-            Node* node = m_currentBlock->at(i);
-            switch (node->op()) {
-            case GlobalVarWatchpoint:
-                if (node->registerPointer() == registerPointer)
-                    return true;
-                break;
-            case PutGlobalVar:
-                if (node->registerPointer() == registerPointer)
-                    return false;
-                break;
-            default:
-                break;
-            }
-            if (m_graph.clobbersWorld(node))
-                break;
-        }
-        return false;
-    }
-
     bool varInjectionWatchpointElimination()
     {
         for (unsigned i = m_indexInBlock; i--;) {
@@ -318,7 +358,7 @@ private:
         return 0;
     }
     
-    Node* scopedVarStoreElimination(Node* scope, Node* registers, unsigned varNumber)
+    Node* scopedVarStoreElimination(Node* scope, Node* registers, int varNumber)
     {
         for (unsigned i = m_indexInBlock; i--;) {
             Node* node = m_currentBlock->at(i);
@@ -338,7 +378,8 @@ private:
                 break;
             }
                 
-            case GetLocal: {
+            case GetLocal:
+            case SetLocal: {
                 VariableAccessData* variableAccessData = node->variableAccessData();
                 if (variableAccessData->isCaptured()
                     && variableAccessData->local() == static_cast<VirtualRegister>(varNumber))
@@ -355,7 +396,7 @@ private:
         return 0;
     }
     
-    Node* getByValLoadElimination(Node* child1, Node* child2)
+    Node* getByValLoadElimination(Node* child1, Node* child2, ArrayMode arrayMode)
     {
         for (unsigned i = m_indexInBlock; i--;) {
             Node* node = m_currentBlock->at(i);
@@ -366,7 +407,9 @@ private:
             case GetByVal:
                 if (!m_graph.byValIsPure(node))
                     return 0;
-                if (node->child1() == child1 && node->child2() == child2)
+                if (node->child1() == child1
+                    && node->child2() == child2
+                    && node->arrayMode().type() == arrayMode.type())
                     return node;
                 break;
                     
@@ -375,7 +418,12 @@ private:
             case PutByValAlias: {
                 if (!m_graph.byValIsPure(node))
                     return 0;
-                if (m_graph.varArgChild(node, 0) == child1 && m_graph.varArgChild(node, 1) == child2)
+                // Typed arrays 
+                if (arrayMode.typedArrayType() != NotTypedArray)
+                    return 0;
+                if (m_graph.varArgChild(node, 0) == child1
+                    && m_graph.varArgChild(node, 1) == child2
+                    && node->arrayMode().type() == arrayMode.type())
                     return m_graph.varArgChild(node, 2).node();
                 // We must assume that the PutByVal will clobber the location we're getting from.
                 // FIXME: We can do better; if we know that the PutByVal is accessing an array of a
@@ -851,6 +899,7 @@ private:
                 }
                 break;
                 
+            case GetClosureVar:
             case PutClosureVar:
                 if (static_cast<VirtualRegister>(node->varNumber()) == local)
                     return 0;
@@ -904,6 +953,7 @@ private:
             }
                 
             case GetClosureVar:
+            case PutClosureVar:
                 if (static_cast<VirtualRegister>(node->varNumber()) == local)
                     result.mayBeAccessed = true;
                 break;
@@ -968,9 +1018,6 @@ private:
             if (edge->flags() & NodeRelevantToOSR)
                 continue;
             
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-            dataLog("   Eliminating edge @", m_currentNode->index(), " -> @", edge->index());
-#endif
             node->children.removeEdge(i--);
             m_changed = true;
         }
@@ -980,10 +1027,6 @@ private:
     {
         if (!replacement)
             return false;
-        
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLogF("   Replacing @%u -> @%u", m_currentNode->index(), replacement->index());
-#endif
         
         m_currentNode->convertToPhantom();
         eliminateIrrelevantPhantomChildren(m_currentNode);
@@ -998,10 +1041,6 @@ private:
     
     void eliminate()
     {
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLogF("   Eliminating @%u", m_currentNode->index());
-#endif
-        
         ASSERT(m_currentNode->mustGenerate());
         m_currentNode->convertToPhantom();
         eliminateIrrelevantPhantomChildren(m_currentNode);
@@ -1014,7 +1053,7 @@ private:
         if (!node)
             return;
         ASSERT(node->mustGenerate());
-        node->setOpAndDefaultNonExitFlags(phantomType);
+        node->setOpAndDefaultFlags(phantomType);
         if (phantomType == Phantom)
             eliminateIrrelevantPhantomChildren(node);
         
@@ -1025,13 +1064,6 @@ private:
     {
         if (cseMode == NormalCSE)
             m_graph.performSubstitution(node);
-        
-        if (node->op() == SetLocal)
-            node->child1()->mergeFlags(NodeRelevantToOSR);
-        
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLogF("   %s @%u: ", Graph::opName(node->op()), node->index());
-#endif
         
         switch (node->op()) {
         
@@ -1052,13 +1084,14 @@ private:
         case ArithSub:
         case ArithNegate:
         case ArithMul:
-        case ArithIMul:
         case ArithMod:
         case ArithDiv:
         case ArithAbs:
         case ArithMin:
         case ArithMax:
         case ArithSqrt:
+        case ArithSin:
+        case ArithCos:
         case StringCharAt:
         case StringCharCodeAt:
         case IsUndefined:
@@ -1133,6 +1166,11 @@ private:
         }
             
         case Flush: {
+            if (m_graph.m_form == SSA) {
+                // FIXME: Enable Flush store elimination in SSA form.
+                // https://bugs.webkit.org/show_bug.cgi?id=125429
+                break;
+            }
             VariableAccessData* variableAccessData = node->variableAccessData();
             VirtualRegister local = variableAccessData->local();
             Node* replacement = node->child1().node();
@@ -1182,6 +1220,12 @@ private:
             setReplacement(weakConstantCSE(node));
             break;
             
+        case ConstantStoragePointer:
+            if (cseMode == StoreElimination)
+                break;
+            setReplacement(constantStoragePointerCSE(node));
+            break;
+            
         case GetArrayLength:
             if (cseMode == StoreElimination)
                 break;
@@ -1196,7 +1240,6 @@ private:
             
         // Handle nodes that are conditionally pure: these are pure, and can
         // be CSE'd, so long as the prediction is the one we want.
-        case ValueAdd:
         case CompareLess:
         case CompareLessEq:
         case CompareGreater:
@@ -1227,13 +1270,6 @@ private:
             break;
         }
 
-        case GlobalVarWatchpoint:
-            if (cseMode == StoreElimination)
-                break;
-            if (globalVarWatchpointElimination(node->registerPointer()))
-                eliminate();
-            break;
-            
         case VarInjectionWatchpoint:
             if (cseMode == StoreElimination)
                 break;
@@ -1258,7 +1294,7 @@ private:
             if (cseMode == StoreElimination)
                 break;
             if (m_graph.byValIsPure(node))
-                setReplacement(getByValLoadElimination(node->child1().node(), node->child2().node()));
+                setReplacement(getByValLoadElimination(node->child1().node(), node->child2().node(), node->arrayMode()));
             break;
                 
         case PutByValDirect:
@@ -1268,7 +1304,7 @@ private:
             Edge child1 = m_graph.varArgChild(node, 0);
             Edge child2 = m_graph.varArgChild(node, 1);
             if (node->arrayMode().canCSEStorage()) {
-                Node* replacement = getByValLoadElimination(child1.node(), child2.node());
+                Node* replacement = getByValLoadElimination(child1.node(), child2.node(), node->arrayMode());
                 if (!replacement)
                     break;
                 node->setOp(PutByValAlias);
@@ -1361,9 +1397,6 @@ private:
         }
         
         m_lastSeen[node->op()] = m_indexInBlock;
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLogF("\n");
-#endif
     }
     
     void performBlockCSE(BasicBlock* block)
@@ -1377,28 +1410,6 @@ private:
         for (unsigned i = 0; i < LastNodeType; ++i)
             m_lastSeen[i] = UINT_MAX;
         
-        // All Phis need to already be marked as relevant to OSR.
-        if (!ASSERT_DISABLED) {
-            for (unsigned i = 0; i < block->phis.size(); ++i)
-                ASSERT(block->phis[i]->flags() & NodeRelevantToOSR);
-        }
-        
-        // Make all of my SetLocal and GetLocal nodes relevant to OSR, and do some other
-        // necessary bookkeeping.
-        for (unsigned i = 0; i < block->size(); ++i) {
-            Node* node = block->at(i);
-            
-            switch (node->op()) {
-            case SetLocal:
-            case GetLocal: // FIXME: The GetLocal case is only necessary until we do https://bugs.webkit.org/show_bug.cgi?id=106707.
-                node->mergeFlags(NodeRelevantToOSR);
-                break;
-            default:
-                node->clearFlags(NodeRelevantToOSR);
-                break;
-            }
-        }
-
         for (m_indexInBlock = 0; m_indexInBlock < block->size(); ++m_indexInBlock) {
             m_currentNode = block->at(m_indexInBlock);
             performNodeCSE(m_currentNode);
@@ -1414,7 +1425,7 @@ private:
     BasicBlock* m_currentBlock;
     Node* m_currentNode;
     unsigned m_indexInBlock;
-    FixedArray<unsigned, LastNodeType> m_lastSeen;
+    std::array<unsigned, LastNodeType> m_lastSeen;
     bool m_changed; // Only tracks changes that have a substantive effect on other optimizations.
 };
 

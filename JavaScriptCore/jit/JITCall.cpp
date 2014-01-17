@@ -42,26 +42,14 @@
 #include "ThunkGenerators.h"
 #include <wtf/StringPrintStream.h>
 
-#ifndef NDEBUG
-#include <stdio.h>
-#endif
-
-using namespace std;
 
 namespace JSC {
 
 void JIT::emitPutCallResult(Instruction* instruction)
 {
     int dst = instruction[1].u.operand;
-    emitValueProfilingSite(regT4);
+    emitValueProfilingSite();
     emitPutVirtualRegister(dst);
-    if (canBeOptimizedOrInlined()) {
-        // Make lastResultRegister tracking simpler in the DFG. This is needed because
-        // the DFG may have the SetLocal corresponding to this Call's return value in
-        // a different basic block, if inlining happened. The DFG isn't smart enough to
-        // track the baseline JIT's last result register across basic blocks.
-        killLastResultRegister();
-    }
 }
 
 void JIT::compileLoadVarargs(Instruction* instruction)
@@ -69,8 +57,6 @@ void JIT::compileLoadVarargs(Instruction* instruction)
     int thisValue = instruction[3].u.operand;
     int arguments = instruction[4].u.operand;
     int firstFreeRegister = instruction[5].u.operand;
-
-    killLastResultRegister();
 
     JumpList slowCase;
     JumpList end;
@@ -93,7 +79,7 @@ void JIT::compileLoadVarargs(Instruction* instruction)
         addPtr(callFrameRegister, regT1);
         // regT1: newCallFrame
 
-        slowCase.append(branchPtr(Above, AbsoluteAddress(m_vm->interpreter->stack().addressOfEnd()), regT1));
+        slowCase.append(branchPtr(Above, AbsoluteAddress(m_vm->addressOfJSStackLimit()), regT1));
 
         // Initialize ArgumentCount.
         store32(regT0, Address(regT1, JSStack::ArgumentCount * static_cast<int>(sizeof(Register)) + OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.payload)));
@@ -118,10 +104,12 @@ void JIT::compileLoadVarargs(Instruction* instruction)
     if (canOptimize)
         slowCase.link(this);
 
-    emitGetVirtualRegister(thisValue, regT0);
     emitGetVirtualRegister(arguments, regT1);
-    callOperation(operationLoadVarargs, regT0, regT1, firstFreeRegister);
-    move(returnValueRegister, regT1);
+    callOperation(operationSizeAndAllocFrameForVarargs, regT1, firstFreeRegister);
+    emitGetVirtualRegister(thisValue, regT1);
+    emitGetVirtualRegister(arguments, regT2);
+    callOperation(operationLoadVarargs, returnValueGPR, regT1, regT2);
+    move(returnValueGPR, regT1);
 
     if (canOptimize)
         end.link(this);

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2007, 2008, 2009, 2012 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2007, 2008, 2009, 2012, 2013 Apple Inc. All rights reserved.
  *  Copyright (C) 2003 Peter Kelly (pmk@post.com)
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
@@ -321,8 +321,7 @@ bool JSArray::unshiftCountSlowCase(VM& vm, bool addToFront, unsigned count)
 
     newButterfly->arrayStorage()->setVectorLength(newVectorLength);
     newButterfly->arrayStorage()->m_indexBias = newIndexBias;
-
-    m_butterfly = newButterfly;
+    setButterflyWithoutChangingStructure(vm, newButterfly);
 
     return true;
 }
@@ -720,7 +719,7 @@ bool JSArray::shiftCountWithArrayStorage(unsigned startIndex, unsigned count, Ar
         // Adjust the Butterfly and the index bias. We only need to do this here because we're changing
         // the start of the Butterfly, which needs to point at the first indexed property in the used
         // portion of the vector.
-        m_butterfly = m_butterfly->shift(structure(), count);
+        m_butterfly.setWithoutWriteBarrier(m_butterfly->shift(structure(), count));
         storage = m_butterfly->arrayStorage();
         storage->m_indexBias += count;
 
@@ -857,10 +856,11 @@ bool JSArray::unshiftCountWithArrayStorage(ExecState* exec, unsigned startIndex,
     unsigned vectorLength = storage->vectorLength();
 
     if (moveFront && storage->m_indexBias >= count) {
-        m_butterfly = storage->butterfly()->unshift(structure(), count);
-        storage = m_butterfly->arrayStorage();
+        Butterfly* newButterfly = storage->butterfly()->unshift(structure(), count);
+        storage = newButterfly->arrayStorage();
         storage->m_indexBias -= count;
         storage->setVectorLength(vectorLength + count);
+        setButterflyWithoutChangingStructure(exec->vm(), newButterfly);
     } else if (!moveFront && vectorLength - length >= count)
         storage = storage->butterfly()->arrayStorage();
     else if (unshiftCountSlowCase(exec->vm(), moveFront, count))
@@ -1320,7 +1320,7 @@ struct AVLTreeAbstractorForArrayCompare {
             m_cachedCall->setThis(jsUndefined());
             m_cachedCall->setArgument(0, va);
             m_cachedCall->setArgument(1, vb);
-            compareResult = m_cachedCall->call().toNumber(m_cachedCall->newCallFrame(m_exec));
+            compareResult = m_cachedCall->call().toNumber(m_exec);
         } else {
             MarkedArgumentBuffer arguments;
             arguments.append(va);

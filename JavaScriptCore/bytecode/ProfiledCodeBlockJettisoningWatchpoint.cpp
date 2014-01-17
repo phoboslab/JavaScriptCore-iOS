@@ -40,14 +40,20 @@ void ProfiledCodeBlockJettisoningWatchpoint::fireInternal()
             m_exitKind, " at ", m_codeOrigin, "\n");
     }
     
-    baselineCodeBlockForOriginAndBaselineCodeBlock(
-        m_codeOrigin, m_codeBlock->baselineVersion())->addFrequentExitSite(
-            DFG::FrequentExitSite(m_codeOrigin.bytecodeIndex, m_exitKind));
+    // FIXME: Maybe this should call alternative().
+    // https://bugs.webkit.org/show_bug.cgi?id=123677
+    CodeBlock* machineBaselineCodeBlock = m_codeBlock->baselineAlternative();
+    CodeBlock* sourceBaselineCodeBlock =
+        baselineCodeBlockForOriginAndBaselineCodeBlock(
+            m_codeOrigin, machineBaselineCodeBlock);
     
-#if ENABLE(JIT)
+    if (sourceBaselineCodeBlock) {
+        sourceBaselineCodeBlock->addFrequentExitSite(
+            DFG::FrequentExitSite(m_codeOrigin.bytecodeIndex, m_exitKind));
+    }
+    
     m_codeBlock->jettison(CountReoptimization);
-#endif
-
+    
     if (isOnList())
         remove();
 }

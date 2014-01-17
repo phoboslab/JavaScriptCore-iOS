@@ -45,7 +45,9 @@ enum FlushFormat {
     FlushedDouble,
     FlushedCell,
     FlushedBoolean,
-    FlushedJSValue
+    FlushedJSValue,
+    FlushedArguments,
+    ConflictingFlush
 };
 
 inline NodeFlags resultFor(FlushFormat format)
@@ -54,6 +56,8 @@ inline NodeFlags resultFor(FlushFormat format)
     case DeadFlush:
     case FlushedJSValue:
     case FlushedCell:
+    case ConflictingFlush:
+    case FlushedArguments:
         return NodeResultJS;
     case FlushedInt32:
         return NodeResultInt32;
@@ -73,6 +77,8 @@ inline UseKind useKindFor(FlushFormat format)
     switch (format) {
     case DeadFlush:
     case FlushedJSValue:
+    case ConflictingFlush:
+    case FlushedArguments:
         return UntypedUse;
     case FlushedCell:
         return CellUse;
@@ -93,6 +99,7 @@ inline DataFormat dataFormatFor(FlushFormat format)
 {
     switch (format) {
     case DeadFlush:
+    case ConflictingFlush:
         return DataFormatDead;
     case FlushedJSValue:
         return DataFormatJS;
@@ -106,6 +113,8 @@ inline DataFormat dataFormatFor(FlushFormat format)
         return DataFormatCell;
     case FlushedBoolean:
         return DataFormatBoolean;
+    case FlushedArguments:
+        return DataFormatArguments;
     }
     RELEASE_ASSERT_NOT_REACHED();
     return DataFormatDead;

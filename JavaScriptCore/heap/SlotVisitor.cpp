@@ -33,7 +33,7 @@ SlotVisitor::SlotVisitor(GCThreadSharedData& shared)
 
 SlotVisitor::~SlotVisitor()
 {
-    ASSERT(m_stack.isEmpty());
+    clearMarkStack();
 }
 
 void SlotVisitor::setup()
@@ -63,6 +63,11 @@ void SlotVisitor::reset()
     }
 }
 
+void SlotVisitor::clearMarkStack()
+{
+    m_stack.clear();
+}
+
 void SlotVisitor::append(ConservativeRoots& conservativeRoots)
 {
     StackStats::probe();
@@ -75,9 +80,6 @@ void SlotVisitor::append(ConservativeRoots& conservativeRoots)
 ALWAYS_INLINE static void visitChildren(SlotVisitor& visitor, const JSCell* cell)
 {
     StackStats::probe();
-#if ENABLE(SIMPLE_HEAP_PROFILING)
-    m_visitedTypeCounts.count(cell);
-#endif
 
     ASSERT(Heap::isMarked(cell));
     

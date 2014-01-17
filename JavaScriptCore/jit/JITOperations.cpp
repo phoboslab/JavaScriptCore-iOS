@@ -44,6 +44,7 @@
 #include "JSGlobalObjectFunctions.h"
 #include "JSNameScope.h"
 #include "JSPropertyNameIterator.h"
+#include "JSStackInlines.h"
 #include "JSWithScope.h"
 #include "ObjectConstructor.h"
 #include "Operations.h"
@@ -74,20 +75,23 @@ void JIT_OPERATION operationStackCheck(ExecState* exec, CodeBlock* codeBlock)
 {
     // We pass in our own code block, because the callframe hasn't been populated.
     VM* vm = codeBlock->vm();
-    CallFrame* callerFrame = exec->callerFrame();
-    NativeCallFrameTracer tracer(vm, callerFrame->removeHostCallFrameFlag());
+    CallFrame* callerFrame = exec->callerFrameSkippingVMEntrySentinel();
+    if (!callerFrame)
+        callerFrame = exec;
+
+    NativeCallFrameTracer tracer(vm, callerFrame);
 
     JSStack& stack = vm->interpreter->stack();
 
-    if (UNLIKELY(!stack.grow(&exec->registers()[virtualRegisterForLocal(codeBlock->m_numCalleeRegisters).offset()])))
+    if (UNLIKELY(!stack.grow(&exec->registers()[virtualRegisterForLocal(codeBlock->frameRegisterCount()).offset()])))
         vm->throwException(callerFrame, createStackOverflowError(callerFrame));
 }
 
 int32_t JIT_OPERATION operationCallArityCheck(ExecState* exec)
 {
     VM* vm = &exec->vm();
-    CallFrame* callerFrame = exec->callerFrame();
-    NativeCallFrameTracer tracer(vm, callerFrame->removeHostCallFrameFlag());
+    CallFrame* callerFrame = exec->callerFrameSkippingVMEntrySentinel();
+    NativeCallFrameTracer tracer(vm, callerFrame);
 
     JSStack& stack = vm->interpreter->stack();
 
@@ -101,8 +105,8 @@ int32_t JIT_OPERATION operationCallArityCheck(ExecState* exec)
 int32_t JIT_OPERATION operationConstructArityCheck(ExecState* exec)
 {
     VM* vm = &exec->vm();
-    CallFrame* callerFrame = exec->callerFrame();
-    NativeCallFrameTracer tracer(vm, callerFrame->removeHostCallFrameFlag());
+    CallFrame* callerFrame = exec->callerFrameSkippingVMEntrySentinel();
+    NativeCallFrameTracer tracer(vm, callerFrame);
 
     JSStack& stack = vm->interpreter->stack();
 
@@ -218,7 +222,7 @@ EncodedJSValue JIT_OPERATION operationCallCustomGetter(ExecState* exec, JSCell* 
     
     Identifier ident(vm, uid);
     
-    return JSValue::encode(function(exec, asObject(base), ident));
+    return function(exec, JSValue::encode(base), JSValue::encode(base), ident);
 }
 
 EncodedJSValue JIT_OPERATION operationCallGetter(ExecState* exec, JSCell* base, JSCell* getterSetter)
@@ -235,7 +239,7 @@ void JIT_OPERATION operationPutByIdStrict(ExecState* exec, StructureStubInfo*, E
     NativeCallFrameTracer tracer(vm, exec);
     
     Identifier ident(vm, uid);
-    PutPropertySlot slot(true, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(JSValue::decode(encodedBase), true, exec->codeBlock()->putByIdContext());
     JSValue::decode(encodedBase).put(exec, ident, JSValue::decode(encodedValue), slot);
 }
 
@@ -245,7 +249,7 @@ void JIT_OPERATION operationPutByIdNonStrict(ExecState* exec, StructureStubInfo*
     NativeCallFrameTracer tracer(vm, exec);
     
     Identifier ident(vm, uid);
-    PutPropertySlot slot(false, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(JSValue::decode(encodedBase), false, exec->codeBlock()->putByIdContext());
     JSValue::decode(encodedBase).put(exec, ident, JSValue::decode(encodedValue), slot);
 }
 
@@ -255,7 +259,7 @@ void JIT_OPERATION operationPutByIdDirectStrict(ExecState* exec, StructureStubIn
     NativeCallFrameTracer tracer(vm, exec);
     
     Identifier ident(vm, uid);
-    PutPropertySlot slot(true, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(JSValue::decode(encodedBase), true, exec->codeBlock()->putByIdContext());
     asObject(JSValue::decode(encodedBase))->putDirect(exec->vm(), ident, JSValue::decode(encodedValue), slot);
 }
 
@@ -265,7 +269,7 @@ void JIT_OPERATION operationPutByIdDirectNonStrict(ExecState* exec, StructureStu
     NativeCallFrameTracer tracer(vm, exec);
     
     Identifier ident(vm, uid);
-    PutPropertySlot slot(false, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(JSValue::decode(encodedBase), false, exec->codeBlock()->putByIdContext());
     asObject(JSValue::decode(encodedBase))->putDirect(exec->vm(), ident, JSValue::decode(encodedValue), slot);
 }
 
@@ -279,7 +283,7 @@ void JIT_OPERATION operationPutByIdStrictOptimize(ExecState* exec, StructureStub
 
     JSValue value = JSValue::decode(encodedValue);
     JSValue baseValue = JSValue::decode(encodedBase);
-    PutPropertySlot slot(true, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(baseValue, true, exec->codeBlock()->putByIdContext());
     
     baseValue.put(exec, ident, value, slot);
     
@@ -302,7 +306,7 @@ void JIT_OPERATION operationPutByIdNonStrictOptimize(ExecState* exec, StructureS
 
     JSValue value = JSValue::decode(encodedValue);
     JSValue baseValue = JSValue::decode(encodedBase);
-    PutPropertySlot slot(false, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(baseValue, false, exec->codeBlock()->putByIdContext());
     
     baseValue.put(exec, ident, value, slot);
     
@@ -325,7 +329,7 @@ void JIT_OPERATION operationPutByIdDirectStrictOptimize(ExecState* exec, Structu
 
     JSValue value = JSValue::decode(encodedValue);
     JSObject* baseObject = asObject(JSValue::decode(encodedBase));
-    PutPropertySlot slot(true, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(baseObject, true, exec->codeBlock()->putByIdContext());
     
     baseObject->putDirect(exec->vm(), ident, value, slot);
     
@@ -348,7 +352,7 @@ void JIT_OPERATION operationPutByIdDirectNonStrictOptimize(ExecState* exec, Stru
 
     JSValue value = JSValue::decode(encodedValue);
     JSObject* baseObject = asObject(JSValue::decode(encodedBase));
-    PutPropertySlot slot(false, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(baseObject, false, exec->codeBlock()->putByIdContext());
     
     baseObject->putDirect(exec->vm(), ident, value, slot);
     
@@ -371,7 +375,7 @@ void JIT_OPERATION operationPutByIdStrictBuildList(ExecState* exec, StructureStu
 
     JSValue value = JSValue::decode(encodedValue);
     JSValue baseValue = JSValue::decode(encodedBase);
-    PutPropertySlot slot(true, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(baseValue, true, exec->codeBlock()->putByIdContext());
     
     baseValue.put(exec, ident, value, slot);
     
@@ -391,7 +395,7 @@ void JIT_OPERATION operationPutByIdNonStrictBuildList(ExecState* exec, Structure
 
     JSValue value = JSValue::decode(encodedValue);
     JSValue baseValue = JSValue::decode(encodedBase);
-    PutPropertySlot slot(false, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(baseValue, false, exec->codeBlock()->putByIdContext());
     
     baseValue.put(exec, ident, value, slot);
     
@@ -411,7 +415,7 @@ void JIT_OPERATION operationPutByIdDirectStrictBuildList(ExecState* exec, Struct
     
     JSValue value = JSValue::decode(encodedValue);
     JSObject* baseObject = asObject(JSValue::decode(encodedBase));
-    PutPropertySlot slot(true, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(baseObject, true, exec->codeBlock()->putByIdContext());
     
     baseObject->putDirect(exec->vm(), ident, value, slot);
     
@@ -431,7 +435,7 @@ void JIT_OPERATION operationPutByIdDirectNonStrictBuildList(ExecState* exec, Str
 
     JSValue value = JSValue::decode(encodedValue);
     JSObject* baseObject = asObject(JSValue::decode(encodedBase));
-    PutPropertySlot slot(false, exec->codeBlock()->putByIdContext());
+    PutPropertySlot slot(baseObject, false, exec->codeBlock()->putByIdContext());
     
     baseObject ->putDirect(exec->vm(), ident, value, slot);
     
@@ -465,12 +469,12 @@ static void putByVal(CallFrame* callFrame, JSValue baseValue, JSValue subscript,
         } else
             baseValue.putByIndex(callFrame, i, value, callFrame->codeBlock()->isStrictMode());
     } else if (isName(subscript)) {
-        PutPropertySlot slot(callFrame->codeBlock()->isStrictMode());
+        PutPropertySlot slot(baseValue, callFrame->codeBlock()->isStrictMode());
         baseValue.put(callFrame, jsCast<NameInstance*>(subscript.asCell())->privateName(), value, slot);
     } else {
         Identifier property(callFrame, subscript.toString(callFrame)->value(callFrame));
         if (!callFrame->vm().exception()) { // Don't put to an object if toString threw an exception.
-            PutPropertySlot slot(callFrame->codeBlock()->isStrictMode());
+            PutPropertySlot slot(baseValue, callFrame->codeBlock()->isStrictMode());
             baseValue.put(callFrame, property, value, slot);
         }
     }
@@ -482,12 +486,12 @@ static void directPutByVal(CallFrame* callFrame, JSObject* baseObject, JSValue s
         uint32_t i = subscript.asUInt32();
         baseObject->putDirectIndex(callFrame, i, value);
     } else if (isName(subscript)) {
-        PutPropertySlot slot(callFrame->codeBlock()->isStrictMode());
+        PutPropertySlot slot(baseObject, callFrame->codeBlock()->isStrictMode());
         baseObject->putDirect(callFrame->vm(), jsCast<NameInstance*>(subscript.asCell())->privateName(), value, slot);
     } else {
         Identifier property(callFrame, subscript.toString(callFrame)->value(callFrame));
         if (!callFrame->vm().exception()) { // Don't put to an object if toString threw an exception.
-            PutPropertySlot slot(callFrame->codeBlock()->isStrictMode());
+            PutPropertySlot slot(baseObject, callFrame->codeBlock()->isStrictMode());
             baseObject->putDirect(callFrame->vm(), property, value, slot);
         }
     }
@@ -1359,6 +1363,8 @@ EncodedJSValue JIT_OPERATION operationGetArgumentsLength(ExecState* exec, int32_
     return JSValue::encode(baseValue.get(exec, ident, slot));
 }
 
+}
+
 static JSValue getByVal(ExecState* exec, JSValue baseValue, JSValue subscript, ReturnAddressPtr returnAddress)
 {
     if (LIKELY(baseValue.isCell() && subscript.isString())) {
@@ -1382,6 +1388,8 @@ static JSValue getByVal(ExecState* exec, JSValue baseValue, JSValue subscript, R
     return baseValue.get(exec, property);
 }
 
+extern "C" {
+    
 EncodedJSValue JIT_OPERATION operationGetByValGeneric(ExecState* exec, EncodedJSValue encodedBase, EncodedJSValue encodedSubscript)
 {
     VM& vm = exec->vm();
@@ -1522,14 +1530,23 @@ EncodedJSValue JIT_OPERATION operationInstanceOf(ExecState* exec, EncodedJSValue
     return JSValue::encode(jsBoolean(result));
 }
 
-CallFrame* JIT_OPERATION operationLoadVarargs(ExecState* exec, EncodedJSValue encodedThis, EncodedJSValue encodedArguments, int32_t firstFreeRegister)
+CallFrame* JIT_OPERATION operationSizeAndAllocFrameForVarargs(ExecState* exec, EncodedJSValue encodedArguments, int32_t firstFreeRegister)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
     JSStack* stack = &exec->interpreter()->stack();
+    JSValue arguments = JSValue::decode(encodedArguments);
+    CallFrame* newCallFrame = sizeAndAllocFrameForVarargs(exec, stack, arguments, firstFreeRegister);
+    return newCallFrame;
+}
+
+CallFrame* JIT_OPERATION operationLoadVarargs(ExecState* exec, CallFrame* newCallFrame, EncodedJSValue encodedThis, EncodedJSValue encodedArguments)
+{
+    VM& vm = exec->vm();
+    NativeCallFrameTracer tracer(&vm, exec);
     JSValue thisValue = JSValue::decode(encodedThis);
     JSValue arguments = JSValue::decode(encodedArguments);
-    CallFrame* newCallFrame = loadVarargs(exec, stack, thisValue, arguments, firstFreeRegister);
+    loadVarargs(exec, newCallFrame, thisValue, arguments);
     return newCallFrame;
 }
 
@@ -1651,7 +1668,7 @@ void JIT_OPERATION operationPutToScope(ExecState* exec, Instruction* bytecodePC)
         return;
     }
 
-    PutPropertySlot slot(codeBlock->isStrictMode());
+    PutPropertySlot slot(scope, codeBlock->isStrictMode());
     scope->methodTable()->put(scope, exec, ident, value, slot);
     
     if (exec->vm().exception())
@@ -1679,6 +1696,39 @@ void JIT_OPERATION operationThrow(ExecState* exec, EncodedJSValue encodedExcepti
     genericUnwind(vm, exec, exceptionValue);
 }
 
+void JIT_OPERATION operationFlushWriteBarrierBuffer(ExecState* exec, JSCell* cell)
+{
+    VM* vm = &exec->vm();
+    NativeCallFrameTracer tracer(vm, exec);
+    vm->heap.flushWriteBarrierBuffer(cell);
+}
+
+void JIT_OPERATION operationOSRWriteBarrier(ExecState* exec, JSCell* cell)
+{
+    VM* vm = &exec->vm();
+    NativeCallFrameTracer tracer(vm, exec);
+    exec->heap()->writeBarrier(cell);
+}
+
+// NB: We don't include the value as part of the barrier because the write barrier elision
+// phase in the DFG only tracks whether the object being stored to has been barriered. It 
+// would be much more complicated to try to model the value being stored as well.
+void JIT_OPERATION operationUnconditionalWriteBarrier(ExecState* exec, JSCell* cell)
+{
+    VM* vm = &exec->vm();
+    NativeCallFrameTracer tracer(vm, exec);
+    Heap::writeBarrier(cell);
+}
+
+void JIT_OPERATION operationInitGlobalConst(ExecState* exec, Instruction* pc)
+{
+    VM* vm = &exec->vm();
+    NativeCallFrameTracer tracer(vm, exec);
+
+    JSValue value = exec->r(pc[2].u.operand).jsValue();
+    pc[1].u.registerPointer->set(*vm, exec->codeBlock()->globalObject(), value);
+}
+
 void JIT_OPERATION lookupExceptionHandler(ExecState* exec)
 {
     VM* vm = &exec->vm();
@@ -1696,7 +1746,7 @@ void JIT_OPERATION operationVMHandleException(ExecState* exec)
     VM* vm = &exec->vm();
     NativeCallFrameTracer tracer(vm, exec);
 
-    ASSERT(!exec->hasHostCallFrameFlag());
+    ASSERT(!exec->isVMEntrySentinel());
     genericUnwind(vm, exec, vm->exception());
 }
 
@@ -1717,8 +1767,8 @@ asm (
 ".globl " SYMBOL_STRING(getHostCallReturnValue) "\n"
 HIDE_SYMBOL(getHostCallReturnValue) "\n"
 SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    "mov 0(%r13), %r13\n" // CallerFrameAndPC::callerFrame
-    "mov %r13, %rdi\n"
+    "mov 0(%rbp), %rbp\n" // CallerFrameAndPC::callerFrame
+    "mov %rbp, %rdi\n"
     "jmp " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
 );
 
@@ -1728,8 +1778,8 @@ asm (
 ".globl " SYMBOL_STRING(getHostCallReturnValue) "\n"
 HIDE_SYMBOL(getHostCallReturnValue) "\n"
 SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    "mov 0(%edi), %edi\n" // CallerFrameAndPC::callerFrame
-    "mov %edi, 4(%esp)\n"
+    "mov 0(%ebp), %ebp\n" // CallerFrameAndPC::callerFrame
+    "mov %ebp, 4(%esp)\n"
     "jmp " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
 );
 
@@ -1742,8 +1792,8 @@ HIDE_SYMBOL(getHostCallReturnValue) "\n"
 ".thumb" "\n"
 ".thumb_func " THUMB_FUNC_PARAM(getHostCallReturnValue) "\n"
 SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    "ldr r5, [r5, #0]" "\n" // CallerFrameAndPC::callerFrame
-    "mov r0, r5" "\n"
+    "ldr r7, [r7, #0]" "\n" // CallerFrameAndPC::callerFrame
+    "mov r0, r7" "\n"
     "b " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
 );
 
@@ -1754,8 +1804,8 @@ asm (
 HIDE_SYMBOL(getHostCallReturnValue) "\n"
 INLINE_ARM_FUNCTION(getHostCallReturnValue)
 SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    "ldr r5, [r5, #0]" "\n" // CallerFrameAndPC::callerFrame
-    "mov r0, r5" "\n"
+    "ldr r11, [r11, #0]" "\n" // CallerFrameAndPC::callerFrame
+    "mov r0, r11" "\n"
     "b " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
 );
 
@@ -1766,8 +1816,8 @@ asm (
 ".globl " SYMBOL_STRING(getHostCallReturnValue) "\n"
 HIDE_SYMBOL(getHostCallReturnValue) "\n"
 SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
-    "ldur x25, [x25, #-32]" "\n"
-     "mov x0, x25" "\n"
+    "ldur x29, [x29, #0]" "\n"
+     "mov x0, x29" "\n"
      "b " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
 );
 
@@ -1778,8 +1828,8 @@ asm (
 HIDE_SYMBOL(getHostCallReturnValue) "\n"
 SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
     LOAD_FUNCTION_TO_T9(getHostCallReturnValueWithExecState)
-    "lw $s0, 0($s0)" "\n" // CallerFrameAndPC::callerFrame
-    "move $a0, $s0" "\n"
+    "lw $fp, 0($fp)" "\n" // CallerFrameAndPC::callerFrame
+    "move $a0, $fp" "\n"
     "b " LOCAL_REFERENCE(getHostCallReturnValueWithExecState) "\n"
 );
 
@@ -1802,11 +1852,9 @@ SYMBOL_STRING(getHostCallReturnValue) ":" "\n"
 extern "C" {
     __declspec(naked) EncodedJSValue HOST_CALL_RETURN_VALUE_OPTION getHostCallReturnValue()
     {
-        __asm {
-            mov edi, [edi + 0]; // CallerFrameAndPC::callerFrame
-            mov [esp + 4], edi;
-            jmp getHostCallReturnValueWithExecState
-        }
+        __asm mov ebp, [ebp + 0]; // CallerFrameAndPC::callerFrame
+        __asm mov [esp + 4], ebp;
+        __asm jmp getHostCallReturnValueWithExecState
     }
 }
 #endif

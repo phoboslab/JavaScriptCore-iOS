@@ -33,6 +33,7 @@
 #include "ArrayProfile.h"
 #include "ByValInfo.h"
 #include "BytecodeConventions.h"
+#include "BytecodeLivenessAnalysis.h"
 #include "CallLinkInfo.h"
 #include "CallReturnOffsetToBytecodeOffset.h"
 #include "CodeBlockHash.h"
@@ -95,6 +96,7 @@ enum ReoptimizationMode { DontCountReoptimization, CountReoptimization };
 
 class CodeBlock : public ThreadSafeRefCounted<CodeBlock>, public UnconditionalFinalizer, public WeakReferenceHarvester {
     WTF_MAKE_FAST_ALLOCATED;
+    friend class BytecodeLivenessAnalysis;
     friend class JIT;
     friend class LLIntOffsetsExtractor;
 public:
@@ -136,11 +138,13 @@ public:
         return specializationFromIsConstruct(m_isConstructor);
     }
     
+    CodeBlock* baselineAlternative();
+    
+    // FIXME: Get rid of this.
+    // https://bugs.webkit.org/show_bug.cgi?id=123677
     CodeBlock* baselineVersion();
 
     void visitAggregate(SlotVisitor&);
-
-    static void dumpStatistics();
 
     void dumpBytecode(PrintStream& = WTF::dataFile());
     void dumpBytecode(PrintStream&, unsigned bytecodeOffset);
@@ -240,7 +244,7 @@ public:
 
     bool usesOpcode(OpcodeID);
 
-    unsigned instructionCount() { return m_instructions.size(); }
+    unsigned instructionCount() const { return m_instructions.size(); }
 
     int argumentIndexAfterCapture(size_t argument);
     
@@ -273,14 +277,12 @@ public:
         return result;
     }
 
-#if ENABLE(JIT)
     bool hasBaselineJITProfiling() const
     {
         return jitType() == JITCode::BaselineJIT;
     }
     
-    void jettison(ReoptimizationMode = DontCountReoptimization);
-    
+#if ENABLE(JIT)
     virtual CodeBlock* replacement() = 0;
 
     virtual DFG::CapabilityLevel capabilityLevelInternal() = 0;
@@ -296,6 +298,8 @@ public:
     bool hasOptimizedReplacement(); // the typeToReplace is my JITType
 #endif
 
+    void jettison(ReoptimizationMode = DontCountReoptimization);
+    
     ScriptExecutable* ownerExecutable() const { return m_ownerExecutable.get(); }
 
     void setVM(VM* vm) { m_vm = vm; }
@@ -348,6 +352,27 @@ public:
     {
         return m_needsActivation;
     }
+    
+    unsigned captureCount() const
+    {
+        if (!symbolTable())
+            return 0;
+        return symbolTable()->captureCount();
+    }
+    
+    int captureStart() const
+    {
+        if (!symbolTable())
+            return 0;
+        return symbolTable()->captureStart();
+    }
+    
+    int captureEnd() const
+    {
+        if (!symbolTable())
+            return 0;
+        return symbolTable()->captureEnd();
+    }
 
     bool isCaptured(VirtualRegister operand, InlineCallFrame* = 0) const;
     
@@ -385,7 +410,6 @@ public:
     CallLinkInfo& callLinkInfo(int index) { return m_callLinkInfos[index]; }
 #endif
 
-#if ENABLE(VALUE_PROFILER)
     unsigned numberOfArgumentValueProfiles()
     {
         ASSERT(m_numParameters >= 0);
@@ -404,13 +428,12 @@ public:
     ValueProfile* valueProfileForBytecodeOffset(int bytecodeOffset)
     {
         ValueProfile* result = binarySearch<ValueProfile, int>(
-                                                               m_valueProfiles, m_valueProfiles.size(), bytecodeOffset,
-                                                               getValueProfileBytecodeOffset<ValueProfile>);
+            m_valueProfiles, m_valueProfiles.size(), bytecodeOffset,
+            getValueProfileBytecodeOffset<ValueProfile>);
         ASSERT(result->m_bytecodeOffset != -1);
         ASSERT(instructions()[bytecodeOffset + opcodeLength(
-                                                            m_vm->interpreter->getOpcodeID(
-                                                                                           instructions()[
-                                                                                                          bytecodeOffset].u.opcode)) - 1].u.profile == result);
+            m_vm->interpreter->getOpcodeID(
+                instructions()[bytecodeOffset].u.opcode)) - 1].u.profile == result);
         return result;
     }
     SpeculatedType valueProfilePredictionForBytecodeOffset(const ConcurrentJITLocker& locker, int bytecodeOffset)
@@ -518,7 +541,6 @@ public:
     }
     ArrayProfile* getArrayProfile(unsigned bytecodeOffset);
     ArrayProfile* getOrAddArrayProfile(unsigned bytecodeOffset);
-#endif
 
     // Exception handling support
 
@@ -673,6 +695,15 @@ public:
 
     JSGlobalObject* globalObjectFor(CodeOrigin);
 
+    BytecodeLivenessAnalysis& livenessAnalysis()
+    {
+        if (!m_livenessAnalysis)
+            m_livenessAnalysis = std::make_unique<BytecodeLivenessAnalysis>(this);
+        return *m_livenessAnalysis;
+    }
+    
+    void validate();
+
     // Jump Tables
 
     size_t numberOfSwitchJumpTables() const { return m_rareData ? m_rareData->m_switchJumpTables.size() : 0; }
@@ -690,7 +721,7 @@ public:
     StringJumpTable& stringSwitchJumpTable(int tableIndex) { RELEASE_ASSERT(m_rareData); return m_rareData->m_stringSwitchJumpTables[tableIndex]; }
 
 
-    SharedSymbolTable* symbolTable() const { return m_unlinkedCode->symbolTable(); }
+    SymbolTable* symbolTable() const { return m_symbolTable.get(); }
 
     EvalCodeCache& evalCodeCache() { createRareDataIfNecessary(); return m_rareData->m_evalCodeCache; }
 
@@ -850,21 +881,12 @@ public:
     unsigned numberOfDFGCompiles() { return 0; }
 #endif
 
-#if ENABLE(VALUE_PROFILER)
     bool shouldOptimizeNow();
     void updateAllValueProfilePredictions();
     void updateAllArrayPredictions();
     void updateAllPredictions();
-#else
-    bool updateAllPredictionsAndCheckIfShouldOptimizeNow() { return false; }
-    void updateAllValueProfilePredictions() { }
-    void updateAllArrayPredictions() { }
-    void updateAllPredictions() { }
-#endif
 
-#if ENABLE(VERBOSE_VALUE_PROFILE)
-    void dumpValueProfiles();
-#endif
+    unsigned frameRegisterCount();
 
     // FIXME: Make these remaining members private.
 
@@ -894,7 +916,12 @@ public:
     bool m_allTransitionsHaveBeenMarked; // Initialized and used on every GC.
     
     bool m_didFailFTLCompilation;
-    
+
+    // Internal methods for use by validation code. It would be private if it wasn't
+    // for the fact that we use it from anonymous namespaces.
+    void beginValidationDidFail();
+    NO_RETURN_DUE_TO_CRASH void endValidationDidFail();
+
 protected:
     virtual void visitWeakReferences(SlotVisitor&) OVERRIDE;
     virtual void finalizeUnconditionally() OVERRIDE;
@@ -918,9 +945,7 @@ private:
     ClosureCallStubRoutine* findClosureCallForReturnPC(ReturnAddressPtr);
 #endif
         
-#if ENABLE(VALUE_PROFILER)
     void updateAllPredictionsAndCountLiveness(unsigned& numberOfLiveNonArgumentValueProfiles, unsigned& numberOfSamplesInProfiles);
-#endif
 
     void setConstantRegisters(const Vector<WriteBarrier<Unknown>>& constants)
     {
@@ -955,9 +980,7 @@ private:
     void beginDumpProfiling(PrintStream&, bool& hasPrintedProfiling);
     void dumpValueProfiling(PrintStream&, const Instruction*&, bool& hasPrintedProfiling);
     void dumpArrayProfiling(PrintStream&, const Instruction*&, bool& hasPrintedProfiling);
-#if ENABLE(VALUE_PROFILER)
     void dumpRareCaseProfile(PrintStream&, const char* name, RareCaseProfile*, bool& hasPrintedProfiling);
-#endif
         
 #if ENABLE(DFG_JIT)
     bool shouldImmediatelyAssumeLivenessDuringScan()
@@ -994,7 +1017,7 @@ private:
         if (!m_rareData)
             m_rareData = adoptPtr(new RareData);
     }
-
+    
 #if ENABLE(JIT)
     void resetStubInternal(RepatchBuffer&, StructureStubInfo&);
     void resetStubDuringGCInternal(RepatchBuffer&, StructureStubInfo&);
@@ -1005,6 +1028,7 @@ private:
     VM* m_vm;
 
     RefCountedArray<Instruction> m_instructions;
+    WriteBarrier<SymbolTable> m_symbolTable;
     VirtualRegister m_thisRegister;
     VirtualRegister m_argumentsRegister;
     VirtualRegister m_activationRegister;
@@ -1038,15 +1062,13 @@ private:
     DFG::ExitProfile m_exitProfile;
     CompressedLazyOperandValueProfileHolder m_lazyOperandValueProfiles;
 #endif
-#if ENABLE(VALUE_PROFILER)
     Vector<ValueProfile> m_argumentValueProfiles;
-    SegmentedVector<ValueProfile, 8> m_valueProfiles;
+    Vector<ValueProfile> m_valueProfiles;
     SegmentedVector<RareCaseProfile, 8> m_rareCaseProfiles;
     SegmentedVector<RareCaseProfile, 8> m_specialFastCaseProfiles;
-    SegmentedVector<ArrayAllocationProfile, 8> m_arrayAllocationProfiles;
+    Vector<ArrayAllocationProfile> m_arrayAllocationProfiles;
     ArrayProfileVector m_arrayProfiles;
-#endif
-    SegmentedVector<ObjectAllocationProfile, 8> m_objectAllocationProfiles;
+    Vector<ObjectAllocationProfile> m_objectAllocationProfiles;
 
     // Constant Pool
     Vector<Identifier> m_additionalIdentifiers;
@@ -1068,6 +1090,8 @@ private:
     uint16_t m_reoptimizationRetryCounter;
     
     mutable CodeBlockHash m_hash;
+
+    std::unique_ptr<BytecodeLivenessAnalysis> m_livenessAnalysis;
 
     struct RareData {
         WTF_MAKE_FAST_ALLOCATED;
@@ -1245,6 +1269,9 @@ inline void CodeBlockSet::mark(void* candidateCodeBlock)
         return;
     
     (*iter)->m_mayBeExecuting = true;
+#if ENABLE(GGC)
+    m_currentlyExecuting.append(static_cast<CodeBlock*>(candidateCodeBlock));
+#endif
 }
 
 } // namespace JSC

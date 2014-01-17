@@ -58,6 +58,7 @@ static inline LType floatType(LContext context) { return llvm->FloatTypeInContex
 static inline LType doubleType(LContext context) { return llvm->DoubleTypeInContext(context); }
 
 static inline LType pointerType(LType type) { return llvm->PointerType(type, 0); }
+static inline LType vectorType(LType type, unsigned count) { return llvm->VectorType(type, count); }
 
 enum PackingMode { NotPacked, Packed };
 static inline LType structType(LContext context, LType* elementTypes, unsigned elementCount, PackingMode packing = NotPacked)
@@ -140,6 +141,7 @@ static inline LValue addExternFunction(LModule module, const char* name, LType t
 }
 
 static inline LValue getParam(LValue function, unsigned index) { return llvm->GetParam(function, index); }
+static inline LValue getUndef(LType type) { return llvm->GetUndef(type); }
 
 enum BitExtension { ZeroExtend, SignExtend };
 static inline LValue constInt(LType type, unsigned long long value, BitExtension extension = ZeroExtend) { return llvm->ConstInt(type, value, extension == SignExtend); }
@@ -217,6 +219,14 @@ static inline LValue buildPtrToInt(LBuilder builder, LValue value, LType type) {
 static inline LValue buildBitCast(LBuilder builder, LValue value, LType type) { return llvm->BuildBitCast(builder, value, type, ""); }
 static inline LValue buildICmp(LBuilder builder, LIntPredicate cond, LValue left, LValue right) { return llvm->BuildICmp(builder, cond, left, right, ""); }
 static inline LValue buildFCmp(LBuilder builder, LRealPredicate cond, LValue left, LValue right) { return llvm->BuildFCmp(builder, cond, left, right, ""); }
+static inline LValue buildInsertElement(LBuilder builder, LValue vector, LValue element, LValue index) { return llvm->BuildInsertElement(builder, vector, element, index, ""); }
+
+enum SynchronizationScope { SingleThread, CrossThread };
+static inline LValue buildFence(LBuilder builder, LAtomicOrdering ordering, SynchronizationScope scope = CrossThread)
+{
+    return llvm->BuildFence(builder, ordering, scope == SingleThread, "");
+}
+
 static inline LValue buildCall(LBuilder builder, LValue function, const LValue* args, unsigned numArgs)
 {
     return llvm->BuildCall(builder, function, const_cast<LValue*>(args), numArgs, "");
@@ -259,8 +269,17 @@ static inline LValue buildCall(LBuilder builder, LValue function, LValue arg1, L
     LValue args[] = { arg1, arg2, arg3, arg4, arg5, arg6 };
     return buildCall(builder, function, args, 6);
 }
-enum TailCallMode { IsNotTailCall, IsTailCall };
-static inline void setTailCall(LValue call, TailCallMode mode) { llvm->SetTailCall(call, mode == IsTailCall); }
+static inline LValue buildCall(LBuilder builder, LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5, LValue arg6, LValue arg7)
+{
+    LValue args[] = { arg1, arg2, arg3, arg4, arg5, arg6, arg7 };
+    return buildCall(builder, function, args, 7);
+}
+static inline LValue buildCall(LBuilder builder, LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5, LValue arg6, LValue arg7, LValue arg8)
+{
+    LValue args[] = { arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 };
+    return buildCall(builder, function, args, 8);
+}
+static inline void setInstructionCallingConvention(LValue instruction, LCallConv callingConvention) { llvm->SetInstructionCallConv(instruction, callingConvention); }
 static inline LValue buildExtractValue(LBuilder builder, LValue aggVal, unsigned index) { return llvm->BuildExtractValue(builder, aggVal, index, ""); }
 static inline LValue buildSelect(LBuilder builder, LValue condition, LValue taken, LValue notTaken) { return llvm->BuildSelect(builder, condition, taken, notTaken, ""); }
 static inline LValue buildBr(LBuilder builder, LBasicBlock destination) { return llvm->BuildBr(builder, destination); }

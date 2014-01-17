@@ -243,6 +243,11 @@ namespace JSC {
 
         static void linkFor(ExecState*, JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, CodePtr, CallLinkInfo*, VM*, CodeSpecializationKind);
         static void linkSlowCall(CodeBlock* callerCodeBlock, CallLinkInfo*);
+        
+        static unsigned frameRegisterCountFor(CodeBlock* codeBlock)
+        {
+            return codeBlock->m_numCalleeRegisters;
+        }
 
     private:
         JIT(VM*, CodeBlock* = 0);
@@ -266,11 +271,6 @@ namespace JSC {
         {
             Call functionCall = call();
             m_calls.append(CallRecord(functionCall, m_bytecodeOffset, function.value()));
-#if USE(JSVALUE32_64)
-            unmap();
-#else
-            killLastResultRegister();
-#endif
             return functionCall;
         }
 
@@ -316,25 +316,26 @@ namespace JSC {
         void addStructureTransitionCheck(JSCell*, Structure*, StructureStubInfo*, JumpList& failureCases, RegisterID scratch);
         void testPrototype(JSValue, JumpList& failureCases, StructureStubInfo*);
 
-        enum WriteBarrierMode { UnconditionalWriteBarrier, ShouldFilterImmediates };
+        enum WriteBarrierMode { UnconditionalWriteBarrier, ShouldFilterValue, ShouldFilterBaseAndValue };
         // value register in write barrier is used before any scratch registers
         // so may safely be the same as either of the scratch registers.
-        void emitWriteBarrier(RegisterID owner, RegisterID valueTag, RegisterID scratch, RegisterID scratch2, WriteBarrierMode, WriteBarrierUseKind);
-        void emitWriteBarrier(JSCell* owner, RegisterID value, RegisterID scratch, WriteBarrierMode, WriteBarrierUseKind);
+        Jump checkMarkWord(RegisterID owner, RegisterID scratch1, RegisterID scratch2);
+        Jump checkMarkWord(JSCell* owner);
+        void emitWriteBarrier(unsigned owner, unsigned value, WriteBarrierMode);
+        void emitWriteBarrier(JSCell* owner, unsigned value, WriteBarrierMode);
+/*
+        void emitWriteBarrier(RegisterID owner, RegisterID valueTag, RegisterID scratch1, RegisterID scratch2, WriteBarrierMode);
+        void emitWriteBarrier(JSCell* owner, RegisterID value, WriteBarrierMode);
+*/
 
         template<typename StructureType> // StructureType can be RegisterID or ImmPtr.
         void emitAllocateJSObject(RegisterID allocator, StructureType, RegisterID result, RegisterID scratch);
         
-#if ENABLE(VALUE_PROFILER)
         // This assumes that the value to profile is in regT0 and that regT3 is available for
         // scratch.
-        void emitValueProfilingSite(ValueProfile*, RegisterID);
-        void emitValueProfilingSite(unsigned bytecodeOffset, RegisterID);
-        void emitValueProfilingSite(RegisterID);
-#else
-        void emitValueProfilingSite(unsigned, RegisterID) { }
-        void emitValueProfilingSite(RegisterID) { }
-#endif
+        void emitValueProfilingSite(ValueProfile*);
+        void emitValueProfilingSite(unsigned bytecodeOffset);
+        void emitValueProfilingSite();
         void emitArrayProfilingSite(RegisterID structureAndIndexingType, RegisterID scratch, ArrayProfile*);
         void emitArrayProfilingSiteForBytecodeIndex(RegisterID structureAndIndexingType, RegisterID scratch, unsigned bytecodeIndex);
         void emitArrayProfileStoreToHoleSpecialCase(ArrayProfile*);
@@ -390,19 +391,10 @@ namespace JSC {
         void emitStore(int index, const JSValue constant, RegisterID base = callFrameRegister);
         void emitStoreInt32(int index, RegisterID payload, bool indexIsInt32 = false);
         void emitStoreInt32(int index, TrustedImm32 payload, bool indexIsInt32 = false);
-        void emitStoreAndMapInt32(int index, RegisterID tag, RegisterID payload, bool indexIsInt32, size_t opcodeLength);
         void emitStoreCell(int index, RegisterID payload, bool indexIsCell = false);
         void emitStoreBool(int index, RegisterID payload, bool indexIsBool = false);
         void emitStoreDouble(int index, FPRegisterID value);
 
-        bool isLabeled(unsigned bytecodeOffset);
-        void map(unsigned bytecodeOffset, int virtualRegisterIndex, RegisterID tag, RegisterID payload);
-        void unmap(RegisterID);
-        void unmap();
-        bool isMapped(int virtualRegisterIndex);
-        bool getMappedPayload(int virtualRegisterIndex, RegisterID& payload);
-        bool getMappedTag(int virtualRegisterIndex, RegisterID& tag);
-        
         void emitJumpSlowCaseIfNotJSCell(int virtualRegisterIndex);
         void emitJumpSlowCaseIfNotJSCell(int virtualRegisterIndex, RegisterID tag);
 
@@ -435,8 +427,6 @@ namespace JSC {
 
         int32_t getConstantOperandImmediateInt(int src);
 
-        void killLastResultRegister();
-
         Jump emitJumpIfJSCell(RegisterID);
         Jump emitJumpIfBothJSCells(RegisterID, RegisterID, RegisterID);
         void emitJumpSlowCaseIfJSCell(RegisterID);
@@ -466,6 +456,7 @@ namespace JSC {
         void emit_compareAndJump(OpcodeID, int op1, int op2, unsigned target, RelationalCondition);
         void emit_compareAndJumpSlow(int op1, int op2, unsigned target, DoubleCondition, size_t (JIT_OPERATION *operation)(ExecState*, EncodedJSValue, EncodedJSValue), bool invert, Vector<SlowCaseEntry>::iterator&);
 
+        void emit_op_touch_entry(Instruction*);
         void emit_op_add(Instruction*);
         void emit_op_bitand(Instruction*);
         void emit_op_bitor(Instruction*);
@@ -473,6 +464,7 @@ namespace JSC {
         void emit_op_call(Instruction*);
         void emit_op_call_eval(Instruction*);
         void emit_op_call_varargs(Instruction*);
+        void emit_op_captured_mov(Instruction*);
         void emit_op_catch(Instruction*);
         void emit_op_construct(Instruction*);
         void emit_op_get_callee(Instruction*);
@@ -525,6 +517,7 @@ namespace JSC {
         void emit_op_new_array_with_size(Instruction*);
         void emit_op_new_array_buffer(Instruction*);
         void emit_op_new_func(Instruction*);
+        void emit_op_new_captured_func(Instruction*);
         void emit_op_new_func_exp(Instruction*);
         void emit_op_new_object(Instruction*);
         void emit_op_new_regexp(Instruction*);
@@ -560,6 +553,7 @@ namespace JSC {
         void emit_op_to_number(Instruction*);
         void emit_op_to_primitive(Instruction*);
         void emit_op_unexpected_load(Instruction*);
+        void emit_op_unsigned(Instruction*);
         void emit_op_urshift(Instruction*);
 
         void emitSlow_op_add(Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -569,6 +563,7 @@ namespace JSC {
         void emitSlow_op_call(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_call_eval(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_call_varargs(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_captured_mov(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_construct(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_to_this(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_create_this(Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -610,6 +605,7 @@ namespace JSC {
         void emitSlow_op_sub(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_to_number(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_to_primitive(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_unsigned(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_urshift(Instruction*, Vector<SlowCaseEntry>::iterator&);
 
         void emit_op_resolve_scope(Instruction*);
@@ -629,7 +625,12 @@ namespace JSC {
         void emitGetGlobalVar(uintptr_t operand);
         void emitGetClosureVar(int scope, uintptr_t operand);
         void emitPutGlobalProperty(uintptr_t* operandSlot, int value);
-        void emitPutGlobalVar(uintptr_t operand, int value);
+#if USE(JSVALUE64)
+        void emitNotifyWrite(RegisterID value, RegisterID scratch, VariableWatchpointSet*);
+#else
+        void emitNotifyWrite(RegisterID tag, RegisterID payload, RegisterID scratch, VariableWatchpointSet*);
+#endif
+        void emitPutGlobalVar(uintptr_t operand, int value, VariableWatchpointSet*);
         void emitPutClosureVar(int scope, uintptr_t operand, int value);
 
         void emitInitRegister(int dst);
@@ -644,8 +645,6 @@ namespace JSC {
         JSValue getConstantOperand(int src);
         bool isOperandConstantImmediateInt(int src);
         bool isOperandConstantImmediateChar(int src);
-
-        bool atJumpTarget();
 
         Jump getSlowCase(Vector<SlowCaseEntry>::iterator& iter)
         {
@@ -674,12 +673,13 @@ namespace JSC {
         MacroAssembler::Call callOperation(C_JITOperation_EO, GPRReg);
         MacroAssembler::Call callOperation(C_JITOperation_ESt, Structure*);
         MacroAssembler::Call callOperation(C_JITOperation_EZ, int32_t);
-        MacroAssembler::Call callOperation(F_JITOperation_EJJZ, GPRReg, GPRReg, int32_t);
+        MacroAssembler::Call callOperation(F_JITOperation_EJZ, GPRReg, int32_t);
         MacroAssembler::Call callOperation(J_JITOperation_E, int);
         MacroAssembler::Call callOperation(J_JITOperation_EAapJ, int, ArrayAllocationProfile*, GPRReg);
         MacroAssembler::Call callOperation(J_JITOperation_EAapJcpZ, int, ArrayAllocationProfile*, GPRReg, int32_t);
         MacroAssembler::Call callOperation(J_JITOperation_EAapJcpZ, int, ArrayAllocationProfile*, const JSValue*, int32_t);
         MacroAssembler::Call callOperation(J_JITOperation_EC, int, JSCell*);
+        MacroAssembler::Call callOperation(V_JITOperation_EC, JSCell*);
         MacroAssembler::Call callOperation(J_JITOperation_EJ, int, GPRReg);
 #if USE(JSVALUE64)
         MacroAssembler::Call callOperation(WithProfileTag, J_JITOperation_ESsiJI, int, StructureStubInfo*, GPRReg, StringImpl*);
@@ -715,6 +715,7 @@ namespace JSC {
 #endif
         MacroAssembler::Call callOperation(V_JITOperation_EJIdJJ, RegisterID, const Identifier*, RegisterID, RegisterID);
 #if USE(JSVALUE64)
+        MacroAssembler::Call callOperation(F_JITOperation_EFJJ, RegisterID, RegisterID, RegisterID);
         MacroAssembler::Call callOperation(V_JITOperation_ESsiJJI, StructureStubInfo*, RegisterID, RegisterID, StringImpl*);
 #else
         MacroAssembler::Call callOperation(V_JITOperation_ESsiJJI, StructureStubInfo*, RegisterID, RegisterID, RegisterID, RegisterID, StringImpl*);
@@ -728,7 +729,8 @@ namespace JSC {
         MacroAssembler::Call callOperationWithCallFrameRollbackOnException(V_JITOperation_ECb, CodeBlock*);
         MacroAssembler::Call callOperationWithCallFrameRollbackOnException(Z_JITOperation_E);
 #if USE(JSVALUE32_64)
-        MacroAssembler::Call callOperation(F_JITOperation_EJJZ, GPRReg, GPRReg, GPRReg, GPRReg, int32_t);
+        MacroAssembler::Call callOperation(F_JITOperation_EFJJ, RegisterID, RegisterID, RegisterID, RegisterID, RegisterID);
+        MacroAssembler::Call callOperation(F_JITOperation_EJZ, GPRReg, GPRReg, int32_t);
         MacroAssembler::Call callOperation(J_JITOperation_EAapJ, int, ArrayAllocationProfile*, GPRReg, GPRReg);
         MacroAssembler::Call callOperation(J_JITOperation_EJ, int, GPRReg, GPRReg);
         MacroAssembler::Call callOperation(J_JITOperation_EJIdc, int, GPRReg, GPRReg, const Identifier*);
@@ -815,27 +817,14 @@ namespace JSC {
         unsigned m_byValInstructionIndex;
         unsigned m_callLinkInfoIndex;
 
-#if USE(JSVALUE32_64)
-        unsigned m_jumpTargetIndex;
-        unsigned m_mappedBytecodeOffset;
-        int m_mappedVirtualRegisterIndex;
-        RegisterID m_mappedTag;
-        RegisterID m_mappedPayload;
-#else
-        int m_lastResultBytecodeRegister;
-#endif
-        unsigned m_jumpTargetsPosition;
-
         OwnPtr<JITDisassembler> m_disassembler;
         RefPtr<Profiler::Compilation> m_compilation;
         WeakRandom m_randomGenerator;
         static CodeRef stringGetByValStubGenerator(VM*);
 
-#if ENABLE(VALUE_PROFILER)
         bool m_canBeOptimized;
         bool m_canBeOptimizedOrInlined;
         bool m_shouldEmitProfiling;
-#endif
     } JIT_CLASS_ALIGNMENT;
 
 } // namespace JSC

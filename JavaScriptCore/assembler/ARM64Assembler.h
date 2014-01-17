@@ -1595,6 +1595,11 @@ public:
     {
         insn(nopPseudo());
     }
+    
+    ALWAYS_INLINE void dmbSY()
+    {
+        insn(0xd5033fbf);
+    }
 
     template<int datasize>
     ALWAYS_INLINE void orn(RegisterID rd, RegisterID rn, RegisterID rm)
@@ -2494,11 +2499,6 @@ public:
         if (!location)
             return 0;
         return static_cast<int32_t*>(m_buffer.data())[location / sizeof(int32_t) - 1];
-    }
-    
-    PassRefPtr<ExecutableMemoryHandle> executableCopy(VM& vm, void* ownerUID, JITCompilationEffort effort)
-    {
-        return m_buffer.executableCopy(vm, ownerUID, effort);
     }
 
     void* unlinkedCode() { return m_buffer.data(); }

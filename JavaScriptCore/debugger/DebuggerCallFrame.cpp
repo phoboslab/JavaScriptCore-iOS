@@ -35,6 +35,7 @@
 #include "Operations.h"
 #include "Parser.h"
 #include "StackVisitor.h"
+#include "VMEntryScope.h"
 
 namespace JSC {
 
@@ -69,7 +70,7 @@ PassRefPtr<DebuggerCallFrame> DebuggerCallFrame::callerFrame()
     if (m_caller)
         return m_caller;
 
-    CallFrame* callerFrame = m_callFrame->callerFrameNoFlags();
+    CallFrame* callerFrame = m_callFrame->callerFrameSkippingVMEntrySentinel();
     if (!callerFrame)
         return 0;
 
@@ -77,20 +78,20 @@ PassRefPtr<DebuggerCallFrame> DebuggerCallFrame::callerFrame()
     return m_caller;
 }
 
-JSC::JSGlobalObject* DebuggerCallFrame::dynamicGlobalObject() const
+JSC::JSGlobalObject* DebuggerCallFrame::vmEntryGlobalObject() const
 {
     ASSERT(isValid());
     if (!isValid())
         return 0;
-    return m_callFrame->dynamicGlobalObject();
+    return m_callFrame->vmEntryGlobalObject();
 }
 
-intptr_t DebuggerCallFrame::sourceId() const
+SourceID DebuggerCallFrame::sourceID() const
 {
     ASSERT(isValid());
     if (!isValid())
-        return 0;
-    return sourceIdForCallFrame(m_callFrame);
+        return noSourceID;
+    return sourceIDForCallFrame(m_callFrame);
 }
 
 String DebuggerCallFrame::functionName() const
@@ -185,12 +186,12 @@ TextPosition DebuggerCallFrame::positionForCallFrame(CallFrame* callFrame)
     return TextPosition(OrdinalNumber::fromOneBasedInt(functor.line()), OrdinalNumber::fromOneBasedInt(functor.column()));
 }
 
-intptr_t DebuggerCallFrame::sourceIdForCallFrame(CallFrame* callFrame)
+SourceID DebuggerCallFrame::sourceIDForCallFrame(CallFrame* callFrame)
 {
     ASSERT(callFrame);
     CodeBlock* codeBlock = callFrame->codeBlock();
     if (!codeBlock)
-        return 0;
+        return noSourceID;
     return codeBlock->ownerExecutable()->sourceID();
 }
 

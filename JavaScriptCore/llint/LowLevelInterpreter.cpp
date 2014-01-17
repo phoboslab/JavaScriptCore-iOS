@@ -90,18 +90,22 @@ using namespace JSC::LLInt;
 #define OFFLINE_ASM_BEGIN
 #define OFFLINE_ASM_END
 
+// To keep compilers happy in case of unused labels, force usage of the label:
+#define USE_LABEL(label) \
+    do { \
+        if (false) \
+            goto label; \
+    } while (false)
 
-#define OFFLINE_ASM_OPCODE_LABEL(opcode) DEFINE_OPCODE(opcode)
+#define OFFLINE_ASM_OPCODE_LABEL(opcode) DEFINE_OPCODE(opcode) USE_LABEL(opcode);
+
 #if ENABLE(COMPUTED_GOTO_OPCODES)
-    #define OFFLINE_ASM_GLUE_LABEL(label)  label:
+#define OFFLINE_ASM_GLUE_LABEL(label)  label: USE_LABEL(label);
 #else
-    #define OFFLINE_ASM_GLUE_LABEL(label)  case label: label:
+#define OFFLINE_ASM_GLUE_LABEL(label)  case label: label: USE_LABEL(label);
 #endif
 
-#define OFFLINE_ASM_LOCAL_LABEL(label) \
-    label: \
-        if (false) \
-            goto label;
+#define OFFLINE_ASM_LOCAL_LABEL(label) label: USE_LABEL(label);
 
 
 //============================================================================
@@ -233,8 +237,7 @@ struct CLoopRegister {
 // The llint C++ interpreter loop:
 //
 
-JSValue CLoop::execute(CallFrame* callFrame, OpcodeID bootstrapOpcodeId,
-                       bool isInitializationPass)
+JSValue CLoop::execute(CallFrame* callFrame, Opcode entryOpcode, bool isInitializationPass)
 {
     #define CAST reinterpret_cast
     #define SIGN_BIT32(x) ((x) & 0x80000000)
@@ -348,7 +351,7 @@ JSValue CLoop::execute(CallFrame* callFrame, OpcodeID bootstrapOpcodeId,
     JSValue functionReturnValue;
     Opcode opcode;
 
-    opcode = LLInt::getOpcode(bootstrapOpcodeId);
+    opcode = entryOpcode;
 
     #if ENABLE(OPCODE_STATS)
         #define RECORD_OPCODE_STATS(__opcode) \
@@ -428,7 +431,7 @@ JSValue CLoop::execute(CallFrame* callFrame, OpcodeID bootstrapOpcodeId,
             goto doReturnHelper;
         }
 
-        OFFLINE_ASM_GLUE_LABEL(ctiOpThrowNotCaught)
+        OFFLINE_ASM_GLUE_LABEL(returnFromJavaScript)
         {
             return vm->exception();
         }
@@ -445,7 +448,7 @@ JSValue CLoop::execute(CallFrame* callFrame, OpcodeID bootstrapOpcodeId,
 
     doReturnHelper: {
         ASSERT(!!callFrame);
-        if (callFrame->hasHostCallFrameFlag()) {
+        if (callFrame->isVMEntrySentinel()) {
 #if USE(JSVALUE32_64)
             return JSValue(t1.i, t0.i); // returning JSValue(tag, payload);
 #else
@@ -519,8 +522,17 @@ JSValue CLoop::execute(CallFrame* callFrame, OpcodeID bootstrapOpcodeId,
 //
 
 // These are for building an interpreter from generated assembly code:
+#if CPU(X86_64) && COMPILER(CLANG)
+#define OFFLINE_ASM_BEGIN   asm ( \
+    ".cfi_startproc\n"
+
+#define OFFLINE_ASM_END     \
+    ".cfi_endproc\n" \
+);
+#else
 #define OFFLINE_ASM_BEGIN   asm (
 #define OFFLINE_ASM_END     );
+#endif
 
 #define OFFLINE_ASM_OPCODE_LABEL(__opcode) OFFLINE_ASM_GLOBAL_LABEL(llint_##__opcode)
 #define OFFLINE_ASM_GLUE_LABEL(__opcode)   OFFLINE_ASM_GLOBAL_LABEL(__opcode)
@@ -533,6 +545,15 @@ JSValue CLoop::execute(CallFrame* callFrame, OpcodeID bootstrapOpcodeId,
     ".thumb\n"                                   \
     ".thumb_func " THUMB_FUNC_PARAM(label) "\n"  \
     SYMBOL_STRING(label) ":\n"
+#elif CPU(X86_64) && COMPILER(CLANG)
+#define OFFLINE_ASM_GLOBAL_LABEL(label)         \
+    ".text\n"                                   \
+    ".globl " SYMBOL_STRING(label) "\n"         \
+    HIDE_SYMBOL(label) "\n"                     \
+    SYMBOL_STRING(label) ":\n"                  \
+    ".cfi_def_cfa rbp, 0\n"                     \
+    ".cfi_offset 16, 8\n"                       \
+    ".cfi_offset 6, 0\n"
 #else
 #define OFFLINE_ASM_GLOBAL_LABEL(label)         \
     ".text\n"                                   \

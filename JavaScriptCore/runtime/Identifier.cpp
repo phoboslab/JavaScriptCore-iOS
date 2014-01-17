@@ -62,7 +62,7 @@ struct IdentifierASCIIStringTranslator {
     static void translate(StringImpl*& location, const LChar* c, unsigned hash)
     {
         size_t length = strlen(reinterpret_cast<const char*>(c));
-        location = StringImpl::createFromLiteral(reinterpret_cast<const char*>(c), length).leakRef();
+        location = &StringImpl::createFromLiteral(reinterpret_cast<const char*>(c), length).leakRef();
         location->setHash(hash);
     }
 };
@@ -81,10 +81,10 @@ struct IdentifierLCharFromUCharTranslator {
     static void translate(StringImpl*& location, const CharBuffer<UChar>& buf, unsigned hash)
     {
         LChar* d;
-        StringImpl* r = StringImpl::createUninitialized(buf.length, d).leakRef();
+        StringImpl& r = StringImpl::createUninitialized(buf.length, d).leakRef();
         WTF::copyLCharsFromUCharSource(d, buf.s, buf.length);
-        r->setHash(hash);
-        location = r; 
+        r.setHash(hash);
+        location = &r;
     }
 };
 

@@ -25,7 +25,7 @@
 
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <JSValueInternal.h>
-#include <objc/message.h>
+#import <objc/objc-runtime.h>
 
 #if JSC_OBJC_API_ENABLED
 
@@ -41,6 +41,7 @@
 
 id tryUnwrapObjcObject(JSGlobalContextRef, JSValueRef);
 
+bool supportsInitMethodConstructors();
 Protocol *getJSExportProtocol();
 Class getNSBlockClass();
 

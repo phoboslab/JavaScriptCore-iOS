@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #import <JavaScriptCore/JavaScriptCore.h>
@@ -35,7 +35,13 @@ extern "C" const char * _Block_signature(id);
 extern int failed;
 extern "C" void testObjectiveCAPI(void);
 
-#if JSC_OBJC_API_ENABLED && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if JSC_OBJC_API_ENABLED
+
+@interface UnexportedObject : NSObject
+@end
+
+@implementation UnexportedObject
+@end
 
 @protocol ParentObject <JSExport>
 @end
@@ -169,6 +175,9 @@ bool testXYZTested = false;
 - (void)dealloc
 {
     [[m_onclickHandler value].context.virtualMachine removeManagedReference:m_onclickHandler withOwner:self];
+#if !__has_feature(objc_arc)
+    [super dealloc];
+#endif
 }
 @end
 
@@ -182,54 +191,43 @@ bool testXYZTested = false;
 @end
 
 @interface TinyDOMNode : NSObject<TinyDOMNode>
-+ (JSVirtualMachine *)sharedVirtualMachine;
-+ (void)clearSharedVirtualMachine;
 @end
 
 @implementation TinyDOMNode {
     NSMutableArray *m_children;
+    JSVirtualMachine *m_sharedVirtualMachine;
 }
 
-static JSVirtualMachine *sharedInstance = nil;
-
-+ (JSVirtualMachine *)sharedVirtualMachine
-{
-    if (!sharedInstance)
-        sharedInstance = [[JSVirtualMachine alloc] init];
-    return sharedInstance;
-}
-
-+ (void)clearSharedVirtualMachine
-{
-    sharedInstance = nil;
-}
-
-- (id)init
+- (id)initWithVirtualMachine:(JSVirtualMachine *)virtualMachine
 {
     self = [super init];
     if (!self)
         return nil;
 
     m_children = [[NSMutableArray alloc] initWithCapacity:0];
+    m_sharedVirtualMachine = virtualMachine;
+#if !__has_feature(objc_arc)
+    [m_sharedVirtualMachine retain];
+#endif
 
     return self;
 }
 
 - (void)dealloc
 {
-    NSEnumerator *enumerator = [m_children objectEnumerator];
-    id nextChild;
-    while ((nextChild = [enumerator nextObject]))
-        [[TinyDOMNode sharedVirtualMachine] removeManagedReference:nextChild withOwner:self];
+    for (TinyDOMNode *child in m_children)
+        [m_sharedVirtualMachine removeManagedReference:child withOwner:self];
 
 #if !__has_feature(objc_arc)
+    [m_children release];
+    [m_sharedVirtualMachine release];
     [super dealloc];
 #endif
 }
 
 - (void)appendChild:(TinyDOMNode *)child
 {
-    [[TinyDOMNode sharedVirtualMachine] addManagedReference:child withOwner:self];
+    [m_sharedVirtualMachine addManagedReference:child withOwner:self];
     [m_children addObject:child];
 }
 
@@ -249,7 +247,7 @@ static JSVirtualMachine *sharedInstance = nil;
 {
     if (index >= [m_children count])
         return;
-    [[TinyDOMNode sharedVirtualMachine] removeManagedReference:[m_children objectAtIndex:index] withOwner:self];
+    [m_sharedVirtualMachine removeManagedReference:[m_children objectAtIndex:index] withOwner:self];
     [m_children removeObjectAtIndex:index];
 }
 
@@ -298,10 +296,15 @@ static JSVirtualMachine *sharedInstance = nil;
 
 @protocol InitA <JSExport>
 - (id)initWithA:(int)a;
+- (int)initialize;
 @end
 
 @protocol InitB <JSExport>
 - (id)initWithA:(int)a b:(int)b;
+@end
+
+@protocol InitC <JSExport>
+- (id)_init;
 @end
 
 @interface ClassA : NSObject<InitA>
@@ -311,6 +314,9 @@ static JSVirtualMachine *sharedInstance = nil;
 @end
 
 @interface ClassC : ClassB<InitA, InitB>
+@end
+
+@interface ClassCPrime : ClassB<InitA, InitC>
 @end
 
 @interface ClassD : NSObject<InitA>
@@ -333,6 +339,10 @@ static JSVirtualMachine *sharedInstance = nil;
     _a = a;
 
     return self;
+}
+- (int)initialize
+{
+    return 42;
 }
 @end
 
@@ -370,12 +380,30 @@ static JSVirtualMachine *sharedInstance = nil;
 }
 @end
 
+@implementation ClassCPrime
+- (id)initWithA:(int)a
+{
+    self = [super initWithA:a b:0];
+    if (!self)
+        return nil;
+    return self;
+}
+- (id)_init
+{
+    return [self initWithA:42];
+}
+@end
+
 @implementation ClassD
 
 - (id)initWithA:(int)a
 {
     self = nil;
     return [[ClassE alloc] initWithA:a];
+}
+- (int)initialize
+{
+    return 0;
 }
 @end
 
@@ -394,6 +422,50 @@ static JSVirtualMachine *sharedInstance = nil;
     return self;
 }
 @end
+
+static bool evilAllocationObjectWasDealloced = false;
+
+@interface EvilAllocationObject : NSObject
+- (JSValue *)doEvilThingsWithContext:(JSContext *)context;
+@end
+
+@implementation EvilAllocationObject {
+    JSContext *m_context;
+}
+- (id)initWithContext:(JSContext *)context
+{
+    self = [super init];
+    if (!self)
+        return nil;
+
+    m_context = context;
+
+    return self;
+}
+- (void)dealloc
+{
+    [self doEvilThingsWithContext:m_context];
+    evilAllocationObjectWasDealloced = true;
+#if !__has_feature(objc_arc)
+    [super dealloc];
+#endif
+}
+
+- (JSValue *)doEvilThingsWithContext:(JSContext *)context
+{
+    return [context evaluateScript:@" \
+        (function() { \
+            var a = []; \
+            var sum = 0; \
+            for (var i = 0; i < 10000; ++i) { \
+                sum += i; \
+                a[i] = sum; \
+            } \
+            return sum; \
+        })()"];
+}
+@end
+
 static void checkResult(NSString *description, bool passed)
 {
     NSLog(@"TEST: \"%@\": %@", description, passed ? @"PASSED" : @"FAILED");
@@ -928,12 +1000,11 @@ void testObjectiveCAPI()
     }
 
     @autoreleasepool {
-        JSVirtualMachine *vm = [TinyDOMNode sharedVirtualMachine];
-        JSContext *context = [[JSContext alloc] initWithVirtualMachine:vm];
-        TinyDOMNode *root = [[TinyDOMNode alloc] init];
+        JSContext *context = [[JSContext alloc] init];
+        TinyDOMNode *root = [[TinyDOMNode alloc] initWithVirtualMachine:context.virtualMachine];
         TinyDOMNode *lastNode = root;
         for (NSUInteger i = 0; i < 3; i++) {
-            TinyDOMNode *newNode = [[TinyDOMNode alloc] init];
+            TinyDOMNode *newNode = [[TinyDOMNode alloc] initWithVirtualMachine:context.virtualMachine];
             [lastNode appendChild:newNode];
             lastNode = newNode;
         }
@@ -955,17 +1026,14 @@ void testObjectiveCAPI()
 
         JSValue *myCustomProperty = [context evaluateScript:@"getLastNodeInChain(root).myCustomProperty"];
         checkResult(@"My custom property == 42", [myCustomProperty isNumber] && [myCustomProperty toInt32] == 42);
-
-        [TinyDOMNode clearSharedVirtualMachine];
     }
 
     @autoreleasepool {
-        JSVirtualMachine *vm = [TinyDOMNode sharedVirtualMachine];
-        JSContext *context = [[JSContext alloc] initWithVirtualMachine:vm];
-        TinyDOMNode *root = [[TinyDOMNode alloc] init];
+        JSContext *context = [[JSContext alloc] init];
+        TinyDOMNode *root = [[TinyDOMNode alloc] initWithVirtualMachine:context.virtualMachine];
         TinyDOMNode *lastNode = root;
         for (NSUInteger i = 0; i < 3; i++) {
-            TinyDOMNode *newNode = [[TinyDOMNode alloc] init];
+            TinyDOMNode *newNode = [[TinyDOMNode alloc] initWithVirtualMachine:context.virtualMachine];
             [lastNode appendChild:newNode];
             lastNode = newNode;
         }
@@ -990,8 +1058,6 @@ void testObjectiveCAPI()
 
         JSValue *myCustomProperty = [context evaluateScript:@"getLastNodeInChain(root).myCustomProperty"];
         checkResult(@"duplicate calls to addManagedReference don't cause things to die", [myCustomProperty isNumber] && [myCustomProperty toInt32] == 42);
-
-        [TinyDOMNode clearSharedVirtualMachine];
     }
 
     @autoreleasepool {
@@ -1093,9 +1159,11 @@ void testObjectiveCAPI()
         context[@"ClassA"] = [ClassA class];
         context[@"ClassB"] = [ClassB class];
         context[@"ClassC"] = [ClassC class]; // Should print error message about too many inits found.
+        context[@"ClassCPrime"] = [ClassCPrime class]; // Ditto.
 
         JSValue *a = [context evaluateScript:@"(new ClassA(42))"];
         checkResult(@"a instanceof ClassA", [a isInstanceOf:context[@"ClassA"]]);
+        checkResult(@"a.initialize() is callable", [[a invokeMethod:@"initialize" withArguments:@[]] toInt32] == 42);
 
         JSValue *b = [context evaluateScript:@"(new ClassB(42, 53))"];
         checkResult(@"b instanceof ClassB", [b isInstanceOf:context[@"ClassB"]]);
@@ -1109,6 +1177,15 @@ void testObjectiveCAPI()
             } \
         })()"];
         checkResult(@"shouldn't be able to construct ClassC", ![canConstructClassC toBool]);
+        JSValue *canConstructClassCPrime = [context evaluateScript:@"(function() { \
+            try { \
+                (new ClassCPrime(1)); \
+                return true; \
+            } catch(e) { \
+                return false; \
+            } \
+        })()"];
+        checkResult(@"shouldn't be able to construct ClassCPrime", ![canConstructClassCPrime toBool]);
     }
 
     @autoreleasepool {
@@ -1120,6 +1197,41 @@ void testObjectiveCAPI()
         checkResult(@"Returning instance of ClassE from ClassD's init has correct class", [d isInstanceOf:context[@"ClassE"]]);
     }
 
+    @autoreleasepool {
+        JSContext *context = [[JSContext alloc] init];
+        @autoreleasepool {
+            EvilAllocationObject *evilObject = [[EvilAllocationObject alloc] initWithContext:context];
+            context[@"evilObject"] = evilObject;
+            context[@"evilObject"] = nil;
+        }
+        JSSynchronousGarbageCollectForDebugging([context JSGlobalContextRef]);
+        checkResult(@"EvilAllocationObject was successfully dealloced without crashing", evilAllocationObjectWasDealloced);
+    }
+
+    @autoreleasepool {
+        JSContext *context = [[JSContext alloc] init];
+        checkResult(@"default context.name is nil", context.name == nil);
+        NSString *name1 = @"Name1";
+        NSString *name2 = @"Name2";
+        context.name = name1;
+        NSString *fetchedName1 = context.name;
+        context.name = name2;
+        NSString *fetchedName2 = context.name;
+        checkResult(@"fetched context.name was expected", [fetchedName1 isEqualToString:name1]);
+        checkResult(@"fetched context.name was expected", [fetchedName2 isEqualToString:name2]);
+        checkResult(@"fetched context.name was expected", ![fetchedName1 isEqualToString:fetchedName2]);
+    }
+
+    @autoreleasepool {
+        JSContext *context = [[JSContext alloc] init];
+        context[@"UnexportedObject"] = [UnexportedObject class];
+        context[@"makeObject"] = ^{
+            return [[UnexportedObject alloc] init];
+        };
+        JSValue *result = [context evaluateScript:@"(makeObject() instanceof UnexportedObject)"];
+        checkResult(@"makeObject() instanceof UnexportedObject", [result isBoolean] && [result toBool]);
+    }
+
     currentThisInsideBlockGetterTest();
 }
 
@@ -1129,4 +1241,4 @@ void testObjectiveCAPI()
 {
 }
 
-#endif
+#endif // JSC_OBJC_API_ENABLED

@@ -41,7 +41,6 @@
 #include <wtf/text/WTFString.h>
 
 #include <stdio.h>
-#include <stdarg.h>
 #include <string.h>
 
 #if HAVE(SIGNAL_H)
@@ -68,10 +67,6 @@
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <execinfo.h>
-#endif
-
-#if PLATFORM(BLACKBERRY)
-#include <BlackBerryPlatformLog.h>
 #endif
 
 extern "C" {
@@ -116,8 +111,6 @@ static void vprintf_stderr_common(const char* format, va_list args)
 
     // Fall through to write to stderr in the same manner as other platforms.
 
-#elif PLATFORM(BLACKBERRY)
-    BBLOGV(BlackBerry::Platform::LogLevelCritical, format, args);
 #elif HAVE(ISDEBUGGERPRESENT)
     if (IsDebuggerPresent()) {
         size_t size = 1024;
@@ -152,9 +145,7 @@ static void vprintf_stderr_common(const char* format, va_list args)
         } while (size > 1024);
     }
 #endif
-#if !PLATFORM(BLACKBERRY)
     vfprintf(stderr, format, args);
-#endif
 }
 
 #if COMPILER(CLANG) || (COMPILER(GCC) && GCC_VERSION_AT_LEAST(4, 6, 0))
@@ -347,6 +338,20 @@ void WTFCrash()
     ((void(*)())0)();
 #endif
 }
+    
+void WTFCrashWithSecurityImplication()
+{
+    if (globalHook)
+        globalHook();
+    WTFReportBacktrace();
+    *(int *)(uintptr_t)0xfbadbeef = 0;
+    // More reliable, but doesn't say fbadbeef.
+#if COMPILER(CLANG)
+    __builtin_trap();
+#else
+    ((void(*)())0)();
+#endif
+}
 
 #if HAVE(SIGNAL_H)
 static NO_RETURN void dumpBacktraceSignalHandler(int sig)
@@ -428,12 +433,26 @@ void WTFLogVerbose(const char* file, int line, const char* function, WTFLogChann
     printCallSite(file, line, function);
 }
 
+void WTFLogAlwaysV(const char* format, va_list args)
+{
+    vprintf_stderr_with_trailing_newline(format, args);
+}
+
 void WTFLogAlways(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    vprintf_stderr_with_trailing_newline(format, args);
+    WTFLogAlwaysV(format, args);
     va_end(args);
+}
+
+void WTFLogAlwaysAndCrash(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    WTFLogAlwaysV(format, args);
+    va_end(args);
+    WTFCrash();
 }
 
 WTFLogChannel* WTFLogChannelByName(WTFLogChannel* channels[], size_t count, const char* name)

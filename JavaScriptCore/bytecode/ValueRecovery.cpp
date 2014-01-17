@@ -60,6 +60,8 @@ JSValue ValueRecovery::recover(ExecState* exec) const
     }
 }
 
+#if ENABLE(JIT)
+
 void ValueRecovery::dumpInContext(PrintStream& out, DumpContext* context) const
 {
     switch (technique()) {
@@ -80,9 +82,6 @@ void ValueRecovery::dumpInContext(PrintStream& out, DumpContext* context) const
         return;
     case UnboxedCellInGPR:
         out.print("cell(", gpr(), ")");
-        return;
-    case UInt32InGPR:
-        out.print("uint32(", gpr(), ")");
         return;
     case InFPR:
         out.print(fpr());
@@ -130,6 +129,7 @@ void ValueRecovery::dump(PrintStream& out) const
 {
     dumpInContext(out, 0);
 }
+#endif // ENABLE(JIT)
 
 } // namespace JSC
 

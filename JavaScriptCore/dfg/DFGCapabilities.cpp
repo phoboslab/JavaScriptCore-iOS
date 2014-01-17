@@ -26,6 +26,8 @@
 #include "config.h"
 #include "DFGCapabilities.h"
 
+#if ENABLE(DFG_JIT)
+
 #include "CodeBlock.h"
 #include "DFGCommon.h"
 #include "Interpreter.h"
@@ -79,6 +81,7 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, Instruc
 {
     switch (opcodeID) {
     case op_enter:
+    case op_touch_entry:
     case op_to_this:
     case op_create_this:
     case op_get_callee:
@@ -88,6 +91,7 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, Instruc
     case op_rshift:
     case op_lshift:
     case op_urshift:
+    case op_unsigned:
     case op_inc:
     case op_dec:
     case op_add:
@@ -100,6 +104,7 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, Instruc
     case op_debug:
 #endif
     case op_mov:
+    case op_captured_mov:
     case op_check_has_instance:
     case op_instanceof:
     case op_is_undefined:
@@ -199,6 +204,7 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, Instruc
     case op_create_activation:
     case op_tear_off_activation:
     case op_new_func:
+    case op_new_captured_func:
     case op_new_func_exp:
     case op_switch_string: // Don't inline because we don't want to copy string tables in the concurrent JIT.
         return CanCompile;
@@ -242,3 +248,4 @@ CapabilityLevel capabilityLevel(CodeBlock* codeBlock)
 
 } } // namespace JSC::DFG
 
+#endif

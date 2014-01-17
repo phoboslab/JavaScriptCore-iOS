@@ -141,6 +141,8 @@ public:
                 }
                 RELEASE_ASSERT(node->op() == Phi || node->op() == SetArgument);
                 
+                bool isFlushed = m_flushedLocalOps.contains(node);
+                
                 if (node->op() == Phi) {
                     Edge edge = node->children.justOneChild();
                     if (edge)
@@ -151,20 +153,42 @@ public:
                         NodeFlags result = resultFor(format);
                         UseKind useKind = useKindFor(format);
                         
-                        node = m_insertionSet.insertNode(0, SpecNone, Phi, node->codeOrigin);
+                        node = m_insertionSet.insertNode(0, SpecNone, Phi, CodeOrigin());
                         node->mergeFlags(result);
                         RELEASE_ASSERT((node->flags() & NodeResultMask) == result);
                         
                         for (unsigned j = block->predecessors.size(); j--;) {
                             BasicBlock* predecessor = block->predecessors[j];
                             predecessor->appendNonTerminal(
-                                m_graph, SpecNone, Upsilon, block->last()->codeOrigin,
+                                m_graph, SpecNone, Upsilon, predecessor->last()->codeOrigin,
                                 OpInfo(node), Edge(predecessor->variablesAtTail[i], useKind));
                         }
                         
-                        m_insertionSet.insertNode(
-                            0, SpecNone, MovHint, node->codeOrigin, OpInfo(variable),
-                            Edge(node));
+                        if (isFlushed) {
+                            // Do nothing. For multiple reasons.
+                            
+                            // Reason #1: If the local is flushed then we don't need to bother
+                            // with a MovHint since every path to this point in the code will
+                            // have flushed the bytecode variable using a SetLocal and hence
+                            // the Availability::flushedAt() will agree, and that will be
+                            // sufficient for figuring out how to recover the variable's value.
+                            
+                            // Reason #2: If we had inserted a MovHint and the Phi function had
+                            // died (because the only user of the value was the "flush" - i.e.
+                            // some asynchronous runtime thingy) then the MovHint would turn
+                            // into a ZombieHint, which would fool us into thinking that the
+                            // variable is dead.
+                            
+                            // Reason #3: If we had inserted a MovHint then even if the Phi
+                            // stayed alive, we would still end up generating inefficient code
+                            // since we would be telling the OSR exit compiler to use some SSA
+                            // value for the bytecode variable rather than just telling it that
+                            // the value was already on the stack.
+                        } else {
+                            m_insertionSet.insertNode(
+                                0, SpecNone, MovHint, CodeOrigin(),
+                                OpInfo(variable->local().offset()), Edge(node));
+                        }
                     }
                 }
                 
@@ -245,7 +269,7 @@ public:
         // - GetLocal over uncaptured variables die and get replaced with references
         //   to the node specified by variablesAtHead.
         // - SetLocal gets NodeMustGenerate if it's flushed, or turns into a
-        //   MovHint otherwise.
+        //   Check otherwise.
         // - Flush loses its children but remains, because we want to know when a
         //   flushed SetLocal's value is no longer needed. This also makes it simpler
         //   to reason about the format of a local, since we can just do a backwards
@@ -284,7 +308,7 @@ public:
                     if (variable->isCaptured() || m_flushedLocalOps.contains(node))
                         node->mergeFlags(NodeMustGenerate);
                     else
-                        node->setOpAndDefaultFlags(MovHint);
+                        node->setOpAndDefaultFlags(Check);
                     node->misc.replacement = node->child1().node(); // Only for Upsilons.
                     break;
                 }

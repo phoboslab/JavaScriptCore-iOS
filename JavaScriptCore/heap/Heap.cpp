@@ -27,6 +27,7 @@
 #include "CopiedSpaceInlines.h"
 #include "CopyVisitorInlines.h"
 #include "DFGWorklist.h"
+#include "DelayedReleaseScope.h"
 #include "GCActivityCallback.h"
 #include "GCIncomingRefCountedSetInlines.h"
 #include "HeapIterationScope.h"
@@ -34,13 +35,14 @@
 #include "HeapStatistics.h"
 #include "IncrementalSweeper.h"
 #include "Interpreter.h"
-#include "VM.h"
 #include "JSGlobalObject.h"
 #include "JSLock.h"
 #include "JSONObject.h"
 #include "Operations.h"
+#include "RecursiveAllocationScope.h"
 #include "Tracing.h"
 #include "UnlinkedCodeBlock.h"
+#include "VM.h"
 #include "WeakSetInlines.h"
 #include <algorithm>
 #include <wtf/RAMSize.h>
@@ -251,9 +253,11 @@ Heap::Heap(VM* vm, HeapType heapType)
     , m_ramSize(ramSize())
     , m_minBytesPerCycle(minHeapSize(m_heapType, m_ramSize))
     , m_sizeAfterLastCollect(0)
-    , m_bytesAllocatedLimit(m_minBytesPerCycle)
-    , m_bytesAllocated(0)
-    , m_bytesAbandoned(0)
+    , m_bytesAllocatedThisCycle(0)
+    , m_bytesAbandonedThisCycle(0)
+    , m_maxEdenSize(m_minBytesPerCycle)
+    , m_maxHeapSize(m_minBytesPerCycle)
+    , m_shouldDoFullCollection(false)
     , m_totalBytesVisited(0)
     , m_totalBytesCopied(0)
     , m_operationInProgress(NoOperation)
@@ -267,6 +271,7 @@ Heap::Heap(VM* vm, HeapType heapType)
     , m_copyVisitor(m_sharedData)
     , m_handleSet(vm)
     , m_isSafeToCollect(false)
+    , m_writeBarrierBuffer(256)
     , m_vm(vm)
     , m_lastGCLength(0)
     , m_lastCodeDiscardTime(WTF::monotonicallyIncreasingTime())
@@ -290,15 +295,10 @@ bool Heap::isPagedOut(double deadline)
 // Run all pending finalizers now because we won't get another chance.
 void Heap::lastChanceToFinalize()
 {
-    RELEASE_ASSERT(!m_vm->dynamicGlobalObject);
+    RELEASE_ASSERT(!m_vm->entryScope);
     RELEASE_ASSERT(m_operationInProgress == NoOperation);
 
     m_objectSpace.lastChanceToFinalize();
-
-#if ENABLE(SIMPLE_HEAP_PROFILING)
-    m_slotVisitor.m_visitedTypeCounts.dump(WTF::dataFile(), "Visited Type Counts");
-    m_destroyedTypeCounts.dump(WTF::dataFile(), "Destroyed Type Counts");
-#endif
 }
 
 void Heap::reportExtraMemoryCostSlowCase(size_t cost)
@@ -334,8 +334,8 @@ void Heap::reportAbandonedObjectGraph()
 void Heap::didAbandon(size_t bytes)
 {
     if (m_activityCallback)
-        m_activityCallback->didAllocate(m_bytesAllocated + m_bytesAbandoned);
-    m_bytesAbandoned += bytes;
+        m_activityCallback->didAllocate(m_bytesAllocatedThisCycle + m_bytesAbandonedThisCycle);
+    m_bytesAbandonedThisCycle += bytes;
 }
 
 void Heap::protect(JSValue k)
@@ -467,6 +467,7 @@ void Heap::markRoots()
     {
         GCPHASE(GatherStackRoots);
         stack().gatherConservativeRoots(stackRoots, m_jitStubRoutines, m_codeBlocks);
+        stack().sanitizeStack();
     }
 
 #if ENABLE(DFG_JIT)
@@ -487,6 +488,11 @@ void Heap::markRoots()
     SlotVisitor& visitor = m_slotVisitor;
     visitor.setup();
     HeapRootVisitor heapRootVisitor(visitor);
+
+#if ENABLE(GGC)
+    Vector<const JSCell*> rememberedSet(m_slotVisitor.markStack().size());
+    m_slotVisitor.markStack().fillVector(rememberedSet);
+#endif
 
     {
         ParallelModeEnabler enabler(visitor);
@@ -591,6 +597,16 @@ void Heap::markRoots()
         }
     }
 
+#if ENABLE(GGC)
+    {
+        GCPHASE(ClearRememberedSet);
+        for (unsigned i = 0; i < rememberedSet.size(); ++i) {
+            const JSCell* cell = rememberedSet[i];
+            MarkedBlock::blockFor(cell)->clearRemembered(cell);
+        }
+    }
+#endif
+
     GCCOUNTER(VisitedValueCount, visitor.visitCount());
 
     m_sharedData.didFinishMarking();
@@ -602,8 +618,14 @@ void Heap::markRoots()
     MARK_LOG_MESSAGE2("\nNumber of live Objects after full GC %lu, took %.6f secs\n", visitCount, WTF::monotonicallyIncreasingTime() - gcStartTime);
 #endif
 
-    m_totalBytesVisited = visitor.bytesVisited();
-    m_totalBytesCopied = visitor.bytesCopied();
+    if (m_operationInProgress == EdenCollection) {
+        m_totalBytesVisited += visitor.bytesVisited();
+        m_totalBytesCopied += visitor.bytesCopied();
+    } else {
+        ASSERT(m_operationInProgress == FullCollection);
+        m_totalBytesVisited = visitor.bytesVisited();
+        m_totalBytesCopied = visitor.bytesCopied();
+    }
 #if ENABLE(PARALLEL_GC)
     m_totalBytesVisited += m_sharedData.childBytesVisited();
     m_totalBytesCopied += m_sharedData.childBytesCopied();
@@ -616,9 +638,10 @@ void Heap::markRoots()
     m_sharedData.reset();
 }
 
+template <HeapOperation collectionType>
 void Heap::copyBackingStores()
 {
-    m_storageSpace.startedCopying();
+    m_storageSpace.startedCopying<collectionType>();
     if (m_storageSpace.shouldDoCopyPhase()) {
         m_sharedData.didStartCopying();
         m_copyVisitor.startCopying();
@@ -628,7 +651,7 @@ void Heap::copyBackingStores()
         // before signaling that the phase is complete.
         m_storageSpace.doneCopying();
         m_sharedData.didFinishCopying();
-    } else 
+    } else
         m_storageSpace.doneCopying();
 }
 
@@ -693,7 +716,7 @@ void Heap::deleteAllCompiledCode()
 {
     // If JavaScript is running, it's not safe to delete code, since we'll end
     // up deleting code that is live on the stack.
-    if (m_vm->dynamicGlobalObject)
+    if (m_vm->entryScope)
         return;
 
     for (ExecutableBase* current = m_compiledCode.head(); current; current = current->next()) {
@@ -724,17 +747,33 @@ void Heap::deleteUnmarkedCompiledCode()
     m_jitStubRoutines.deleteUnmarkedJettisonedStubRoutines();
 }
 
+void Heap::addToRememberedSet(const JSCell* cell)
+{
+    ASSERT(cell);
+    ASSERT(!Options::enableConcurrentJIT() || !isCompilationThread());
+    if (isInRememberedSet(cell))
+        return;
+    MarkedBlock::blockFor(cell)->setRemembered(cell);
+    m_slotVisitor.unconditionallyAppend(const_cast<JSCell*>(cell));
+}
+
 void Heap::collectAllGarbage()
 {
     if (!m_isSafeToCollect)
         return;
-    
-    collect(DoSweep);
+
+    m_shouldDoFullCollection = true;
+    collect();
+
+    SamplingRegion samplingRegion("Garbage Collection: Sweeping");
+    DelayedReleaseScope delayedReleaseScope(m_objectSpace);
+    m_objectSpace.sweep();
+    m_objectSpace.shrink();
 }
 
 static double minute = 60.0;
 
-void Heap::collect(SweepToggle sweepToggle)
+void Heap::collect()
 {
 #if ENABLE(ALLOCATION_LOGGING)
     dataLogF("JSC GC starting collection.\n");
@@ -742,7 +781,7 @@ void Heap::collect(SweepToggle sweepToggle)
     
     double before = 0;
     if (Options::logGC()) {
-        dataLog("[GC", sweepToggle == DoSweep ? " (eager sweep)" : "", ": ");
+        dataLog("[GC: ");
         before = currentTimeMS();
     }
     
@@ -756,12 +795,32 @@ void Heap::collect(SweepToggle sweepToggle)
     JAVASCRIPTCORE_GC_BEGIN();
     RELEASE_ASSERT(m_operationInProgress == NoOperation);
     
-    m_deferralDepth++; // Make sure that we don't GC in this call.
-    m_vm->prepareToDiscardCode();
-    m_deferralDepth--; // Decrement deferal manually, so we don't GC when we do so, since we are already GCing!.
-    
-    m_operationInProgress = Collection;
-    m_extraMemoryUsage = 0;
+    {
+        RecursiveAllocationScope scope(*this);
+        m_vm->prepareToDiscardCode();
+    }
+
+    bool isFullCollection = m_shouldDoFullCollection;
+    if (isFullCollection) {
+        m_operationInProgress = FullCollection;
+        m_slotVisitor.clearMarkStack();
+        m_shouldDoFullCollection = false;
+        if (Options::logGC())
+            dataLog("FullCollection, ");
+    } else {
+#if ENABLE(GGC)
+        m_operationInProgress = EdenCollection;
+        if (Options::logGC())
+            dataLog("EdenCollection, ");
+#else
+        m_operationInProgress = FullCollection;
+        m_slotVisitor.clearMarkStack();
+        if (Options::logGC())
+            dataLog("FullCollection, ");
+#endif
+    }
+    if (m_operationInProgress == FullCollection)
+        m_extraMemoryUsage = 0;
 
     if (m_activityCallback)
         m_activityCallback->willCollect();
@@ -775,6 +834,16 @@ void Heap::collect(SweepToggle sweepToggle)
     {
         GCPHASE(StopAllocation);
         m_objectSpace.stopAllocating();
+        if (m_operationInProgress == FullCollection)
+            m_storageSpace.didStartFullCollection();
+    }
+
+    {
+        GCPHASE(FlushWriteBarrierBuffer);
+        if (m_operationInProgress == EdenCollection)
+            m_writeBarrierBuffer.flush(*this);
+        else
+            m_writeBarrierBuffer.reset();
     }
 
     markRoots();
@@ -791,13 +860,16 @@ void Heap::collect(SweepToggle sweepToggle)
         m_arrayBuffers.sweep();
     }
 
-    {
+    if (m_operationInProgress == FullCollection) {
         m_blockSnapshot.resize(m_objectSpace.blocks().set().size());
         MarkedBlockSnapshotFunctor functor(m_blockSnapshot);
         m_objectSpace.forEachBlock(functor);
     }
 
-    copyBackingStores();
+    if (m_operationInProgress == FullCollection)
+        copyBackingStores<FullCollection>();
+    else
+        copyBackingStores<EdenCollection>();
 
     {
         GCPHASE(FinalizeUnconditionalFinalizers);
@@ -814,15 +886,15 @@ void Heap::collect(SweepToggle sweepToggle)
         m_vm->clearSourceProviderCaches();
     }
 
-    if (sweepToggle == DoSweep) {
-        SamplingRegion samplingRegion("Garbage Collection: Sweeping");
-        GCPHASE(Sweeping);
-        m_objectSpace.sweep();
-        m_objectSpace.shrink();
+    if (m_operationInProgress == FullCollection)
+        m_sweeper->startSweeping(m_blockSnapshot);
+
+    {
+        GCPHASE(AddCurrentlyExecutingCodeBlocksToRememberedSet);
+        m_codeBlocks.rememberCurrentlyExecutingCodeBlocks(this);
     }
 
-    m_sweeper->startSweeping(m_blockSnapshot);
-    m_bytesAbandoned = 0;
+    m_bytesAbandonedThisCycle = 0;
 
     {
         GCPHASE(ResetAllocators);
@@ -833,21 +905,32 @@ void Heap::collect(SweepToggle sweepToggle)
     if (Options::gcMaxHeapSize() && currentHeapSize > Options::gcMaxHeapSize())
         HeapStatistics::exitWithFailure();
 
+    if (m_operationInProgress == FullCollection) {
+        // To avoid pathological GC churn in very small and very large heaps, we set
+        // the new allocation limit based on the current size of the heap, with a
+        // fixed minimum.
+        m_maxHeapSize = max(minHeapSize(m_heapType, m_ramSize), proportionalHeapSize(currentHeapSize, m_ramSize));
+        m_maxEdenSize = m_maxHeapSize - currentHeapSize;
+    } else {
+        ASSERT(currentHeapSize >= m_sizeAfterLastCollect);
+        m_maxEdenSize = m_maxHeapSize - currentHeapSize;
+        double edenToOldGenerationRatio = (double)m_maxEdenSize / (double)m_maxHeapSize;
+        double minEdenToOldGenerationRatio = 1.0 / 3.0;
+        if (edenToOldGenerationRatio < minEdenToOldGenerationRatio)
+            m_shouldDoFullCollection = true;
+        m_maxHeapSize += currentHeapSize - m_sizeAfterLastCollect;
+        m_maxEdenSize = m_maxHeapSize - currentHeapSize;
+    }
+
     m_sizeAfterLastCollect = currentHeapSize;
 
-    // To avoid pathological GC churn in very small and very large heaps, we set
-    // the new allocation limit based on the current size of the heap, with a
-    // fixed minimum.
-    size_t maxHeapSize = max(minHeapSize(m_heapType, m_ramSize), proportionalHeapSize(currentHeapSize, m_ramSize));
-    m_bytesAllocatedLimit = maxHeapSize - currentHeapSize;
-
-    m_bytesAllocated = 0;
+    m_bytesAllocatedThisCycle = 0;
     double lastGCEndTime = WTF::monotonicallyIncreasingTime();
     m_lastGCLength = lastGCEndTime - lastGCStartTime;
 
     if (Options::recordGCPauseTimes())
         HeapStatistics::recordGCPauseTime(lastGCStartTime, lastGCEndTime);
-    RELEASE_ASSERT(m_operationInProgress == Collection);
+    RELEASE_ASSERT(m_operationInProgress == EdenCollection || m_operationInProgress == FullCollection);
 
     m_operationInProgress = NoOperation;
     JAVASCRIPTCORE_GC_END();
@@ -865,10 +948,6 @@ void Heap::collect(SweepToggle sweepToggle)
         double after = currentTimeMS();
         dataLog(after - before, " ms, ", currentHeapSize / 1024, " kb]\n");
     }
-
-#if ENABLE(ALLOCATION_LOGGING)
-    dataLogF("JSC GC finishing collection.\n");
-#endif
 }
 
 bool Heap::collectIfNecessaryOrDefer()
@@ -879,7 +958,7 @@ bool Heap::collectIfNecessaryOrDefer()
     if (!shouldCollect())
         return false;
     
-    collect(DoNotSweep);
+    collect();
     return true;
 }
 
@@ -918,8 +997,8 @@ void Heap::setGarbageCollectionTimerEnabled(bool enable)
 void Heap::didAllocate(size_t bytes)
 {
     if (m_activityCallback)
-        m_activityCallback->didAllocate(m_bytesAllocated + m_bytesAbandoned);
-    m_bytesAllocated += bytes;
+        m_activityCallback->didAllocate(m_bytesAllocatedThisCycle + m_bytesAbandonedThisCycle);
+    m_bytesAllocatedThisCycle += bytes;
 }
 
 bool Heap::isValidAllocation(size_t)
@@ -994,6 +1073,29 @@ void Heap::decrementDeferralDepthAndGCIfNeeded()
 {
     decrementDeferralDepth();
     collectIfNecessaryOrDefer();
+}
+
+void Heap::writeBarrier(const JSCell* from)
+{
+#if ENABLE(GGC)
+    ASSERT_GC_OBJECT_LOOKS_VALID(const_cast<JSCell*>(from));
+    if (!from || !isMarked(from))
+        return;
+    Heap* heap = Heap::heap(from);
+    heap->addToRememberedSet(from);
+#else
+    UNUSED_PARAM(from);
+#endif
+}
+
+void Heap::flushWriteBarrierBuffer(JSCell* cell)
+{
+#if ENABLE(GGC)
+    m_writeBarrierBuffer.flush(*this);
+    m_writeBarrierBuffer.add(cell);
+#else
+    UNUSED_PARAM(cell);
+#endif
 }
 
 } // namespace JSC

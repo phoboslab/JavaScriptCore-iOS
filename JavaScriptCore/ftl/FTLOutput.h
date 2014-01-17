@@ -154,6 +154,8 @@ public:
     LValue lShr(LValue left, LValue right) { return buildLShr(m_builder, left, right); }
     LValue bitNot(LValue value) { return buildNot(m_builder, value); }
     
+    LValue insertElement(LValue vector, LValue element, LValue index) { return buildInsertElement(m_builder, vector, element, index); }
+    
     LValue addWithOverflow32(LValue left, LValue right)
     {
         return call(addWithOverflow32Intrinsic(), left, right);
@@ -183,6 +185,17 @@ public:
         return call(doubleAbsIntrinsic(), value);
     }
     
+    static bool hasSensibleDoubleToInt() { return isX86(); }
+    LValue sensibleDoubleToInt(LValue value)
+    {
+        RELEASE_ASSERT(isX86());
+        return call(
+            x86SSE2CvtTSD2SIIntrinsic(),
+            insertElement(
+                insertElement(getUndef(vectorType(doubleType, 2)), value, int32Zero),
+                doubleZero, int32One));
+    }
+    
     LValue signExt(LValue value, LType type) { return buildSExt(m_builder, value, type); }
     LValue zeroExt(LValue value, LType type) { return buildZExt(m_builder, value, type); }
     LValue fpToInt(LValue value, LType type) { return buildFPToSI(m_builder, value, type); }
@@ -199,6 +212,7 @@ public:
     LValue intToPtr(LValue value, LType type) { return buildIntToPtr(m_builder, value, type); }
     LValue bitCast(LValue value, LType type) { return buildBitCast(m_builder, value, type); }
     
+    LValue alloca(LType type) { return buildAlloca(m_builder, type); }
     LValue get(LValue reference) { return buildLoad(m_builder, reference); }
     LValue set(LValue value, LValue reference) { return buildStore(m_builder, value, reference); }
     
@@ -294,33 +308,37 @@ public:
     LValue load32(LValue base, const AbstractField& field) { return load32(address(base, field)); }
     LValue load64(LValue base, const AbstractField& field) { return load64(address(base, field)); }
     LValue loadPtr(LValue base, const AbstractField& field) { return loadPtr(address(base, field)); }
+    LValue loadDouble(LValue base, const AbstractField& field) { return loadDouble(address(base, field)); }
     void store32(LValue value, LValue base, const AbstractField& field) { store32(value, address(base, field)); }
     void store64(LValue value, LValue base, const AbstractField& field) { store64(value, address(base, field)); }
     void storePtr(LValue value, LValue base, const AbstractField& field) { storePtr(value, address(base, field)); }
+    void storeDouble(LValue value, LValue base, const AbstractField& field) { storeDouble(value, address(base, field)); }
     
-    LValue equal(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntEQ, left, right); }
-    LValue notEqual(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntNE, left, right); }
-    LValue above(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntUGT, left, right); }
-    LValue aboveOrEqual(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntUGE, left, right); }
-    LValue below(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntULT, left, right); }
-    LValue belowOrEqual(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntULE, left, right); }
-    LValue greaterThan(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntSGT, left, right); }
-    LValue greaterThanOrEqual(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntSGE, left, right); }
-    LValue lessThan(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntSLT, left, right); }
-    LValue lessThanOrEqual(LValue left, LValue right) { return buildICmp(m_builder, LLVMIntSLE, left, right); }
+    LValue icmp(LIntPredicate cond, LValue left, LValue right) { return buildICmp(m_builder, cond, left, right); }
+    LValue equal(LValue left, LValue right) { return icmp(LLVMIntEQ, left, right); }
+    LValue notEqual(LValue left, LValue right) { return icmp(LLVMIntNE, left, right); }
+    LValue above(LValue left, LValue right) { return icmp(LLVMIntUGT, left, right); }
+    LValue aboveOrEqual(LValue left, LValue right) { return icmp(LLVMIntUGE, left, right); }
+    LValue below(LValue left, LValue right) { return icmp(LLVMIntULT, left, right); }
+    LValue belowOrEqual(LValue left, LValue right) { return icmp(LLVMIntULE, left, right); }
+    LValue greaterThan(LValue left, LValue right) { return icmp(LLVMIntSGT, left, right); }
+    LValue greaterThanOrEqual(LValue left, LValue right) { return icmp(LLVMIntSGE, left, right); }
+    LValue lessThan(LValue left, LValue right) { return icmp(LLVMIntSLT, left, right); }
+    LValue lessThanOrEqual(LValue left, LValue right) { return icmp(LLVMIntSLE, left, right); }
     
-    LValue doubleEqual(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealOEQ, left, right); }
-    LValue doubleNotEqualOrUnordered(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealUNE, left, right); }
-    LValue doubleLessThan(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealOLT, left, right); }
-    LValue doubleLessThanOrEqual(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealOLE, left, right); }
-    LValue doubleGreaterThan(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealOGT, left, right); }
-    LValue doubleGreaterThanOrEqual(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealOGE, left, right); }
-    LValue doubleEqualOrUnordered(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealUEQ, left, right); }
-    LValue doubleNotEqual(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealONE, left, right); }
-    LValue doubleLessThanOrUnordered(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealULT, left, right); }
-    LValue doubleLessThanOrEqualOrUnordered(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealULE, left, right); }
-    LValue doubleGreaterThanOrUnordered(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealUGT, left, right); }
-    LValue doubleGreaterThanOrEqualOrUnordered(LValue left, LValue right) { return buildFCmp(m_builder, LLVMRealUGE, left, right); }
+    LValue fcmp(LRealPredicate cond, LValue left, LValue right) { return buildFCmp(m_builder, cond, left, right); }
+    LValue doubleEqual(LValue left, LValue right) { return fcmp(LLVMRealOEQ, left, right); }
+    LValue doubleNotEqualOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealUNE, left, right); }
+    LValue doubleLessThan(LValue left, LValue right) { return fcmp(LLVMRealOLT, left, right); }
+    LValue doubleLessThanOrEqual(LValue left, LValue right) { return fcmp(LLVMRealOLE, left, right); }
+    LValue doubleGreaterThan(LValue left, LValue right) { return fcmp(LLVMRealOGT, left, right); }
+    LValue doubleGreaterThanOrEqual(LValue left, LValue right) { return fcmp(LLVMRealOGE, left, right); }
+    LValue doubleEqualOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealUEQ, left, right); }
+    LValue doubleNotEqual(LValue left, LValue right) { return fcmp(LLVMRealONE, left, right); }
+    LValue doubleLessThanOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealULT, left, right); }
+    LValue doubleLessThanOrEqualOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealULE, left, right); }
+    LValue doubleGreaterThanOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealUGT, left, right); }
+    LValue doubleGreaterThanOrEqualOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealUGE, left, right); }
     
     LValue isZero8(LValue value) { return equal(value, int8Zero); }
     LValue notZero8(LValue value) { return notEqual(value, int8Zero); }
@@ -341,6 +359,9 @@ public:
     LValue select(LValue value, LValue taken, LValue notTaken) { return buildSelect(m_builder, value, taken, notTaken); }
     LValue extractValue(LValue aggVal, unsigned index) { return buildExtractValue(m_builder, aggVal, index); }
     
+    LValue fence(LAtomicOrdering ordering = LLVMAtomicOrderingSequentiallyConsistent, SynchronizationScope scope = CrossThread) { return buildFence(m_builder, ordering, scope); }
+    LValue fenceAcqRel() { return fence(LLVMAtomicOrderingAcquireRelease); }
+    
     template<typename VectorType>
     LValue call(LValue function, const VectorType& vector) { return buildCall(m_builder, function, vector); }
     LValue call(LValue function) { return buildCall(m_builder, function); }
@@ -350,17 +371,13 @@ public:
     LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4); }
     LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4, arg5); }
     LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5, LValue arg6) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4, arg5, arg6); }
+    LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5, LValue arg6, LValue arg7) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4, arg5, arg6, arg7); }
+    LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5, LValue arg6, LValue arg7, LValue arg8) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8); }
     
     template<typename FunctionType>
     LValue operation(FunctionType function)
     {
         return intToPtr(constIntPtr(function), pointerType(operationType(function)));
-    }
-    
-    LValue convertToTailCall(LValue call)
-    {
-        setTailCall(call, IsTailCall);
-        return call;
     }
     
     void jump(LBasicBlock destination) { buildBr(m_builder, destination); }

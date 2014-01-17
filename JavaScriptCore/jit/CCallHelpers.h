@@ -95,6 +95,44 @@ public:
         addCallArgument(arg2);
     }
     
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, GPRReg arg3)
+    {
+        resetCallArguments();
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+    }
+    
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImmPtr arg4)
+    {
+        resetCallArguments();
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+        addCallArgument(arg4);
+    }
+    
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4, GPRReg arg5)
+    {
+        resetCallArguments();
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+        addCallArgument(arg4);
+        addCallArgument(arg5);
+    }
+    
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4, GPRReg arg5, GPRReg arg6)
+    {
+        resetCallArguments();
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+        addCallArgument(arg4);
+        addCallArgument(arg5);
+        addCallArgument(arg6);
+    }
+    
     ALWAYS_INLINE void setupArguments(TrustedImmPtr arg1)
     {
         resetCallArguments();
@@ -692,7 +730,7 @@ public:
         setupThreeStubArgsGPR<GPRInfo::argumentGPR1, GPRInfo::argumentGPR2, GPRInfo::argumentGPR3>(arg1, arg2, arg3);
     }
 
-#if CPU(MIPS)
+#if CPU(MIPS) || (OS(WINDOWS) && CPU(X86_64))
 #define POKE_ARGUMENT_OFFSET 4
 #else
 #define POKE_ARGUMENT_OFFSET 0
@@ -906,6 +944,24 @@ public:
         setupTwoStubArgsGPR<GPRInfo::argumentGPR0, GPRInfo::argumentGPR1>(arg1, arg2);
     }
     
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, GPRReg arg3)
+    {
+        setupThreeStubArgsGPR<GPRInfo::argumentGPR0, GPRInfo::argumentGPR1, GPRInfo::argumentGPR2>(arg1, arg2, arg3);
+    }
+    
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImmPtr arg4)
+    {
+        setupTwoStubArgsGPR<GPRInfo::argumentGPR0, GPRInfo::argumentGPR1>(arg1, arg2);
+        move(arg3, GPRInfo::argumentGPR2);
+        move(arg4, GPRInfo::argumentGPR3);
+    }
+    
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, GPRReg arg3, TrustedImmPtr arg4)
+    {
+        setupThreeStubArgsGPR<GPRInfo::argumentGPR0, GPRInfo::argumentGPR1, GPRInfo::argumentGPR2>(arg1, arg2, arg3);
+        move(arg4, GPRInfo::argumentGPR3);
+    }
+    
     ALWAYS_INLINE void setupArguments(GPRReg arg1, TrustedImmPtr arg2, GPRReg arg3, TrustedImmPtr arg4)
     {
         setupTwoStubArgsGPR<GPRInfo::argumentGPR0, GPRInfo::argumentGPR2>(arg1, arg3);
@@ -913,6 +969,15 @@ public:
         move(arg4, GPRInfo::argumentGPR3);
     }
     
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4, GPRReg arg5, GPRReg arg6)
+    {
+        poke(arg6, POKE_ARGUMENT_OFFSET + 1);
+        poke(arg5, POKE_ARGUMENT_OFFSET);
+        setupTwoStubArgsGPR<GPRInfo::argumentGPR0, GPRInfo::argumentGPR1>(arg1, arg2);
+        move(arg3, GPRInfo::argumentGPR2);
+        move(arg4, GPRInfo::argumentGPR3);
+    }
+
     ALWAYS_INLINE void setupArguments(TrustedImmPtr arg1)
     {
         move(arg1, GPRInfo::argumentGPR0);
@@ -1427,6 +1492,23 @@ public:
         poke(arg4, POKE_ARGUMENT_OFFSET);
         setupArgumentsWithExecState(arg1, arg2, arg3);
     }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImm32 arg1, GPRReg arg2, GPRReg arg3, TrustedImm32 arg4, TrustedImm32 arg5, GPRReg arg6, GPRReg arg7)
+    {
+        poke(arg7, POKE_ARGUMENT_OFFSET + 3);
+        poke(arg6, POKE_ARGUMENT_OFFSET + 2);
+        poke(arg5, POKE_ARGUMENT_OFFSET + 1);
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4, GPRReg arg5)
+    {
+        poke(arg5, POKE_ARGUMENT_OFFSET);
+        setupTwoStubArgsGPR<GPRInfo::argumentGPR0, GPRInfo::argumentGPR1>(arg1, arg2);
+        move(arg3, GPRInfo::argumentGPR2);
+        move(arg4, GPRInfo::argumentGPR3);
+    }
 #endif // NUMBER_OF_ARGUMENT_REGISTERS == 4
 
 #if NUMBER_OF_ARGUMENT_REGISTERS >= 5
@@ -1457,6 +1539,20 @@ public:
         move(arg4, GPRInfo::argumentGPR4);
         move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
     }
+
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, TrustedImmPtr arg2, GPRReg arg3, GPRReg arg4, TrustedImmPtr arg5)
+    {
+        setupThreeStubArgsGPR<GPRInfo::argumentGPR0, GPRInfo::argumentGPR2, GPRInfo::argumentGPR3>(arg1, arg3, arg4);
+        move(arg2, GPRInfo::argumentGPR1);
+        move(arg5, GPRInfo::argumentGPR4);
+    }
+
+    ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4, GPRReg arg5)
+    {
+        setupThreeStubArgsGPR<GPRInfo::argumentGPR0, GPRInfo::argumentGPR1, GPRInfo::argumentGPR4>(arg1, arg2, arg5);
+        move(arg3, GPRInfo::argumentGPR2);
+        move(arg4, GPRInfo::argumentGPR3);
+    }
 #endif
 
     void setupResults(GPRReg destA, GPRReg destB)
@@ -1484,10 +1580,7 @@ public:
     {
         // genericUnwind() leaves the handler CallFrame* in vm->callFrameForThrow,
         // and the address of the handler in vm->targetMachinePCForThrow.
-        // The exception handler expects the CallFrame* in regT0.
-        move(TrustedImmPtr(vm()), GPRInfo::regT0);
-        loadPtr(Address(GPRInfo::regT0, VM::targetMachinePCForThrowOffset()), GPRInfo::regT1);
-        loadPtr(Address(GPRInfo::regT0, VM::callFrameForThrowOffset()), GPRInfo::regT0);
+        loadPtr(&vm()->targetMachinePCForThrow, GPRInfo::regT1);
         jump(GPRInfo::regT1);
     }
 };

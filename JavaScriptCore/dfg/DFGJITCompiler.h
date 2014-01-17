@@ -81,15 +81,17 @@ struct CallLinkRecord {
 
 struct InRecord {
     InRecord(
-        MacroAssembler::PatchableJump jump, SlowPathGenerator* slowPathGenerator,
-        StructureStubInfo* stubInfo)
+        MacroAssembler::PatchableJump jump, MacroAssembler::Label done,
+        SlowPathGenerator* slowPathGenerator, StructureStubInfo* stubInfo)
         : m_jump(jump)
+        , m_done(done)
         , m_slowPathGenerator(slowPathGenerator)
         , m_stubInfo(stubInfo)
     {
     }
     
     MacroAssembler::PatchableJump m_jump;
+    MacroAssembler::Label m_done;
     SlowPathGenerator* m_slowPathGenerator;
     StructureStubInfo* m_stubInfo;
 };
@@ -268,6 +270,8 @@ public:
                 entry->m_expectedValues.local(local).makeHeapTop();
             else {
                 VariableAccessData* variable = node->variableAccessData();
+                entry->m_machineStackUsed.set(variable->machineLocal().toLocal());
+                
                 switch (variable->flushFormat()) {
                 case FlushedDouble:
                     entry->m_localsForcedDouble.set(local);

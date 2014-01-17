@@ -28,7 +28,6 @@
 
 #if ENABLE(VMINSPECTOR)
 
-#include <stdio.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/text/WTFString.h>
 
@@ -102,7 +101,7 @@ void VMInspector::dumpFrame(CallFrame* frame, const char* prefix,
 int VMInspector::countFrames(CallFrame* frame)
 {
     int count = -1;
-    while (frame && !frame->hasHostCallFrameFlag()) {
+    while (frame && !frame->isVMEntrySentinel()) {
         count++;
         frame = frame->callerFrame();
     }

@@ -57,24 +57,17 @@ ALWAYS_INLINE void JIT::emitPutIntToCallFrameHeader(RegisterID from, JSStack::Ca
 ALWAYS_INLINE void JIT::emitGetFromCallFrameHeaderPtr(JSStack::CallFrameHeaderEntry entry, RegisterID to, RegisterID from)
 {
     loadPtr(Address(from, entry * sizeof(Register)), to);
-#if USE(JSVALUE64)
-    killLastResultRegister();
-#endif
 }
 
 ALWAYS_INLINE void JIT::emitGetFromCallFrameHeader32(JSStack::CallFrameHeaderEntry entry, RegisterID to, RegisterID from)
 {
     load32(Address(from, entry * sizeof(Register)), to);
-#if USE(JSVALUE64)
-    killLastResultRegister();
-#endif
 }
 
 #if USE(JSVALUE64)
 ALWAYS_INLINE void JIT::emitGetFromCallFrameHeader64(JSStack::CallFrameHeaderEntry entry, RegisterID to, RegisterID from)
 {
     load64(Address(from, entry * sizeof(Register)), to);
-    killLastResultRegister();
 }
 #endif
 
@@ -104,16 +97,6 @@ ALWAYS_INLINE JIT::Call JIT::emitNakedCall(CodePtr function)
     Call nakedCall = nearCall();
     m_calls.append(CallRecord(nakedCall, m_bytecodeOffset, function.executableAddress()));
     return nakedCall;
-}
-
-ALWAYS_INLINE bool JIT::atJumpTarget()
-{
-    while (m_jumpTargetsPosition < m_codeBlock->numberOfJumpTargets() && m_codeBlock->jumpTarget(m_jumpTargetsPosition) <= m_bytecodeOffset) {
-        if (m_codeBlock->jumpTarget(m_jumpTargetsPosition) == m_bytecodeOffset)
-            return true;
-        ++m_jumpTargetsPosition;
-    }
-    return false;
 }
 
 ALWAYS_INLINE void JIT::updateTopCallFrame()
@@ -149,9 +132,9 @@ ALWAYS_INLINE MacroAssembler::Call JIT::appendCallWithExceptionCheckSetJSValueRe
 {
     MacroAssembler::Call call = appendCallWithExceptionCheck(function);
 #if USE(JSVALUE64)
-    emitPutVirtualRegister(dst, returnValueRegister);
+    emitPutVirtualRegister(dst, returnValueGPR);
 #else
-    emitStore(dst, returnValue2Register, returnValueRegister);
+    emitStore(dst, returnValueGPR2, returnValueGPR);
 #endif
     return call;
 }
@@ -159,11 +142,11 @@ ALWAYS_INLINE MacroAssembler::Call JIT::appendCallWithExceptionCheckSetJSValueRe
 ALWAYS_INLINE MacroAssembler::Call JIT::appendCallWithExceptionCheckSetJSValueResultWithProfile(const FunctionPtr& function, int dst)
 {
     MacroAssembler::Call call = appendCallWithExceptionCheck(function);
-    emitValueProfilingSite(regT4);
+    emitValueProfilingSite();
 #if USE(JSVALUE64)
-    emitPutVirtualRegister(dst, returnValueRegister);
+    emitPutVirtualRegister(dst, returnValueGPR);
 #else
-    emitStore(dst, returnValue2Register, returnValueRegister);
+    emitStore(dst, returnValueGPR2, returnValueGPR);
 #endif
     return call;
 }
@@ -214,6 +197,12 @@ ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(J_JITOperation_EC operatio
 {
     setupArgumentsWithExecState(TrustedImmPtr(cell));
     return appendCallWithExceptionCheckSetJSValueResult(operation, dst);
+}
+
+ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(V_JITOperation_EC operation, JSCell* cell)
+{
+    setupArgumentsWithExecState(TrustedImmPtr(cell));
+    return appendCallWithExceptionCheck(operation);
 }
 
 ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(J_JITOperation_EP operation, int dst, void* pointer)
@@ -302,9 +291,15 @@ ALWAYS_INLINE MacroAssembler::Call JIT::callOperationWithCallFrameRollbackOnExce
 
 
 #if USE(JSVALUE64)
-ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(F_JITOperation_EJJZ operation, GPRReg arg1, GPRReg arg2, int32_t arg3)
+ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(F_JITOperation_EJZ operation, GPRReg arg1, int32_t arg3)
 {
-    setupArgumentsWithExecState(arg1, arg2, TrustedImm32(arg3));
+    setupArgumentsWithExecState(arg1, TrustedImm32(arg3));
+    return appendCallWithExceptionCheck(operation);
+}
+
+ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(F_JITOperation_EFJJ operation, GPRReg arg1, GPRReg arg2, GPRReg arg3)
+{
+    setupArgumentsWithExecState(arg1, arg2, arg3);
     return appendCallWithExceptionCheck(operation);
 }
 
@@ -437,17 +432,23 @@ ALWAYS_INLINE MacroAssembler::Call JIT::callOperationNoExceptionCheck(V_JITOpera
     return appendCall(operation);
 }
 
-ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(F_JITOperation_EJJZ operation, GPRReg arg1Tag, GPRReg arg1Payload, GPRReg arg2Tag, GPRReg arg2Payload, int32_t arg3)
+ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(F_JITOperation_EJZ operation, GPRReg arg1Tag, GPRReg arg1Payload, int32_t arg2)
 {
 #if CPU(SH4)
     // We have to put arg3 in the 4th argument register (r7) as 64-bit value arg2 will be put on stack for sh4 architecure.
-    setupArgumentsWithExecState(arg1Payload, arg1Tag, TrustedImm32(arg3), arg2Payload, arg2Tag);
+    setupArgumentsWithExecState(arg1Payload, arg1Tag, TrustedImm32(arg2));
 #else
-    setupArgumentsWithExecState(EABI_32BIT_DUMMY_ARG arg1Payload, arg1Tag, arg2Payload, arg2Tag, TrustedImm32(arg3));
+    setupArgumentsWithExecState(EABI_32BIT_DUMMY_ARG arg1Payload, arg1Tag, TrustedImm32(arg2));
 #endif
     return appendCallWithExceptionCheck(operation);
 }
 
+ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(F_JITOperation_EFJJ operation, GPRReg arg1, GPRReg arg2Tag, GPRReg arg2Payload, GPRReg arg3Tag, GPRReg arg3Payload)
+{
+    setupArgumentsWithExecState(arg1, arg2Payload, arg2Tag, arg3Payload, arg3Tag);
+    return appendCallWithExceptionCheck(operation);
+}
+    
 ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(J_JITOperation_EAapJ operation, int dst, ArrayAllocationProfile* arg1, GPRReg arg2Tag, GPRReg arg2Payload)
 {
     setupArgumentsWithExecState(TrustedImmPtr(arg1), arg2Payload, arg2Tag);
@@ -540,7 +541,7 @@ ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(V_JITOperation_EJZ operati
 
 ALWAYS_INLINE MacroAssembler::Call JIT::callOperation(V_JITOperation_EJZJ operation, RegisterID regOp1Tag, RegisterID regOp1Payload, int32_t op2, RegisterID regOp3Tag, RegisterID regOp3Payload)
 {
-    setupArgumentsWithExecState(EABI_32BIT_DUMMY_ARG regOp1Payload, regOp1Tag, TrustedImm32(op2), regOp3Payload, regOp3Tag);
+    setupArgumentsWithExecState(EABI_32BIT_DUMMY_ARG regOp1Payload, regOp1Tag, TrustedImm32(op2), EABI_32BIT_DUMMY_ARG regOp3Payload, regOp3Tag);
     return appendCallWithExceptionCheck(operation);
 }
 
@@ -679,8 +680,7 @@ inline void JIT::emitAllocateJSObject(RegisterID allocator, StructureType struct
     storePtr(TrustedImmPtr(0), Address(result, JSObject::butterflyOffset()));
 }
 
-#if ENABLE(VALUE_PROFILER)
-inline void JIT::emitValueProfilingSite(ValueProfile* valueProfile, RegisterID bucketCounterRegister)
+inline void JIT::emitValueProfilingSite(ValueProfile* valueProfile)
 {
     ASSERT(shouldEmitProfiling());
     ASSERT(valueProfile);
@@ -689,47 +689,29 @@ inline void JIT::emitValueProfilingSite(ValueProfile* valueProfile, RegisterID b
 #if USE(JSVALUE32_64)
     const RegisterID valueTag = regT1;
 #endif
-    const RegisterID scratch = regT3;
     
-    if (ValueProfile::numberOfBuckets == 1) {
-        // We're in a simple configuration: only one bucket, so we can just do a direct
-        // store.
+    // We're in a simple configuration: only one bucket, so we can just do a direct
+    // store.
 #if USE(JSVALUE64)
-        store64(value, valueProfile->m_buckets);
+    store64(value, valueProfile->m_buckets);
 #else
-        EncodedValueDescriptor* descriptor = bitwise_cast<EncodedValueDescriptor*>(valueProfile->m_buckets);
-        store32(value, &descriptor->asBits.payload);
-        store32(valueTag, &descriptor->asBits.tag);
-#endif
-        return;
-    }
-    
-    if (m_randomGenerator.getUint32() & 1)
-        add32(TrustedImm32(1), bucketCounterRegister);
-    else
-        add32(TrustedImm32(3), bucketCounterRegister);
-    and32(TrustedImm32(ValueProfile::bucketIndexMask), bucketCounterRegister);
-    move(TrustedImmPtr(valueProfile->m_buckets), scratch);
-#if USE(JSVALUE64)
-    store64(value, BaseIndex(scratch, bucketCounterRegister, TimesEight));
-#elif USE(JSVALUE32_64)
-    store32(value, BaseIndex(scratch, bucketCounterRegister, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.payload)));
-    store32(valueTag, BaseIndex(scratch, bucketCounterRegister, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.tag)));
+    EncodedValueDescriptor* descriptor = bitwise_cast<EncodedValueDescriptor*>(valueProfile->m_buckets);
+    store32(value, &descriptor->asBits.payload);
+    store32(valueTag, &descriptor->asBits.tag);
 #endif
 }
 
-inline void JIT::emitValueProfilingSite(unsigned bytecodeOffset, RegisterID bucketCounterRegister)
+inline void JIT::emitValueProfilingSite(unsigned bytecodeOffset)
 {
     if (!shouldEmitProfiling())
         return;
-    emitValueProfilingSite(m_codeBlock->valueProfileForBytecodeOffset(bytecodeOffset), bucketCounterRegister);
+    emitValueProfilingSite(m_codeBlock->valueProfileForBytecodeOffset(bytecodeOffset));
 }
 
-inline void JIT::emitValueProfilingSite(RegisterID bucketCounterRegister)
+inline void JIT::emitValueProfilingSite()
 {
-    emitValueProfilingSite(m_bytecodeOffset, bucketCounterRegister);
+    emitValueProfilingSite(m_bytecodeOffset);
 }
-#endif // ENABLE(VALUE_PROFILER)
 
 inline void JIT::emitArrayProfilingSite(RegisterID structureAndIndexingType, RegisterID scratch, ArrayProfile* arrayProfile)
 {
@@ -746,46 +728,26 @@ inline void JIT::emitArrayProfilingSite(RegisterID structureAndIndexingType, Reg
 
 inline void JIT::emitArrayProfilingSiteForBytecodeIndex(RegisterID structureAndIndexingType, RegisterID scratch, unsigned bytecodeIndex)
 {
-#if ENABLE(VALUE_PROFILER)
     emitArrayProfilingSite(structureAndIndexingType, scratch, m_codeBlock->getOrAddArrayProfile(bytecodeIndex));
-#else
-    UNUSED_PARAM(bytecodeIndex);
-    emitArrayProfilingSite(structureAndIndexingType, scratch, 0);
-#endif
 }
 
 inline void JIT::emitArrayProfileStoreToHoleSpecialCase(ArrayProfile* arrayProfile)
 {
-#if ENABLE(VALUE_PROFILER)    
     store8(TrustedImm32(1), arrayProfile->addressOfMayStoreToHole());
-#else
-    UNUSED_PARAM(arrayProfile);
-#endif
 }
 
 inline void JIT::emitArrayProfileOutOfBoundsSpecialCase(ArrayProfile* arrayProfile)
 {
-#if ENABLE(VALUE_PROFILER)    
     store8(TrustedImm32(1), arrayProfile->addressOfOutOfBounds());
-#else
-    UNUSED_PARAM(arrayProfile);
-#endif
 }
 
 static inline bool arrayProfileSaw(ArrayModes arrayModes, IndexingType capability)
 {
-#if ENABLE(VALUE_PROFILER)
     return arrayModesInclude(arrayModes, capability);
-#else
-    UNUSED_PARAM(arrayModes);
-    UNUSED_PARAM(capability);
-    return false;
-#endif
 }
 
 inline JITArrayMode JIT::chooseArrayMode(ArrayProfile* profile)
 {
-#if ENABLE(VALUE_PROFILER)
     ConcurrentJITLocker locker(m_codeBlock->m_lock);
     profile->computeUpdatedPrediction(locker, m_codeBlock);
     ArrayModes arrayModes = profile->observedArrayModes(locker);
@@ -796,50 +758,28 @@ inline JITArrayMode JIT::chooseArrayMode(ArrayProfile* profile)
     if (arrayProfileSaw(arrayModes, ArrayStorageShape))
         return JITArrayStorage;
     return JITContiguous;
-#else
-    UNUSED_PARAM(profile);
-    return JITContiguous;
-#endif
 }
 
 #if USE(JSVALUE32_64)
 
 inline void JIT::emitLoadTag(int index, RegisterID tag)
 {
-    RegisterID mappedTag;
-    if (getMappedTag(index, mappedTag)) {
-        move(mappedTag, tag);
-        unmap(tag);
-        return;
-    }
-
     if (m_codeBlock->isConstantRegisterIndex(index)) {
         move(Imm32(getConstantOperand(index).tag()), tag);
-        unmap(tag);
         return;
     }
 
     load32(tagFor(index), tag);
-    unmap(tag);
 }
 
 inline void JIT::emitLoadPayload(int index, RegisterID payload)
 {
-    RegisterID mappedPayload;
-    if (getMappedPayload(index, mappedPayload)) {
-        move(mappedPayload, payload);
-        unmap(payload);
-        return;
-    }
-
     if (m_codeBlock->isConstantRegisterIndex(index)) {
         move(Imm32(getConstantOperand(index).payload()), payload);
-        unmap(payload);
         return;
     }
 
     load32(payloadFor(index), payload);
-    unmap(payload);
 }
 
 inline void JIT::emitLoad(const JSValue& v, RegisterID tag, RegisterID payload)
@@ -871,11 +811,6 @@ inline void JIT::emitLoad(int index, RegisterID tag, RegisterID payload, Registe
 
 inline void JIT::emitLoad2(int index1, RegisterID tag1, RegisterID payload1, int index2, RegisterID tag2, RegisterID payload2)
 {
-    if (isMapped(index1)) {
-        emitLoad(index1, tag1, payload1);
-        emitLoad(index2, tag2, payload2);
-        return;
-    }
     emitLoad(index2, tag2, payload2);
     emitLoad(index1, tag1, payload1);
 }
@@ -910,12 +845,6 @@ inline void JIT::emitStoreInt32(int index, RegisterID payload, bool indexIsInt32
     store32(payload, payloadFor(index, callFrameRegister));
     if (!indexIsInt32)
         store32(TrustedImm32(JSValue::Int32Tag), tagFor(index, callFrameRegister));
-}
-
-inline void JIT::emitStoreAndMapInt32(int index, RegisterID tag, RegisterID payload, bool indexIsInt32, size_t opcodeLength)
-{
-    emitStoreInt32(index, payload, indexIsInt32);
-    map(m_bytecodeOffset + opcodeLength, index, tag, payload);
 }
 
 inline void JIT::emitStoreInt32(int index, TrustedImm32 payload, bool indexIsInt32)
@@ -953,81 +882,6 @@ inline void JIT::emitStore(int index, const JSValue constant, RegisterID base)
 ALWAYS_INLINE void JIT::emitInitRegister(int dst)
 {
     emitStore(dst, jsUndefined());
-}
-
-inline bool JIT::isLabeled(unsigned bytecodeOffset)
-{
-    for (size_t numberOfJumpTargets = m_codeBlock->numberOfJumpTargets(); m_jumpTargetIndex != numberOfJumpTargets; ++m_jumpTargetIndex) {
-        unsigned jumpTarget = m_codeBlock->jumpTarget(m_jumpTargetIndex);
-        if (jumpTarget == bytecodeOffset)
-            return true;
-        if (jumpTarget > bytecodeOffset)
-            return false;
-    }
-    return false;
-}
-
-inline void JIT::map(unsigned bytecodeOffset, int virtualRegisterIndex, RegisterID tag, RegisterID payload)
-{
-    if (isLabeled(bytecodeOffset))
-        return;
-
-    m_mappedBytecodeOffset = bytecodeOffset;
-    m_mappedVirtualRegisterIndex = virtualRegisterIndex;
-    m_mappedTag = tag;
-    m_mappedPayload = payload;
-    
-    ASSERT(!canBeOptimizedOrInlined() || m_mappedPayload == regT0);
-    ASSERT(!canBeOptimizedOrInlined() || m_mappedTag == regT1);
-}
-
-inline void JIT::unmap(RegisterID registerID)
-{
-    if (m_mappedTag == registerID)
-        m_mappedTag = (RegisterID)-1;
-    else if (m_mappedPayload == registerID)
-        m_mappedPayload = (RegisterID)-1;
-}
-
-inline void JIT::unmap()
-{
-    m_mappedBytecodeOffset = (unsigned)-1;
-    m_mappedVirtualRegisterIndex = UINT_MAX;
-    m_mappedTag = (RegisterID)-1;
-    m_mappedPayload = (RegisterID)-1;
-}
-
-inline bool JIT::isMapped(int virtualRegisterIndex)
-{
-    if (m_mappedBytecodeOffset != m_bytecodeOffset)
-        return false;
-    if (m_mappedVirtualRegisterIndex != virtualRegisterIndex)
-        return false;
-    return true;
-}
-
-inline bool JIT::getMappedPayload(int virtualRegisterIndex, RegisterID& payload)
-{
-    if (m_mappedBytecodeOffset != m_bytecodeOffset)
-        return false;
-    if (m_mappedVirtualRegisterIndex != virtualRegisterIndex)
-        return false;
-    if (m_mappedPayload == (RegisterID)-1)
-        return false;
-    payload = m_mappedPayload;
-    return true;
-}
-
-inline bool JIT::getMappedTag(int virtualRegisterIndex, RegisterID& tag)
-{
-    if (m_mappedBytecodeOffset != m_bytecodeOffset)
-        return false;
-    if (m_mappedVirtualRegisterIndex != virtualRegisterIndex)
-        return false;
-    if (m_mappedTag == (RegisterID)-1)
-        return false;
-    tag = m_mappedTag;
-    return true;
 }
 
 inline void JIT::emitJumpSlowCaseIfNotJSCell(int virtualRegisterIndex)
@@ -1074,11 +928,6 @@ ALWAYS_INLINE bool JIT::getOperandConstantImmediateInt(int op1, int op2, int& op
 
 #else // USE(JSVALUE32_64)
 
-ALWAYS_INLINE void JIT::killLastResultRegister()
-{
-    m_lastResultBytecodeRegister = std::numeric_limits<int>::max();
-}
-
 // get arg puts an arg from the SF register array into a h/w register
 ALWAYS_INLINE void JIT::emitGetVirtualRegister(int src, RegisterID dst)
 {
@@ -1091,20 +940,10 @@ ALWAYS_INLINE void JIT::emitGetVirtualRegister(int src, RegisterID dst)
             move(TrustedImm64(JSValue::encode(value)), dst);
         else
             move(Imm64(JSValue::encode(value)), dst);
-        killLastResultRegister();
-        return;
-    }
-
-    if (src == m_lastResultBytecodeRegister && operandIsLocal(src) && m_codeBlock->isTemporaryRegisterIndex(VirtualRegister(src).toLocal()) && !atJumpTarget()) {
-        // The argument we want is already stored in eax
-        if (dst != cachedResultRegister)
-            move(cachedResultRegister, dst);
-        killLastResultRegister();
         return;
     }
 
     load64(Address(callFrameRegister, src * sizeof(Register)), dst);
-    killLastResultRegister();
 }
 
 ALWAYS_INLINE void JIT::emitGetVirtualRegister(VirtualRegister src, RegisterID dst)
@@ -1114,13 +953,8 @@ ALWAYS_INLINE void JIT::emitGetVirtualRegister(VirtualRegister src, RegisterID d
 
 ALWAYS_INLINE void JIT::emitGetVirtualRegisters(int src1, RegisterID dst1, int src2, RegisterID dst2)
 {
-    if (src2 == m_lastResultBytecodeRegister) {
-        emitGetVirtualRegister(src2, dst2);
-        emitGetVirtualRegister(src1, dst1);
-    } else {
-        emitGetVirtualRegister(src1, dst1);
-        emitGetVirtualRegister(src2, dst2);
-    }
+    emitGetVirtualRegister(src1, dst1);
+    emitGetVirtualRegister(src2, dst2);
 }
 
 ALWAYS_INLINE void JIT::emitGetVirtualRegisters(VirtualRegister src1, RegisterID dst1, VirtualRegister src2, RegisterID dst2)
@@ -1141,7 +975,6 @@ ALWAYS_INLINE bool JIT::isOperandConstantImmediateInt(int src)
 ALWAYS_INLINE void JIT::emitPutVirtualRegister(int dst, RegisterID from)
 {
     store64(from, Address(callFrameRegister, dst * sizeof(Register)));
-    m_lastResultBytecodeRegister = (from == cachedResultRegister) ? dst : std::numeric_limits<int>::max();
 }
 
 ALWAYS_INLINE void JIT::emitPutVirtualRegister(VirtualRegister dst, RegisterID from)

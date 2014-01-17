@@ -46,7 +46,7 @@ public:
     AssemblyHelpers(VM* vm, CodeBlock* codeBlock)
         : m_vm(vm)
         , m_codeBlock(codeBlock)
-        , m_baselineCodeBlock(codeBlock ? codeBlock->baselineVersion() : 0)
+        , m_baselineCodeBlock(codeBlock ? codeBlock->baselineAlternative() : 0)
     {
         if (m_codeBlock) {
             ASSERT(m_baselineCodeBlock);
@@ -175,6 +175,11 @@ public:
     static Address addressForByteOffset(ptrdiff_t byteOffset)
     {
         return Address(GPRInfo::callFrameRegister, byteOffset);
+    }
+    static Address addressFor(VirtualRegister virtualRegister, GPRReg baseReg)
+    {
+        ASSERT(virtualRegister.isValid());
+        return Address(baseReg, virtualRegister.offset() * sizeof(Register));
     }
     static Address addressFor(VirtualRegister virtualRegister)
     {
@@ -320,6 +325,10 @@ public:
         return fpr;
     }
     
+    // Here are possible arrangements of source, target, scratch:
+    // - source, target, scratch can all be separate registers.
+    // - source and target can be the same but scratch is separate.
+    // - target and scratch can be the same but source is separate.
     void boxInt52(GPRReg source, GPRReg target, GPRReg scratch, FPRReg fpScratch)
     {
         // Is it an int32?
@@ -426,7 +435,7 @@ public:
         return baselineArgumentsRegisterFor(codeOrigin.inlineCallFrame);
     }
     
-    SharedSymbolTable* symbolTableFor(const CodeOrigin& codeOrigin)
+    SymbolTable* symbolTableFor(const CodeOrigin& codeOrigin)
     {
         return baselineCodeBlockFor(codeOrigin)->symbolTable();
     }

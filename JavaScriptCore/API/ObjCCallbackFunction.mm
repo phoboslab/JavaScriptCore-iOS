@@ -31,6 +31,7 @@
 #import "APICallbackFunction.h"
 #import "APICast.h"
 #import "APIShims.h"
+#import "DelayedReleaseScope.h"
 #import "Error.h"
 #import "JSCJSValueInlines.h"
 #import "JSCell.h"
@@ -405,8 +406,12 @@ public:
         ASSERT((type != CallbackInstanceMethod && type != CallbackInitMethod) || instanceClass);
     }
 
-    ~ObjCCallbackFunctionImpl()
+    void destroy(Heap& heap)
     {
+        // We need to explicitly release the target since we didn't call 
+        // -retainArguments on m_invocation (and we don't want to do so).
+        if (m_type == CallbackBlock || m_type == CallbackClassMethod)
+            heap.releaseSoon(adoptNS([m_invocation.get() target]));
         [m_instanceClass release];
     }
 
@@ -516,7 +521,9 @@ ObjCCallbackFunction* ObjCCallbackFunction::create(JSC::VM& vm, JSC::JSGlobalObj
 
 void ObjCCallbackFunction::destroy(JSCell* cell)
 {
-    static_cast<ObjCCallbackFunction*>(cell)->ObjCCallbackFunction::~ObjCCallbackFunction();
+    ObjCCallbackFunction& function = *jsCast<ObjCCallbackFunction*>(cell);
+    function.impl()->destroy(*Heap::heap(cell));
+    function.~ObjCCallbackFunction();
 }
 
 
@@ -539,6 +546,8 @@ String ObjCCallbackFunctionImpl::name()
 {
     if (m_type == CallbackInitMethod)
         return class_getName(m_instanceClass);
+    // FIXME: Maybe we could support having the selector as the name of the non-init 
+    // functions to make it a bit more user-friendly from the JS side?
     return "";
 }
 
@@ -663,7 +672,6 @@ static JSObjectRef objCCallbackFunctionForInvocation(JSContext *context, NSInvoc
     JSC::ExecState* exec = toJS([context JSGlobalContextRef]);
     JSC::APIEntryShim shim(exec);
     OwnPtr<JSC::ObjCCallbackFunctionImpl> impl = adoptPtr(new JSC::ObjCCallbackFunctionImpl(invocation, type, instanceClass, arguments.release(), result.release()));
-    // FIXME: Maybe we could support having the selector as the name of the function to make it a bit more user-friendly from the JS side?
     return toRef(JSC::ObjCCallbackFunction::create(exec->vm(), exec->lexicalGlobalObject(), impl->name(), impl.release()));
 }
 
@@ -678,8 +686,10 @@ JSObjectRef objCCallbackFunctionForMethod(JSContext *context, Class cls, Protoco
 {
     NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[NSMethodSignature signatureWithObjCTypes:types]];
     [invocation setSelector:sel];
+    // We need to retain the target Class because m_invocation doesn't retain it
+    // by default (and we don't want it to).
     if (!isInstanceMethod)
-        [invocation setTarget:cls];
+        [invocation setTarget:[cls retain]];
     return objCCallbackFunctionForInvocation(context, invocation, isInstanceMethod ? CallbackInstanceMethod : CallbackClassMethod, isInstanceMethod ? cls : nil, _protocol_getMethodTypeEncoding(protocol, sel, YES, isInstanceMethod));
 }
 
@@ -689,10 +699,13 @@ JSObjectRef objCCallbackFunctionForBlock(JSContext *context, id target)
         return 0;
     const char* signature = _Block_signature(target);
     NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[NSMethodSignature signatureWithObjCTypes:signature]];
-    [invocation retainArguments];
-    id targetCopy = [target copy];
-    [invocation setTarget:targetCopy];
-    [targetCopy release];
+
+    // We don't want to use -retainArguments because that leaks memory. Arguments 
+    // would be retained indefinitely between invocations of the callback.
+    // Additionally, we copy the target because we want the block to stick around
+    // until the ObjCCallbackFunctionImpl is destroyed.
+    [invocation setTarget:[target copy]];
+
     return objCCallbackFunctionForInvocation(context, invocation, CallbackBlock, nil, signature);
 }
 

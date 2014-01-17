@@ -38,7 +38,8 @@ require "risc"
 #
 #  x0  => return value, cached result, first argument, t0, a0, r0
 #  x1  => t1, a1, r1
-#  x2  => t2
+#  x2  => t2, a2
+#  x3  => a3
 #  x9  => (nonArgGPR1 in baseline)
 # x10  => t4 (unused in baseline)
 # x11  => t5 (unused in baseline)
@@ -47,10 +48,9 @@ require "risc"
 # x16  => scratch
 # x17  => scratch
 # x23  => t3
-# x25  => cfr
-# x26  => timeout check (i.e. not touched by LLInt)
 # x27  => csr1 (tagTypeNumber)
 # x28  => csr2 (tagMask)
+# x29  => cfr
 #  sp  => sp
 #  lr  => lr
 #
@@ -106,8 +106,10 @@ class RegisterID
             arm64GPRName('x0', kind)
         when 't1', 'a1', 'r1'
             arm64GPRName('x1', kind)
-        when 't2'
+        when 't2', 'a2'
             arm64GPRName('x2', kind)
+        when 'a3'
+            arm64GPRName('x3', kind)
         when 't3'
             arm64GPRName('x23', kind)
         when 't4'
@@ -117,7 +119,7 @@ class RegisterID
         when 't6'
             arm64GPRName('x12', kind)
         when 'cfr'
-            arm64GPRName('x25', kind)
+            arm64GPRName('x29', kind)
         when 'csr1'
             arm64GPRName('x27', kind)
         when 'csr2'
@@ -564,9 +566,40 @@ class Instruction
             # FIXME: Remove it or support it.
             raise "ARM64 does not support this opcode yet, #{codeOriginString}"
         when "pop"
-            emitARM64Unflipped("pop", operands, :ptr)
+            operands.each_slice(2) {
+                | ops |
+                # Note that the operands are in the reverse order of the case for push.
+                # This is due to the fact that order matters for pushing and popping, and 
+                # on platforms that only push/pop one slot at a time they pop their 
+                # arguments in the reverse order that they were pushed. In order to remain 
+                # compatible with those platforms we assume here that that's what has been done.
+
+                # So for example, if we did push(A, B, C, D), we would then pop(D, C, B, A).
+                # But since the ordering of arguments doesn't change on arm64 between the stp and ldp 
+                # instructions we need to flip flop the argument positions that were passed to us.
+                $asm.puts "ldp #{ops[1].arm64Operand(:ptr)}, #{ops[0].arm64Operand(:ptr)}, [sp], #16"
+            }
         when "push"
-            emitARM64Unflipped("push", operands, :ptr)
+            operands.each_slice(2) {
+                | ops |
+                $asm.puts "stp #{ops[0].arm64Operand(:ptr)}, #{ops[1].arm64Operand(:ptr)}, [sp, #-16]!"
+            }
+        when "popLRAndFP"
+            $asm.puts "ldp fp, lr, [sp], #16"
+        when "pushLRAndFP"
+            $asm.puts "stp fp, lr, [sp, #-16]!"
+        when "popCalleeSaves"
+            $asm.puts "ldp x28, x27, [sp], #16"
+            $asm.puts "ldp x26, x25, [sp], #16"
+            $asm.puts "ldp x24, x23, [sp], #16"
+            $asm.puts "ldp x22, x21, [sp], #16"
+            $asm.puts "ldp x20, x19, [sp], #16"
+        when "pushCalleeSaves"
+            $asm.puts "stp x20, x19, [sp, #-16]!"
+            $asm.puts "stp x22, x21, [sp, #-16]!"
+            $asm.puts "stp x24, x23, [sp, #-16]!"
+            $asm.puts "stp x26, x25, [sp, #-16]!"
+            $asm.puts "stp x28, x27, [sp, #-16]!"
         when "move"
             if operands[0].immediate?
                 emitARM64MoveImmediate(operands[0].value, operands[1])
@@ -783,6 +816,8 @@ class Instruction
             operands[0].arm64EmitLea(operands[1], :ptr)
         when "smulli"
             $asm.puts "smaddl #{operands[2].arm64Operand(:ptr)}, #{operands[0].arm64Operand(:int)}, #{operands[1].arm64Operand(:int)}, xzr"
+        when "memfence"
+            $asm.puts "dmb sy"
         else
             lowerDefault
         end

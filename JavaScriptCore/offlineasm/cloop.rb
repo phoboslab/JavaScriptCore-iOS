@@ -68,6 +68,22 @@ C_LOOP_SCRATCH_FPR = SpecialRegister.new("d6")
 class RegisterID
     def clDump
         case name
+        when "a0"
+            "a0"
+        when "a1"
+            "a1"
+        when "a2"
+            "a2"
+        when "a3"
+            "a3"
+        when "a4"
+            "a4"
+        when "a5"
+            "a5"
+        when "a6"
+            "a6"
+        when "a6"
+            "a6"
         when "t0"
             "t0"
         when "t1"
@@ -245,7 +261,11 @@ class BaseIndex
         end
     end
     def pointerExpr
-        "#{base.clValue(:int8Ptr)} + (#{index.clValue} << #{scaleShift}) + #{offset.clValue}"
+        if offset.value == 0
+            "#{base.clValue(:int8Ptr)} + (#{index.clValue} << #{scaleShift})"
+        else
+            "#{base.clValue(:int8Ptr)} + (#{index.clValue} << #{scaleShift}) + #{offset.clValue}"
+        end
     end
     def int8MemRef
         "*CAST<int8_t*>(#{pointerExpr})"
@@ -538,7 +558,7 @@ def cloopEmitCallSlowPath(operands)
     $asm.putc "    ExecState* exec = CAST<ExecState*>(#{operands[1].clValue(:voidPtr)});"
     $asm.putc "    Instruction* pc = CAST<Instruction*>(#{operands[2].clValue(:voidPtr)});"
     $asm.putc "    SlowPathReturnType result = #{operands[0].cLabel}(exec, pc);"
-    $asm.putc "    decodeResult(result, t0.instruction, t1.execState);"
+    $asm.putc "    decodeResult(result, t0.instruction, t1.vp);"
     $asm.putc "}"
 end
 
@@ -1075,6 +1095,11 @@ class Instruction
             cloopEmitOpAndBranch(operands, "|", :int32, "== 0")
         when "borrinz"
             cloopEmitOpAndBranch(operands, "|", :int32, "!= 0")
+            
+        when "memfence"
+        when "pushCalleeSaves"
+        when "popCalleeSaves"
+
 
         # A convenience and compact call to crash because we don't want to use
         # the generic llint crash mechanism which relies on the availability

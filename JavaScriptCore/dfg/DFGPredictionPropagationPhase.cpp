@@ -57,9 +57,6 @@ public:
         ASSERT(m_graph.m_form == ThreadedCPS);
         ASSERT(m_graph.m_unificationState == GloballyUnified);
         
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        m_count = 0;
-#endif
         // 1) propagate predictions
 
         do {
@@ -132,10 +129,6 @@ private:
     {
         NodeType op = node->op();
 
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLog("   ", Graph::opName(op), " ", m_currentNode, ": ", NodeFlagsDump(node->flags()), " ");
-#endif
-        
         bool changed = false;
         
         switch (op) {
@@ -175,11 +168,6 @@ private:
             break;
         }
             
-        case ValueToInt32: {
-            changed |= setPrediction(SpecInt32);
-            break;
-        }
-            
         case ArrayPop:
         case ArrayPush:
         case RegExpExec:
@@ -202,6 +190,8 @@ private:
         }
 
         case UInt32ToNumber: {
+            // FIXME: Support Int52.
+            // https://bugs.webkit.org/show_bug.cgi?id=125704
             if (nodeCanSpeculateInt32(node->arithNodeFlags()))
                 changed |= mergePrediction(SpecInt32);
             else
@@ -329,7 +319,9 @@ private:
             break;
         }
             
-        case ArithSqrt: {
+        case ArithSqrt:
+        case ArithSin:
+        case ArithCos: {
             changed |= setPrediction(SpecDouble);
             break;
         }
@@ -507,13 +499,14 @@ private:
         case CheckArray:
         case Arrayify:
         case ArrayifyToStructure:
-        case MovHint:
-        case MovHintAndCheck:
-        case ZombieHint:
         case CheckTierUpInLoop:
         case CheckTierUpAtReturn:
         case CheckTierUpAndOSREnter:
-        case InvalidationPoint: {
+        case InvalidationPoint:
+        case Int52ToValue:
+        case Int52ToDouble:
+        case CheckInBounds:
+        case ValueToInt32: {
             // This node should never be visible at this stage of compilation. It is
             // inserted by fixup(), which follows this phase.
             RELEASE_ASSERT_NOT_REACHED();
@@ -546,6 +539,9 @@ private:
 
 #ifndef NDEBUG
         // These get ignored because they don't return anything.
+        case StoreBarrier:
+        case ConditionalStoreBarrier:
+        case StoreBarrierWithNullCheck:
         case PutByValDirect:
         case PutByVal:
         case PutClosureVar:
@@ -570,16 +566,21 @@ private:
         case TearOffActivation:
         case TearOffArguments:
         case CheckArgumentsNotCreated:
-        case GlobalVarWatchpoint:
+        case VariableWatchpoint:
         case VarInjectionWatchpoint:
         case AllocationProfileWatchpoint:
         case Phantom:
+        case Check:
         case PutGlobalVar:
         case CheckWatchdogTimer:
         case Unreachable:
         case LoopHint:
-        case Int52ToValue:
-        case Int52ToDouble:
+        case NotifyWrite:
+        case FunctionReentryWatchpoint:
+        case TypedArrayWatchpoint:
+        case ConstantStoragePointer:
+        case MovHint:
+        case ZombieHint:
             break;
             
         // This gets ignored because it already has a prediction.
@@ -601,18 +602,11 @@ private:
 #endif
         }
 
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLog(SpeculationDump(node->prediction()), "\n");
-#endif
-        
         m_changed |= changed;
     }
         
     void propagateForward()
     {
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLogF("Propagating predictions forward [%u]\n", ++m_count);
-#endif
         for (BlockIndex blockIndex = 0; blockIndex < m_graph.numBlocks(); ++blockIndex) {
             BasicBlock* block = m_graph.block(blockIndex);
             if (!block)
@@ -627,9 +621,6 @@ private:
     
     void propagateBackward()
     {
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLogF("Propagating predictions backward [%u]\n", ++m_count);
-#endif
         for (BlockIndex blockIndex = m_graph.numBlocks(); blockIndex--;) {
             BasicBlock* block = m_graph.block(blockIndex);
             if (!block)
@@ -714,6 +705,8 @@ private:
             break;
                 
         case ArithSqrt:
+        case ArithCos:
+        case ArithSin:
             m_graph.voteNode(node->child1(), VoteDouble);
             break;
                 
@@ -747,6 +740,10 @@ private:
             break;
         }
             
+        case MovHint:
+            // Ignore these since they have no effect on in-DFG execution.
+            break;
+            
         default:
             m_graph.voteChildren(node, VoteValue);
             break;
@@ -755,9 +752,6 @@ private:
     
     void doRoundOfDoubleVoting()
     {
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-        dataLogF("Voting on double uses of locals [%u]\n", m_count);
-#endif
         for (unsigned i = 0; i < m_graph.m_variableAccessData.size(); ++i)
             m_graph.m_variableAccessData[i].find()->clearVotes();
         for (BlockIndex blockIndex = 0; blockIndex < m_graph.numBlocks(); ++blockIndex) {
@@ -788,10 +782,6 @@ private:
     
     Node* m_currentNode;
     bool m_changed;
-
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-    unsigned m_count;
-#endif
 };
     
 bool performPredictionPropagation(Graph& graph)

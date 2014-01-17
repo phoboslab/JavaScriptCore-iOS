@@ -31,6 +31,8 @@
 #include "JSGlobalObject.h"
 
 #include "Arguments.h"
+#include "ArgumentsIteratorConstructor.h"
+#include "ArgumentsIteratorPrototype.h"
 #include "ArrayConstructor.h"
 #include "ArrayIteratorConstructor.h"
 #include "ArrayIteratorPrototype.h"
@@ -52,6 +54,7 @@
 #include "Interpreter.h"
 #include "JSAPIWrapperObject.h"
 #include "JSActivation.h"
+#include "JSArgumentsIterator.h"
 #include "JSArrayBuffer.h"
 #include "JSArrayBufferConstructor.h"
 #include "JSArrayBufferPrototype.h"
@@ -69,9 +72,11 @@
 #include "JSGlobalObjectFunctions.h"
 #include "JSLock.h"
 #include "JSMap.h"
+#include "JSMapIterator.h"
 #include "JSNameScope.h"
 #include "JSONObject.h"
 #include "JSSet.h"
+#include "JSSetIterator.h"
 #include "JSTypedArrayConstructors.h"
 #include "JSTypedArrayPrototypes.h"
 #include "JSTypedArrays.h"
@@ -80,8 +85,11 @@
 #include "LegacyProfiler.h"
 #include "Lookup.h"
 #include "MapConstructor.h"
+#include "MapIteratorConstructor.h"
+#include "MapIteratorPrototype.h"
 #include "MapPrototype.h"
 #include "MathObject.h"
+#include "Microtask.h"
 #include "NameConstructor.h"
 #include "NameInstance.h"
 #include "NamePrototype.h"
@@ -99,6 +107,8 @@
 #include "RegExpObject.h"
 #include "RegExpPrototype.h"
 #include "SetConstructor.h"
+#include "SetIteratorConstructor.h"
+#include "SetIteratorPrototype.h"
 #include "SetPrototype.h"
 #include "StrictEvalActivation.h"
 #include "StringConstructor.h"
@@ -108,13 +118,14 @@
 
 #if ENABLE(PROMISES)
 #include "JSPromise.h"
-#include "JSPromiseCallback.h"
 #include "JSPromiseConstructor.h"
 #include "JSPromisePrototype.h"
-#include "JSPromiseResolver.h"
-#include "JSPromiseResolverConstructor.h"
-#include "JSPromiseResolverPrototype.h"
 #endif // ENABLE(PROMISES)
+
+#if ENABLE(REMOTE_INSPECTOR)
+#include "JSGlobalObjectDebuggable.h"
+#include "RemoteInspector.h"
+#endif
 
 #include "JSGlobalObject.lut.h"
 
@@ -141,9 +152,9 @@ const GlobalObjectMethodTable JSGlobalObject::s_globalObjectMethodTable = { &all
 
 JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectMethodTable* globalObjectMethodTable)
     : Base(vm, structure, 0)
-    , m_masqueradesAsUndefinedWatchpoint(adoptRef(new WatchpointSet(InitializedWatching)))
-    , m_havingABadTimeWatchpoint(adoptRef(new WatchpointSet(InitializedWatching)))
-    , m_varInjectionWatchpoint(adoptRef(new WatchpointSet(InitializedWatching)))
+    , m_masqueradesAsUndefinedWatchpoint(adoptRef(new WatchpointSet(IsWatched)))
+    , m_havingABadTimeWatchpoint(adoptRef(new WatchpointSet(IsWatched)))
+    , m_varInjectionWatchpoint(adoptRef(new WatchpointSet(IsWatched)))
     , m_weakRandom(Options::forceWeakRandomSeed() ? Options::forcedWeakRandomSeed() : static_cast<unsigned>(randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0)))
     , m_evalEnabled(true)
     , m_globalObjectMethodTable(globalObjectMethodTable ? globalObjectMethodTable : &s_globalObjectMethodTable)
@@ -178,6 +189,12 @@ void JSGlobalObject::init(JSObject* thisValue)
 
     m_debugger = 0;
 
+#if ENABLE(REMOTE_INSPECTOR)
+    m_inspectorDebuggable = std::make_unique<JSGlobalObjectDebuggable>(*this);
+    m_inspectorDebuggable->init();
+    m_inspectorDebuggable->setRemoteDebuggingAllowed(true);
+#endif
+
     reset(prototype());
 }
 
@@ -201,21 +218,31 @@ bool JSGlobalObject::defineOwnProperty(JSObject* object, ExecState* exec, Proper
     return Base::defineOwnProperty(thisObject, exec, propertyName, descriptor, shouldThrow);
 }
 
-int JSGlobalObject::addGlobalVar(const Identifier& ident, ConstantMode constantMode, FunctionMode functionMode)
+JSGlobalObject::NewGlobalVar JSGlobalObject::addGlobalVar(const Identifier& ident, ConstantMode constantMode)
 {
     ConcurrentJITLocker locker(symbolTable()->m_lock);
     int index = symbolTable()->size(locker);
     SymbolTableEntry newEntry(index, (constantMode == IsConstant) ? ReadOnly : 0);
-    if (functionMode == IsFunctionToSpecialize)
-        newEntry.attemptToWatch();
+    if (constantMode == IsVariable)
+        newEntry.prepareToWatch();
     SymbolTable::Map::AddResult result = symbolTable()->add(locker, ident.impl(), newEntry);
     if (result.isNewEntry)
         addRegisters(1);
-    else {
-        result.iterator->value.notifyWrite();
+    else
         index = result.iterator->value.getIndex();
-    }
-    return index;
+    NewGlobalVar var;
+    var.registerNumber = index;
+    var.set = result.iterator->value.watchpointSet();
+    return var;
+}
+
+void JSGlobalObject::addFunction(ExecState* exec, const Identifier& propertyName, JSValue value)
+{
+    removeDirect(exec->vm(), propertyName); // Newly declared functions overwrite existing properties.
+    NewGlobalVar var = addGlobalVar(propertyName, IsVariable);
+    registerAt(var.registerNumber).set(exec->vm(), this, value);
+    if (var.set)
+        var.set->notifyWrite(value);
 }
 
 static inline JSObject* lastInPrototypeChain(JSObject* object)
@@ -307,11 +334,6 @@ void JSGlobalObject::reset(JSValue prototype)
 #if ENABLE(PROMISES)
     m_promisePrototype.set(vm, this, JSPromisePrototype::create(exec, this, JSPromisePrototype::createStructure(vm, this, m_objectPrototype.get())));
     m_promiseStructure.set(vm, this, JSPromise::createStructure(vm, this, m_promisePrototype.get()));
-
-    m_promiseResolverPrototype.set(vm, this, JSPromiseResolverPrototype::create(exec, this, JSPromiseResolverPrototype::createStructure(vm, this, m_objectPrototype.get())));
-    m_promiseResolverStructure.set(vm, this, JSPromiseResolver::createStructure(vm, this, m_promiseResolverPrototype.get()));
-    m_promiseCallbackStructure.set(vm, this, JSPromiseCallback::createStructure(vm, this, m_functionPrototype.get()));
-    m_promiseWrapperCallbackStructure.set(vm, this, JSPromiseWrapperCallback::createStructure(vm, this, m_functionPrototype.get()));
 #endif // ENABLE(PROMISES)
 
 #define CREATE_PROTOTYPE_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName) \
@@ -327,11 +349,6 @@ void JSGlobalObject::reset(JSValue prototype)
     JSCell* objectConstructor = ObjectConstructor::create(vm, ObjectConstructor::createStructure(vm, this, m_functionPrototype.get()), m_objectPrototype.get());
     JSCell* functionConstructor = FunctionConstructor::create(vm, FunctionConstructor::createStructure(vm, this, m_functionPrototype.get()), m_functionPrototype.get());
     JSCell* arrayConstructor = ArrayConstructor::create(vm, ArrayConstructor::createStructure(vm, this, m_functionPrototype.get()), m_arrayPrototype.get());
-
-#if ENABLE(PROMISES)
-    JSCell* promiseConstructor = JSPromiseConstructor::create(vm, JSPromiseConstructor::createStructure(vm, this, m_functionPrototype.get()), m_promisePrototype.get());
-    JSCell* promiseResolverConstructor = JSPromiseResolverConstructor::create(vm, JSPromiseResolverConstructor::createStructure(vm, this, m_functionPrototype.get()), m_promiseResolverPrototype.get());
-#endif // ENABLE(PROMISES)
 
     m_regExpConstructor.set(vm, this, RegExpConstructor::create(vm, RegExpConstructor::createStructure(vm, this, m_functionPrototype.get()), m_regExpPrototype.get()));
 
@@ -353,14 +370,14 @@ void JSGlobalObject::reset(JSValue prototype)
     m_syntaxErrorConstructor.set(vm, this, NativeErrorConstructor::create(vm, this, nativeErrorStructure, nativeErrorPrototypeStructure, ASCIILiteral("SyntaxError")));
     m_typeErrorConstructor.set(vm, this, NativeErrorConstructor::create(vm, this, nativeErrorStructure, nativeErrorPrototypeStructure, ASCIILiteral("TypeError")));
     m_URIErrorConstructor.set(vm, this, NativeErrorConstructor::create(vm, this, nativeErrorStructure, nativeErrorPrototypeStructure, ASCIILiteral("URIError")));
+    m_promiseConstructor.set(vm, this, JSPromiseConstructor::create(vm, JSPromiseConstructor::createStructure(vm, this, m_functionPrototype.get()), m_promisePrototype.get()));
 
     m_objectPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, objectConstructor, DontEnum);
     m_functionPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, functionConstructor, DontEnum);
     m_arrayPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, arrayConstructor, DontEnum);
     m_regExpPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, m_regExpConstructor.get(), DontEnum);
 #if ENABLE(PROMISES)
-    m_promisePrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, promiseConstructor, DontEnum);
-    m_promiseResolverPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, promiseResolverConstructor, DontEnum);
+    m_promisePrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, m_promiseConstructor.get(), DontEnum);
 #endif
 
     putDirectWithoutTransition(vm, vm.propertyNames->Object, objectConstructor, DontEnum);
@@ -373,10 +390,7 @@ void JSGlobalObject::reset(JSValue prototype)
     putDirectWithoutTransition(vm, vm.propertyNames->SyntaxError, m_syntaxErrorConstructor.get(), DontEnum);
     putDirectWithoutTransition(vm, vm.propertyNames->TypeError, m_typeErrorConstructor.get(), DontEnum);
     putDirectWithoutTransition(vm, vm.propertyNames->URIError, m_URIErrorConstructor.get(), DontEnum);
-#if ENABLE(PROMISES)
-    putDirectWithoutTransition(vm, vm.propertyNames->Promise, promiseConstructor, DontEnum);
-    putDirectWithoutTransition(vm, vm.propertyNames->PromiseResolver, promiseResolverConstructor, DontEnum);
-#endif
+    putDirectWithoutTransition(vm, vm.propertyNames->Promise, m_promiseConstructor.get(), DontEnum);
 
 
 #define PUT_CONSTRUCTOR_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName) \
@@ -398,7 +412,7 @@ void JSGlobalObject::reset(JSValue prototype)
     putDirectWithoutTransition(vm, vm.propertyNames->JSON, JSONObject::create(vm, JSONObject::createStructure(vm, this, m_objectPrototype.get())), DontEnum);
     putDirectWithoutTransition(vm, vm.propertyNames->Math, MathObject::create(vm, this, MathObject::createStructure(vm, this, m_objectPrototype.get())), DontEnum);
     
-    FixedArray<InternalFunction*, NUMBER_OF_TYPED_ARRAY_TYPES> typedArrayConstructors;
+    std::array<InternalFunction*, NUMBER_OF_TYPED_ARRAY_TYPES> typedArrayConstructors;
     typedArrayConstructors[toIndex(TypeInt8)] = JSInt8ArrayConstructor::create(vm, JSInt8ArrayConstructor::createStructure(vm, this, m_functionPrototype.get()), m_typedArrays[toIndex(TypeInt8)].prototype.get(), "Int8Array");
     typedArrayConstructors[toIndex(TypeInt16)] = JSInt16ArrayConstructor::create(vm, JSInt16ArrayConstructor::createStructure(vm, this, m_functionPrototype.get()), m_typedArrays[toIndex(TypeInt16)].prototype.get(), "Int16Array");
     typedArrayConstructors[toIndex(TypeInt32)] = JSInt32ArrayConstructor::create(vm, JSInt32ArrayConstructor::createStructure(vm, this, m_functionPrototype.get()), m_typedArrays[toIndex(TypeInt32)].prototype.get(), "Int32Array");
@@ -512,7 +526,7 @@ void JSGlobalObject::haveABadTime(VM& vm)
     // Make sure that all allocations or indexed storage transitions that are inlining
     // the assumption that it's safe to transition to a non-SlowPut array storage don't
     // do so anymore.
-    m_havingABadTimeWatchpoint->notifyWrite();
+    m_havingABadTimeWatchpoint->fireAll();
     ASSERT(isHavingABadTime()); // The watchpoint is what tells us that we're having a bad time.
     
     // Make sure that all JSArray allocations that load the appropriate structure from
@@ -594,6 +608,7 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitor.append(&thisObject->m_syntaxErrorConstructor);
     visitor.append(&thisObject->m_typeErrorConstructor);
     visitor.append(&thisObject->m_URIErrorConstructor);
+    visitor.append(&thisObject->m_promiseConstructor);
 
     visitor.append(&thisObject->m_evalFunction);
     visitor.append(&thisObject->m_callFunction);
@@ -606,7 +621,6 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitor.append(&thisObject->m_errorPrototype);
 #if ENABLE(PROMISES)
     visitor.append(&thisObject->m_promisePrototype);
-    visitor.append(&thisObject->m_promiseResolverPrototype);
 #endif
 
     visitor.append(&thisObject->m_withScopeStructure);
@@ -638,9 +652,6 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 
 #if ENABLE(PROMISES)
     visitor.append(&thisObject->m_promiseStructure);
-    visitor.append(&thisObject->m_promiseResolverStructure);
-    visitor.append(&thisObject->m_promiseCallbackStructure);
-    visitor.append(&thisObject->m_promiseWrapperCallbackStructure);
 #endif // ENABLE(PROMISES)
 
 #define VISIT_SIMPLE_TYPE(CapitalName, lowerName, properName, instanceType, jsName) \
@@ -697,26 +708,6 @@ void JSGlobalObject::clearRareData(JSCell* cell)
     jsCast<JSGlobalObject*>(cell)->m_rareData.clear();
 }
 
-DynamicGlobalObjectScope::DynamicGlobalObjectScope(VM& vm, JSGlobalObject* dynamicGlobalObject)
-    : m_dynamicGlobalObjectSlot(vm.dynamicGlobalObject)
-    , m_savedDynamicGlobalObject(m_dynamicGlobalObjectSlot)
-{
-    if (!m_dynamicGlobalObjectSlot) {
-#if ENABLE(ASSEMBLER)
-        if (ExecutableAllocator::underMemoryPressure())
-            vm.heap.deleteAllCompiledCode();
-#endif
-
-        m_dynamicGlobalObjectSlot = dynamicGlobalObject;
-
-        // Reset the date cache between JS invocations to force the VM
-        // to observe time zone changes.
-        vm.resetDateCache();
-    }
-    // Clear the exception stack between entries
-    vm.clearExceptionStack();
-}
-
 void slowValidateCell(JSGlobalObject* globalObject)
 {
     RELEASE_ASSERT(globalObject->isGlobalObject());
@@ -729,7 +720,7 @@ UnlinkedProgramCodeBlock* JSGlobalObject::createProgramCodeBlock(CallFrame* call
     JSParserStrictness strictness = executable->isStrictMode() ? JSParseStrict : JSParseNormal;
     DebuggerMode debuggerMode = hasDebugger() ? DebuggerOn : DebuggerOff;
     ProfilerMode profilerMode = hasProfiler() ? ProfilerOn : ProfilerOff;
-    UnlinkedProgramCodeBlock* unlinkedCode = vm().codeCache()->getProgramCodeBlock(vm(), executable, executable->source(), strictness, debuggerMode, profilerMode, error);
+    UnlinkedProgramCodeBlock* unlinkedCodeBlock = vm().codeCache()->getProgramCodeBlock(vm(), executable, executable->source(), strictness, debuggerMode, profilerMode, error);
 
     if (hasDebugger())
         debugger()->sourceParsed(callFrame, executable->source().provider(), error.m_line, error.m_message);
@@ -739,7 +730,7 @@ UnlinkedProgramCodeBlock* JSGlobalObject::createProgramCodeBlock(CallFrame* call
         return 0;
     }
     
-    return unlinkedCode;
+    return unlinkedCodeBlock;
 }
 
 UnlinkedEvalCodeBlock* JSGlobalObject::createEvalCodeBlock(CallFrame* callFrame, EvalExecutable* executable)
@@ -748,7 +739,7 @@ UnlinkedEvalCodeBlock* JSGlobalObject::createEvalCodeBlock(CallFrame* callFrame,
     JSParserStrictness strictness = executable->isStrictMode() ? JSParseStrict : JSParseNormal;
     DebuggerMode debuggerMode = hasDebugger() ? DebuggerOn : DebuggerOff;
     ProfilerMode profilerMode = hasProfiler() ? ProfilerOn : ProfilerOff;
-    UnlinkedEvalCodeBlock* unlinkedCode = vm().codeCache()->getEvalCodeBlock(vm(), executable, executable->source(), strictness, debuggerMode, profilerMode, error);
+    UnlinkedEvalCodeBlock* unlinkedCodeBlock = vm().codeCache()->getEvalCodeBlock(vm(), executable, executable->source(), strictness, debuggerMode, profilerMode, error);
 
     if (hasDebugger())
         debugger()->sourceParsed(callFrame, executable->source().provider(), error.m_line, error.m_message);
@@ -758,7 +749,42 @@ UnlinkedEvalCodeBlock* JSGlobalObject::createEvalCodeBlock(CallFrame* callFrame,
         return 0;
     }
 
-    return unlinkedCode;
+    return unlinkedCodeBlock;
+}
+
+void JSGlobalObject::setRemoteDebuggingEnabled(bool enabled)
+{
+#if ENABLE(REMOTE_INSPECTOR)
+    m_inspectorDebuggable->setRemoteDebuggingAllowed(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+bool JSGlobalObject::remoteDebuggingEnabled() const
+{
+#if ENABLE(REMOTE_INSPECTOR)
+    return m_inspectorDebuggable->remoteDebuggingAllowed();
+#else
+    return false;
+#endif
+}
+
+void JSGlobalObject::setName(const String& name)
+{
+    m_name = name;
+
+#if ENABLE(REMOTE_INSPECTOR)
+    m_inspectorDebuggable->update();
+#endif
+}
+
+void JSGlobalObject::queueMicrotask(PassRefPtr<Microtask> task)
+{
+    if (globalObjectMethodTable()->queueTaskToEventLoop)
+        globalObjectMethodTable()->queueTaskToEventLoop(this, task);
+    else
+        WTFLogAlways("ERROR: Event loop not supported.");
 }
 
 } // namespace JSC

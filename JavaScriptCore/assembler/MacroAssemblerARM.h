@@ -42,12 +42,6 @@ class MacroAssemblerARM : public AbstractMacroAssembler<ARMAssembler> {
 public:
     typedef ARMRegisters::FPRegisterID FPRegisterID;
 
-    static RegisterID firstRegister() { return ARMRegisters::r0; }
-    static RegisterID lastRegister() { return ARMRegisters::r15; }
-
-    static FPRegisterID firstFPRegister() { return ARMRegisters::d0; }
-    static FPRegisterID lastFPRegister() { return ARMRegisters::d31; }
-
     enum RelationalCondition {
         Equal = ARMAssembler::EQ,
         NotEqual = ARMAssembler::NE,
@@ -370,6 +364,12 @@ public:
         m_assembler.baseIndexTransfer32(ARMAssembler::LoadUint8, dest, address.base, address.index, static_cast<int>(address.scale), address.offset);
     }
 
+    void load8(const void* address, RegisterID dest)
+    {
+        move(TrustedImmPtr(address), ARMRegisters::S0);
+        m_assembler.dataTransfer32(ARMAssembler::LoadUint8, dest, ARMRegisters::S0, 0);
+    }
+
     void load8Signed(BaseIndex address, RegisterID dest)
     {
         m_assembler.baseIndexTransfer16(ARMAssembler::LoadInt8, dest, address.base, address.index, static_cast<int>(address.scale), address.offset);
@@ -457,6 +457,12 @@ public:
     void store8(RegisterID src, BaseIndex address)
     {
         m_assembler.baseIndexTransfer32(ARMAssembler::StoreUint8, src, address.base, address.index, static_cast<int>(address.scale), address.offset);
+    }
+
+    void store8(RegisterID src, const void* address)
+    {
+        move(TrustedImmPtr(address), ARMRegisters::S0);
+        m_assembler.dtrUp(ARMAssembler::StoreUint8, src, ARMRegisters::S0, 0);
     }
 
     void store8(TrustedImm32 imm, const void* address)
@@ -576,6 +582,13 @@ public:
         return branch32(cond, ARMRegisters::S1, right);
     }
 
+    Jump branch8(RelationalCondition cond, AbsoluteAddress left, TrustedImm32 right)
+    {
+        move(TrustedImmPtr(left.m_ptr), ARMRegisters::S1);
+        load8(Address(ARMRegisters::S1), ARMRegisters::S1);
+        return branch32(cond, ARMRegisters::S1, right);
+    }
+
     Jump branch32(RelationalCondition cond, RegisterID left, RegisterID right, int useConstantPool = 0)
     {
         m_assembler.cmp(left, right);
@@ -619,6 +632,12 @@ public:
     }
 
     Jump branchTest8(ResultCondition cond, Address address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        load8(address, ARMRegisters::S1);
+        return branchTest32(cond, ARMRegisters::S1, mask);
+    }
+
+    Jump branchTest8(ResultCondition cond, BaseIndex address, TrustedImm32 mask = TrustedImm32(-1))
     {
         load8(address, ARMRegisters::S1);
         return branchTest32(cond, ARMRegisters::S1, mask);
@@ -819,6 +838,11 @@ public:
         ASSERT((cond == Signed) || (cond == Zero) || (cond == NonZero));
         or32(src, dest);
         return Jump(m_assembler.jmp(ARMCondition(cond)));
+    }
+
+    PatchableJump patchableJump()
+    {
+        return PatchableJump(m_assembler.jmp(ARMAssembler::AL, 1));
     }
 
     PatchableJump patchableBranch32(RelationalCondition cond, RegisterID reg, TrustedImm32 imm)
@@ -1294,6 +1318,11 @@ public:
     void nop()
     {
         m_assembler.nop();
+    }
+
+    void memoryFence()
+    {
+        m_assembler.dmbSY();
     }
 
     static FunctionPtr readCallTarget(CodeLocationCall call)

@@ -33,8 +33,6 @@
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/MathExtras.h>
 
-using namespace std;
-
 namespace WTF {
 
 static int32_t greatestCommonDivisor(int32_t a, int32_t b)
@@ -90,12 +88,12 @@ MediaTime MediaTime::createWithFloat(float floatTime, int32_t timeScale)
         return invalidTime();
     if (std::isinf(floatTime))
         return std::signbit(floatTime) ? negativeInfiniteTime() : positiveInfiniteTime();
-    if (floatTime > numeric_limits<int64_t>::max())
+    if (floatTime > std::numeric_limits<int64_t>::max())
         return positiveInfiniteTime();
-    if (floatTime < numeric_limits<int64_t>::min())
+    if (floatTime < std::numeric_limits<int64_t>::min())
         return negativeInfiniteTime();
 
-    while (floatTime * timeScale > numeric_limits<int64_t>::max())
+    while (floatTime * timeScale > std::numeric_limits<int64_t>::max())
         timeScale /= 2;
     return MediaTime(static_cast<int64_t>(floatTime * timeScale), timeScale, Valid);
 }
@@ -106,12 +104,12 @@ MediaTime MediaTime::createWithDouble(double doubleTime, int32_t timeScale)
         return invalidTime();
     if (std::isinf(doubleTime))
         return std::signbit(doubleTime) ? negativeInfiniteTime() : positiveInfiniteTime();
-    if (doubleTime > numeric_limits<int64_t>::max())
+    if (doubleTime > std::numeric_limits<int64_t>::max())
         return positiveInfiniteTime();
-    if (doubleTime < numeric_limits<int64_t>::min())
+    if (doubleTime < std::numeric_limits<int64_t>::min())
         return negativeInfiniteTime();
 
-    while (doubleTime * timeScale > numeric_limits<int64_t>::max())
+    while (doubleTime * timeScale > std::numeric_limits<int64_t>::max())
         timeScale /= 2;
     return MediaTime(static_cast<int64_t>(doubleTime * timeScale), timeScale, Valid);
 }
@@ -154,17 +152,17 @@ MediaTime MediaTime::operator+(const MediaTime& rhs) const
     if (rhs.isIndefinite() || isIndefinite())
         return indefiniteTime();
 
-    if (isPositiveInfinite()) {
-        if (rhs.isNegativeInfinite())
-            return invalidTime();
-        return positiveInfiniteTime();
-    }
+    if (isPositiveInfinite() && rhs.isNegativeInfinite())
+        return invalidTime();
 
-    if (isNegativeInfinite()) {
-        if (rhs.isPositiveInfinite())
-            return invalidTime();
+    if (isNegativeInfinite() && rhs.isPositiveInfinite())
+        return invalidTime();
+
+    if (isPositiveInfinite() || rhs.isPositiveInfinite())
+        return positiveInfiniteTime();
+
+    if (isNegativeInfinite() || rhs.isNegativeInfinite())
         return negativeInfiniteTime();
-    }
 
     int32_t commonTimeScale;
     if (!leastCommonMultiple(this->m_timeScale, rhs.m_timeScale, commonTimeScale) || commonTimeScale > MaximumTimeScale)
@@ -191,17 +189,17 @@ MediaTime MediaTime::operator-(const MediaTime& rhs) const
     if (rhs.isIndefinite() || isIndefinite())
         return indefiniteTime();
 
-    if (isPositiveInfinite()) {
-        if (rhs.isPositiveInfinite())
-            return invalidTime();
-        return positiveInfiniteTime();
-    }
+    if (isPositiveInfinite() && rhs.isPositiveInfinite())
+        return invalidTime();
 
-    if (isNegativeInfinite()) {
-        if (rhs.isNegativeInfinite())
-            return invalidTime();
+    if (isNegativeInfinite() && rhs.isNegativeInfinite())
+        return invalidTime();
+
+    if (isPositiveInfinite() || rhs.isNegativeInfinite())
+        return positiveInfiniteTime();
+
+    if (isNegativeInfinite() || rhs.isPositiveInfinite())
         return negativeInfiniteTime();
-    }
 
     int32_t commonTimeScale;
     if (!leastCommonMultiple(this->m_timeScale, rhs.m_timeScale, commonTimeScale) || commonTimeScale > MaximumTimeScale)

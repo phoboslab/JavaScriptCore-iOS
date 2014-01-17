@@ -42,7 +42,6 @@ OSRExit::OSRExit(ExitKind kind, JSValueSource jsValueSource, MethodOfGettingAVal
     , m_patchableCodeOffset(0)
     , m_recoveryIndex(recoveryIndex)
     , m_streamIndex(streamIndex)
-    , m_lastSetOperand(jit->m_lastSetOperand)
 {
     ASSERT(m_codeOrigin.isSet());
 }
@@ -67,27 +66,6 @@ void OSRExit::correctJump(LinkBuffer& linkBuffer)
     MacroAssembler::Label label;
     label.m_label.m_offset = m_patchableCodeOffset;
     m_patchableCodeOffset = linkBuffer.offsetOf(label);
-}
-
-void OSRExit::convertToForward(BasicBlock* block, Node* currentNode, unsigned nodeIndex, const ValueRecovery& valueRecovery)
-{
-    Node* node;
-    Node* lastMovHint;
-    if (!doSearchForForwardConversion(block, currentNode, nodeIndex, !!valueRecovery, node, lastMovHint))
-        return;
-
-    ASSERT(node->codeOrigin != currentNode->codeOrigin);
-    
-    m_codeOrigin = node->codeOrigin;
-    
-    if (!valueRecovery)
-        return;
-    
-    ASSERT(lastMovHint);
-    ASSERT(lastMovHint->child1() == currentNode);
-    m_lastSetOperand = lastMovHint->local();
-    m_valueRecoveryOverride = adoptRef(
-        new ValueRecoveryOverride(lastMovHint->local(), valueRecovery));
 }
 
 } } // namespace JSC::DFG

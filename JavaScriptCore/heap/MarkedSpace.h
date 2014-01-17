@@ -26,16 +26,17 @@
 #include "MarkedAllocator.h"
 #include "MarkedBlock.h"
 #include "MarkedBlockSet.h"
+#include <array>
 #include <wtf/PageAllocationAligned.h>
 #include <wtf/Bitmap.h>
 #include <wtf/DoublyLinkedList.h>
-#include <wtf/FixedArray.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
 
+class DelayedReleaseScope;
 class Heap;
 class HeapIterationScope;
 class JSCell;
@@ -45,7 +46,17 @@ class WeakGCHandle;
 class SlotVisitor;
 
 struct ClearMarks : MarkedBlock::VoidFunctor {
-    void operator()(MarkedBlock* block) { block->clearMarks(); }
+    void operator()(MarkedBlock* block)
+    {
+        block->clearMarks();
+    }
+};
+
+struct ClearRememberedSet : MarkedBlock::VoidFunctor {
+    void operator()(MarkedBlock* block)
+    {
+        block->clearRememberedSet();
+    }
 };
 
 struct Sweep : MarkedBlock::VoidFunctor {
@@ -104,8 +115,10 @@ public:
 
     void didAddBlock(MarkedBlock*);
     void didConsumeFreeList(MarkedBlock*);
+    void didAllocateInBlock(MarkedBlock*);
 
     void clearMarks();
+    void clearRememberedSet();
     void clearNewlyAllocated();
     void sweep();
     size_t objectCount();
@@ -114,7 +127,12 @@ public:
 
     bool isPagedOut(double deadline);
 
+#if USE(CF)
+    template<typename T> void releaseSoon(RetainPtr<T>&&);
+#endif
+
 private:
+    friend class DelayedReleaseScope;
     friend class LLIntOffsetsExtractor;
 
     template<typename Functor> void forEachAllocator(Functor&);
@@ -131,8 +149,8 @@ private:
     static const size_t impreciseCount = impreciseCutoff / impreciseStep;
 
     struct Subspace {
-        FixedArray<MarkedAllocator, preciseCount> preciseAllocators;
-        FixedArray<MarkedAllocator, impreciseCount> impreciseAllocators;
+        std::array<MarkedAllocator, preciseCount> preciseAllocators;
+        std::array<MarkedAllocator, impreciseCount> impreciseAllocators;
         MarkedAllocator largeAllocator;
     };
 
@@ -144,6 +162,9 @@ private:
     size_t m_capacity;
     bool m_isIterating;
     MarkedBlockSet m_blocks;
+    Vector<MarkedBlock*> m_blocksWithNewObjects;
+
+    DelayedReleaseScope* m_currentDelayedReleaseScope;
 };
 
 template<typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachLiveCell(HeapIterationScope&, Functor& functor)
@@ -254,9 +275,18 @@ inline void MarkedSpace::didAddBlock(MarkedBlock* block)
     m_blocks.add(block);
 }
 
-inline void MarkedSpace::clearMarks()
+inline void MarkedSpace::didAllocateInBlock(MarkedBlock* block)
 {
-    forEachBlock<ClearMarks>();
+#if ENABLE(GGC)
+    m_blocksWithNewObjects.append(block);
+#else
+    UNUSED_PARAM(block);
+#endif
+}
+
+inline void MarkedSpace::clearRememberedSet()
+{
+    forEachBlock<ClearRememberedSet>();
 }
 
 inline size_t MarkedSpace::objectCount()

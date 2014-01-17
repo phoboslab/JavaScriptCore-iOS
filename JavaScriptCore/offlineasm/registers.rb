@@ -30,19 +30,24 @@ GPRS =
      "t2",
      "t3",
      "t4",
+     "t5",
+     "t6",
+     "t7",
+     "t8",
+     "t9",
      "cfr",
      "a0",
      "a1",
+     "a2",
+     "a3",
      "r0",
      "r1",
      "sp",
      "lr",
      
      # 64-bit only registers:
-     "t5",
-     "t6",  # r10
-     "csr1",  # r14, tag type number register
-     "csr2"   # r15, tag mask register
+     "csr1",  # tag type number register
+     "csr2"   # tag mask register
     ]
 
 FPRS =

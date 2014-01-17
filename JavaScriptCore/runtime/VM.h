@@ -29,9 +29,9 @@
 #ifndef VM_h
 #define VM_h
 
-#include "CachedTranscendentalFunction.h"
 #include "DateInstanceCache.h"
 #include "ExecutableAllocator.h"
+#include "GPRInfo.h"
 #include "Heap.h"
 #include "Intrinsic.h"
 #include "JITThunks.h"
@@ -48,16 +48,20 @@
 #include "ThunkGenerators.h"
 #include "TypedArrayController.h"
 #include "Watchdog.h"
+#include "Watchpoint.h"
 #include "WeakRandom.h"
 #include <wtf/BumpPointerAllocator.h>
 #include <wtf/DateMath.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/RefCountedArray.h>
 #include <wtf/SimpleStats.h>
+#include <wtf/StackBounds.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/ThreadSpecific.h>
 #include <wtf/WTFThreadData.h>
+#include <wtf/text/WTFString.h>
 #if ENABLE(REGEXP_TRACING)
 #include <wtf/ListHashSet.h>
 #endif
@@ -69,6 +73,7 @@ namespace JSC {
     class CommonIdentifiers;
     class ExecState;
     class HandleStack;
+    class Identifier;
     class IdentifierTable;
     class Interpreter;
     class JSGlobalObject;
@@ -91,6 +96,9 @@ namespace JSC {
     class UnlinkedEvalCodeBlock;
     class UnlinkedFunctionExecutable;
     class UnlinkedProgramCodeBlock;
+    class VMEntryScope;
+    class Watchpoint;
+    class WatchpointSet;
 
 #if ENABLE(DFG_JIT)
     namespace DFG {
@@ -244,7 +252,6 @@ namespace JSC {
 #if ENABLE(PROMISES)
         const OwnPtr<const HashTable> promisePrototypeTable;
         const OwnPtr<const HashTable> promiseConstructorTable;
-        const OwnPtr<const HashTable> promiseResolverPrototypeTable;
 #endif
 
         Strong<Structure> structureStructure;
@@ -263,9 +270,10 @@ namespace JSC {
         Strong<Structure> programExecutableStructure;
         Strong<Structure> functionExecutableStructure;
         Strong<Structure> regExpStructure;
-        Strong<Structure> sharedSymbolTableStructure;
+        Strong<Structure> symbolTableStructure;
         Strong<Structure> structureChainStructure;
         Strong<Structure> sparseArrayValueMapStructure;
+        Strong<Structure> arrayBufferNeuteringWatchpointStructure;
         Strong<Structure> withScopeStructure;
         Strong<Structure> unlinkedFunctionExecutableStructure;
         Strong<Structure> unlinkedProgramCodeBlockStructure;
@@ -274,6 +282,8 @@ namespace JSC {
         Strong<Structure> propertyTableStructure;
         Strong<Structure> mapDataStructure;
         Strong<Structure> weakMapDataStructure;
+        Strong<Structure> promiseDeferredStructure;
+        Strong<Structure> promiseReactionStructure;
         Strong<JSCell> iterationTerminator;
 
         IdentifierTable* identifierTable;
@@ -362,11 +372,26 @@ namespace JSC {
         JS_EXPORT_PRIVATE JSValue throwException(ExecState*, JSValue);
         JS_EXPORT_PRIVATE JSObject* throwException(ExecState*, JSObject*);
         
+        void** addressOfJSStackLimit() { return &m_jsStackLimit; }
+        void* jsStackLimit() { return m_jsStackLimit; }
+        void setJSStackLimit(void* limit) { m_jsStackLimit = limit; }
+
+        void* stackLimit() { return m_stackLimit; }
+        void setStackLimit(void* limit) { m_stackLimit = limit; }
+        bool isSafeToRecurse(size_t neededStackInBytes = 0) const
+        {
+            ASSERT(wtfThreadData().stack().isGrowingDownward());
+            int8_t* curr = reinterpret_cast<int8_t*>(&curr);
+            int8_t* limit = reinterpret_cast<int8_t*>(m_stackLimit);
+            return curr >= limit && static_cast<size_t>(curr - limit) >= neededStackInBytes;
+        }
+
         const ClassInfo* const jsArrayClassInfo;
         const ClassInfo* const jsFinalObjectClassInfo;
 
         ReturnAddressPtr exceptionLocation;
         JSValue hostCallReturnValue;
+        ExecState* newCallFrameReturnValue;
         ExecState* callFrameForThrow;
         void* targetMachinePCForThrow;
         Instruction* targetInterpreterPCForThrow;
@@ -397,7 +422,7 @@ namespace JSC {
 
         void gatherConservativeRoots(ConservativeRoots&);
 
-        JSGlobalObject* dynamicGlobalObject;
+        VMEntryScope* entryScope;
 
         HashSet<JSObject*> stringRecursionCheckVisitedObjects;
 
@@ -418,9 +443,6 @@ namespace JSC {
 #endif
 
         ThreadIdentifier exclusiveThread;
-
-        CachedTranscendentalFunction<std::sin> cachedSin;
-        CachedTranscendentalFunction<std::cos> cachedCos;
 
         JS_EXPORT_PRIVATE void resetDateCache();
 
@@ -460,9 +482,14 @@ namespace JSC {
         
         JS_EXPORT_PRIVATE void discardAllCode();
 
+        void registerWatchpointForImpureProperty(const Identifier&, Watchpoint*);
+        // FIXME: Use AtomicString once it got merged with Identifier.
+        JS_EXPORT_PRIVATE void addImpureProperty(const String&);
+
     private:
         friend class LLIntOffsetsExtractor;
         friend class ClearExceptionScope;
+        friend class RecursiveAllocationScope;
         
         VM(VMType, HeapType);
         static VM*& sharedInstanceInternal();
@@ -479,10 +506,24 @@ namespace JSC {
 #if ENABLE(GC_VALIDATION)
         const ClassInfo* m_initializingObjectClass;
 #endif
+
+#if USE(SEPARATE_C_AND_JS_STACK)
+        struct {
+            void* m_stackLimit;
+            void* m_jsStackLimit;
+        };
+#else
+        union {
+            void* m_stackLimit;
+            void* m_jsStackLimit;
+        };
+#endif
         JSValue m_exception;
         bool m_inDefineOwnProperty;
         OwnPtr<CodeCache> m_codeCache;
         RefCountedArray<StackFrame> m_exceptionStack;
+
+        HashMap<String, RefPtr<WatchpointSet>> m_impurePropertyWatchpointSets;
     };
 
 #if ENABLE(GC_VALIDATION)

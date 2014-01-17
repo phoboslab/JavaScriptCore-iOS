@@ -78,7 +78,7 @@ static uint8_t* mmAllocateDataSection(
     RefCountedArray<LSectionWord> section(
         (size + sizeof(LSectionWord) - 1) / sizeof(LSectionWord));
     
-    if (!strcmp(sectionName, "__js_stackmaps"))
+    if (!strcmp(sectionName, "__llvm_stackmaps"))
         state.stackmapsSection = section;
     else {
         state.jitCode->addDataSection(section);
@@ -106,6 +106,45 @@ static void dumpDataSection(RefCountedArray<LSectionWord> section, const char* p
     }
 }
 
+template<typename DescriptorType>
+void generateICFastPath(
+    State& state, CodeBlock* codeBlock, GeneratedFunction generatedFunction,
+    StackMaps::RecordMap& recordMap, DescriptorType& ic, size_t sizeOfIC)
+{
+    VM& vm = state.graph.m_vm;
+
+    StackMaps::RecordMap::iterator iter = recordMap.find(ic.stackmapID());
+    if (iter == recordMap.end()) {
+        // It was optimized out.
+        return;
+    }
+    
+    StackMaps::Record& record = iter->value;
+
+    CCallHelpers fastPathJIT(&vm, codeBlock);
+    ic.m_generator.generateFastPath(fastPathJIT);
+
+    char* startOfIC =
+        bitwise_cast<char*>(generatedFunction) + record.instructionOffset;
+            
+    LinkBuffer linkBuffer(vm, &fastPathJIT, startOfIC, sizeOfIC);
+    // Note: we could handle the !isValid() case. We just don't appear to have a
+    // reason to do so, yet.
+    RELEASE_ASSERT(linkBuffer.isValid());
+    
+    MacroAssembler::AssemblerType_T::fillNops(
+        startOfIC + linkBuffer.size(), sizeOfIC - linkBuffer.size());
+    
+    state.finalizer->sideCodeLinkBuffer->link(
+        ic.m_slowPathDone, CodeLocationLabel(startOfIC + sizeOfIC));
+            
+    linkBuffer.link(
+        ic.m_generator.slowPathJump(),
+        state.finalizer->sideCodeLinkBuffer->locationOf(ic.m_generator.slowPathBegin()));
+            
+    ic.m_generator.finalize(linkBuffer, *state.finalizer->sideCodeLinkBuffer);
+}
+
 static void fixFunctionBasedOnStackMaps(
     State& state, CodeBlock* codeBlock, JITCode* jitCode, GeneratedFunction generatedFunction,
     StackMaps::RecordMap& recordMap)
@@ -124,6 +163,10 @@ static void fixFunctionBasedOnStackMaps(
         for (unsigned i = 0; i < state.jitCode->osrExit.size(); ++i) {
             OSRExitCompilationInfo& info = state.finalizer->osrExit[i];
             OSRExit& exit = jitCode->osrExit[i];
+            
+            if (Options::verboseCompilation())
+                dataLog("Handling OSR stackmap #", exit.m_stackmapID, " for ", exit.m_codeOrigin, "\n");
+            
             StackMaps::RecordMap::iterator iter = recordMap.find(exit.m_stackmapID);
             if (iter == recordMap.end()) {
                 // It was optimized out.
@@ -138,11 +181,14 @@ static void fixFunctionBasedOnStackMaps(
         state.finalizer->exitThunksLinkBuffer = linkBuffer.release();
     }
 
-    if (!state.getByIds.isEmpty()) {
+    if (!state.getByIds.isEmpty() || !state.putByIds.isEmpty()) {
         CCallHelpers slowPathJIT(&vm, codeBlock);
         
         for (unsigned i = state.getByIds.size(); i--;) {
             GetByIdDescriptor& getById = state.getByIds[i];
+            
+            if (Options::verboseCompilation())
+                dataLog("Handling GetById stackmap #", getById.stackmapID(), "\n");
             
             StackMaps::RecordMap::iterator iter = recordMap.find(getById.stackmapID());
             if (iter == recordMap.end()) {
@@ -152,18 +198,16 @@ static void fixFunctionBasedOnStackMaps(
             
             StackMaps::Record& record = iter->value;
             
-            UNUSED_PARAM(record); // FIXME: use AnyRegs.
-
             // FIXME: LLVM should tell us which registers are live.
             RegisterSet usedRegisters = RegisterSet::allRegisters();
             
-            GPRReg callFrameRegister = GPRInfo::argumentGPR0;
-            GPRReg base = GPRInfo::argumentGPR1;
-            GPRReg result = GPRInfo::returnValueGPR;
+            GPRReg result = record.locations[0].directGPR();
+            GPRReg callFrameRegister = record.locations[1].directGPR();
+            GPRReg base = record.locations[2].directGPR();
             
             JITGetByIdGenerator gen(
-                codeBlock, getById.codeOrigin(), usedRegisters, JSValueRegs(base),
-                JSValueRegs(result), false);
+                codeBlock, getById.codeOrigin(), usedRegisters, callFrameRegister,
+                JSValueRegs(base), JSValueRegs(result), false);
             
             MacroAssembler::Label begin = slowPathJIT.label();
             
@@ -177,40 +221,56 @@ static void fixFunctionBasedOnStackMaps(
             getById.m_generator = gen;
         }
         
-        state.finalizer->sideCodeLinkBuffer = adoptPtr(
-            new LinkBuffer(vm, &slowPathJIT, codeBlock, JITCompilationMustSucceed));
-        
-        for (unsigned i = state.getByIds.size(); i--;) {
-            GetByIdDescriptor& getById = state.getByIds[i];
+        for (unsigned i = state.putByIds.size(); i--;) {
+            PutByIdDescriptor& putById = state.putByIds[i];
             
-            StackMaps::RecordMap::iterator iter = recordMap.find(getById.stackmapID());
+            if (Options::verboseCompilation())
+                dataLog("Handling PutById stackmap #", putById.stackmapID(), "\n");
+            
+            StackMaps::RecordMap::iterator iter = recordMap.find(putById.stackmapID());
             if (iter == recordMap.end()) {
                 // It was optimized out.
                 continue;
             }
             
             StackMaps::Record& record = iter->value;
-
-            CCallHelpers fastPathJIT(&vm, codeBlock);
-            getById.m_generator.generateFastPath(fastPathJIT);
-
-            char* startOfIC =
-                bitwise_cast<char*>(generatedFunction) + record.instructionOffset;
-            size_t sizeOfIC = sizeOfGetById();
             
-            LinkBuffer linkBuffer(vm, &fastPathJIT, startOfIC, sizeOfIC);
-            // Note: we could handle the !isValid() case. We just don't appear to have a
-            // reason to do so, yet.
-            RELEASE_ASSERT(linkBuffer.isValid());
+            // FIXME: LLVM should tell us which registers are live.
+            RegisterSet usedRegisters = RegisterSet::allRegisters();
             
-            state.finalizer->sideCodeLinkBuffer->link(
-                getById.m_slowPathDone, CodeLocationLabel(startOfIC + sizeOfIC));
+            GPRReg callFrameRegister = record.locations[0].directGPR();
+            GPRReg base = record.locations[1].directGPR();
+            GPRReg value = record.locations[2].directGPR();
             
-            linkBuffer.link(
-                getById.m_generator.slowPathJump(),
-                state.finalizer->sideCodeLinkBuffer->locationOf(getById.m_generator.slowPathBegin()));
+            JITPutByIdGenerator gen(
+                codeBlock, putById.codeOrigin(), usedRegisters, callFrameRegister,
+                JSValueRegs(base), JSValueRegs(value), MacroAssembler::scratchRegister,
+                false, putById.ecmaMode(), putById.putKind());
             
-            getById.m_generator.finalize(linkBuffer, *state.finalizer->sideCodeLinkBuffer);
+            MacroAssembler::Label begin = slowPathJIT.label();
+            
+            MacroAssembler::Call call = callOperation(
+                state, usedRegisters, slowPathJIT, gen.slowPathFunction(), callFrameRegister,
+                gen.stubInfo(), value, base, putById.uid());
+            
+            gen.reportSlowPathCall(begin, call);
+            
+            putById.m_slowPathDone = slowPathJIT.jump();
+            putById.m_generator = gen;
+        }
+        
+        state.finalizer->sideCodeLinkBuffer = adoptPtr(
+            new LinkBuffer(vm, &slowPathJIT, codeBlock, JITCompilationMustSucceed));
+        
+        for (unsigned i = state.getByIds.size(); i--;) {
+            generateICFastPath(
+                state, codeBlock, generatedFunction, recordMap, state.getByIds[i],
+                sizeOfGetById());
+        }
+        for (unsigned i = state.putByIds.size(); i--;) {
+            generateICFastPath(
+                state, codeBlock, generatedFunction, recordMap, state.putByIds[i],
+                sizeOfPutById());
         }
     }
     
@@ -227,10 +287,15 @@ static void fixFunctionBasedOnStackMaps(
         
         StackMaps::Record& record = iter->value;
         
-        repatchBuffer.replaceWithJump(
-            CodeLocationLabel(
-                bitwise_cast<char*>(generatedFunction) + record.instructionOffset),
-            info.m_thunkAddress);
+        CodeLocationLabel source = CodeLocationLabel(
+            bitwise_cast<char*>(generatedFunction) + record.instructionOffset);
+        
+        if (info.m_isInvalidationPoint) {
+            jitCode->common.jumpReplacements.append(JumpReplacement(source, info.m_thunkAddress));
+            continue;
+        }
+        
+        repatchBuffer.replaceWithJump(source, info.m_thunkAddress);
     }
 }
 
@@ -255,26 +320,42 @@ void compile(State& state)
         CRASH();
     }
 
-    LLVMPassManagerBuilderRef passBuilder = llvm->PassManagerBuilderCreate();
-    llvm->PassManagerBuilderSetOptLevel(passBuilder, Options::llvmOptimizationLevel());
-    llvm->PassManagerBuilderSetSizeLevel(passBuilder, Options::llvmSizeLevel());
+    LLVMPassManagerRef functionPasses = 0;
+    LLVMPassManagerRef modulePasses;
     
-    LLVMPassManagerRef functionPasses = llvm->CreateFunctionPassManagerForModule(state.module);
-    LLVMPassManagerRef modulePasses = llvm->CreatePassManager();
-    
-    llvm->AddTargetData(llvm->GetExecutionEngineTargetData(engine), modulePasses);
-    
-    llvm->PassManagerBuilderPopulateFunctionPassManager(passBuilder, functionPasses);
-    llvm->PassManagerBuilderPopulateModulePassManager(passBuilder, modulePasses);
-    
-    llvm->PassManagerBuilderDispose(passBuilder);
-
-    llvm->InitializeFunctionPassManager(functionPasses);
-    for (LValue function = llvm->GetFirstFunction(state.module); function; function = llvm->GetNextFunction(function))
-        llvm->RunFunctionPassManager(functionPasses, function);
-    llvm->FinalizeFunctionPassManager(functionPasses);
-    
-    llvm->RunPassManager(modulePasses, state.module);
+    if (Options::llvmSimpleOpt()) {
+        modulePasses = llvm->CreatePassManager();
+        llvm->AddTargetData(llvm->GetExecutionEngineTargetData(engine), modulePasses);
+        llvm->AddPromoteMemoryToRegisterPass(modulePasses);
+        llvm->AddConstantPropagationPass(modulePasses);
+        llvm->AddInstructionCombiningPass(modulePasses);
+        llvm->AddBasicAliasAnalysisPass(modulePasses);
+        llvm->AddTypeBasedAliasAnalysisPass(modulePasses);
+        llvm->AddGVNPass(modulePasses);
+        llvm->AddCFGSimplificationPass(modulePasses);
+        llvm->RunPassManager(modulePasses, state.module);
+    } else {
+        LLVMPassManagerBuilderRef passBuilder = llvm->PassManagerBuilderCreate();
+        llvm->PassManagerBuilderSetOptLevel(passBuilder, Options::llvmOptimizationLevel());
+        llvm->PassManagerBuilderSetSizeLevel(passBuilder, Options::llvmSizeLevel());
+        
+        functionPasses = llvm->CreateFunctionPassManagerForModule(state.module);
+        modulePasses = llvm->CreatePassManager();
+        
+        llvm->AddTargetData(llvm->GetExecutionEngineTargetData(engine), modulePasses);
+        
+        llvm->PassManagerBuilderPopulateFunctionPassManager(passBuilder, functionPasses);
+        llvm->PassManagerBuilderPopulateModulePassManager(passBuilder, modulePasses);
+        
+        llvm->PassManagerBuilderDispose(passBuilder);
+        
+        llvm->InitializeFunctionPassManager(functionPasses);
+        for (LValue function = llvm->GetFirstFunction(state.module); function; function = llvm->GetNextFunction(function))
+            llvm->RunFunctionPassManager(functionPasses, function);
+        llvm->FinalizeFunctionPassManager(functionPasses);
+        
+        llvm->RunPassManager(modulePasses, state.module);
+    }
 
     if (DFG::shouldShowDisassembly() || DFG::verboseCompilationEnabled())
         state.dumpState("after optimization");
@@ -282,7 +363,8 @@ void compile(State& state)
     // FIXME: Need to add support for the case where JIT memory allocation failed.
     // https://bugs.webkit.org/show_bug.cgi?id=113620
     state.generatedFunction = reinterpret_cast<GeneratedFunction>(llvm->GetPointerToGlobal(engine, state.function));
-    llvm->DisposePassManager(functionPasses);
+    if (functionPasses)
+        llvm->DisposePassManager(functionPasses);
     llvm->DisposePassManager(modulePasses);
     llvm->DisposeExecutionEngine(engine);
 

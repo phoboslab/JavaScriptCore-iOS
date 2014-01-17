@@ -41,22 +41,39 @@ class VM;
 
 namespace FTL {
 
-MacroAssemblerCodeRef osrExitGenerationWithoutStackMapThunkGenerator(VM*);
-
-MacroAssemblerCodeRef osrExitGenerationWithStackMapThunkGenerator(VM&, const Location&);
+MacroAssemblerCodeRef osrExitGenerationThunkGenerator(VM&, const Location&);
 MacroAssemblerCodeRef slowPathCallThunkGenerator(VM&, const SlowPathCallKey&);
 
-template<typename MapType, typename KeyType, typename GeneratorType>
+template<typename KeyTypeArgument>
+struct ThunkMap {
+    typedef KeyTypeArgument KeyType;
+    typedef HashMap<KeyType, MacroAssemblerCodeRef> ToThunkMap;
+    typedef HashMap<MacroAssemblerCodePtr, KeyType> FromThunkMap;
+    
+    ToThunkMap m_toThunk;
+    FromThunkMap m_fromThunk;
+};
+
+template<typename MapType, typename GeneratorType>
 MacroAssemblerCodeRef generateIfNecessary(
-    VM& vm, MapType& map, const KeyType& key, GeneratorType generator)
+    VM& vm, MapType& map, const typename MapType::KeyType& key, GeneratorType generator)
 {
-    typename MapType::iterator iter = map.find(key);
-    if (iter != map.end())
+    typename MapType::ToThunkMap::iterator iter = map.m_toThunk.find(key);
+    if (iter != map.m_toThunk.end())
         return iter->value;
     
     MacroAssemblerCodeRef result = generator(vm, key);
-    map.add(key, result);
+    map.m_toThunk.add(key, result);
+    map.m_fromThunk.add(result.code(), key);
     return result;
+}
+
+template<typename MapType>
+typename MapType::KeyType keyForThunk(MapType& map, MacroAssemblerCodePtr ptr)
+{
+    typename MapType::FromThunkMap::iterator iter = map.m_fromThunk.find(ptr);
+    RELEASE_ASSERT(iter != map.m_fromThunk.end());
+    return iter->value;
 }
 
 class Thunks {
@@ -64,7 +81,7 @@ public:
     MacroAssemblerCodeRef getOSRExitGenerationThunk(VM& vm, const Location& location)
     {
         return generateIfNecessary(
-            vm, m_osrExitThunks, location, osrExitGenerationWithStackMapThunkGenerator);
+            vm, m_osrExitThunks, location, osrExitGenerationThunkGenerator);
     }
     
     MacroAssemblerCodeRef getSlowPathCallThunk(VM& vm, const SlowPathCallKey& key)
@@ -73,9 +90,14 @@ public:
             vm, m_slowPathCallThunks, key, slowPathCallThunkGenerator);
     }
     
+    SlowPathCallKey keyForSlowPathCallThunk(MacroAssemblerCodePtr ptr)
+    {
+        return keyForThunk(m_slowPathCallThunks, ptr);
+    }
+    
 private:
-    HashMap<Location, MacroAssemblerCodeRef> m_osrExitThunks;
-    HashMap<SlowPathCallKey, MacroAssemblerCodeRef> m_slowPathCallThunks;
+    ThunkMap<Location> m_osrExitThunks;
+    ThunkMap<SlowPathCallKey> m_slowPathCallThunks;
 };
 
 } } // namespace JSC::FTL

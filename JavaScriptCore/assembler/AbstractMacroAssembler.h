@@ -29,6 +29,8 @@
 #include "AssemblerBuffer.h"
 #include "CodeLocation.h"
 #include "MacroAssemblerCodeRef.h"
+#include "Options.h"
+#include "WeakRandom.h"
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/Noncopyable.h>
 
@@ -61,6 +63,21 @@ inline bool isX86()
 #else
     return false;
 #endif
+}
+
+inline bool optimizeForARMv7s()
+{
+    return isARMv7s() && Options::enableArchitectureSpecificOptimizations();
+}
+
+inline bool optimizeForARM64()
+{
+    return isARM64() && Options::enableArchitectureSpecificOptimizations();
+}
+
+inline bool optimizeForX86()
+{
+    return isX86() && Options::enableArchitectureSpecificOptimizations();
 }
 
 class LinkBuffer;
@@ -836,9 +853,18 @@ protected:
     Vector<RegisterAllocationOffset, 10> m_registerAllocationForOffsets;
 #endif
 
-    static bool scratchRegisterForBlinding() { return false; }
-    static bool shouldBlindForSpecificArch(uint32_t) { return true; }
-    static bool shouldBlindForSpecificArch(uint64_t) { return true; }
+    static bool haveScratchRegisterForBlinding()
+    {
+        return false;
+    }
+    static RegisterID scratchRegisterForBlinding()
+    {
+        UNREACHABLE_FOR_PLATFORM();
+        return firstRegister();
+    }
+    static bool canBlind() { return false; }
+    static bool shouldBlindForSpecificArch(uint32_t) { return false; }
+    static bool shouldBlindForSpecificArch(uint64_t) { return false; }
 
     class CachedTempRegister {
         friend class DataLabelPtr;

@@ -489,6 +489,7 @@
     macro(LLVMValueRef, BuildIsNull, (LLVMBuilderRef, LLVMValueRef Val, const char *Name)) \
     macro(LLVMValueRef, BuildIsNotNull, (LLVMBuilderRef, LLVMValueRef Val, const char *Name)) \
     macro(LLVMValueRef, BuildPtrDiff, (LLVMBuilderRef, LLVMValueRef LHS, LLVMValueRef RHS, const char *Name)) \
+    macro(LLVMValueRef, BuildFence, (LLVMBuilderRef B, LLVMAtomicOrdering Ordering, LLVMBool isSingleThread, const char *Name)) \
     macro(LLVMValueRef, BuildAtomicRMW, (LLVMBuilderRef B, LLVMAtomicRMWBinOp op, LLVMValueRef PTR, LLVMValueRef Val, LLVMAtomicOrdering ordering, LLVMBool singleThread)) \
     macro(LLVMModuleProviderRef, CreateModuleProviderForExistingModule, (LLVMModuleRef M)) \
     macro(void, DisposeModuleProvider, (LLVMModuleProviderRef M)) \
@@ -535,7 +536,6 @@
     macro(LLVMBool, TargetHasJIT, (LLVMTargetRef T)) \
     macro(LLVMBool, TargetHasTargetMachine, (LLVMTargetRef T)) \
     macro(LLVMBool, TargetHasAsmBackend, (LLVMTargetRef T)) \
-    macro(LLVMTargetMachineRef, CreateTargetMachine, (LLVMTargetRef T, char *Triple, char *CPU, char *Features, LLVMCodeGenOptLevel Level, LLVMRelocMode Reloc, LLVMCodeModel CodeModel)) \
     macro(void, DisposeTargetMachine, (LLVMTargetMachineRef T)) \
     macro(LLVMTargetRef, GetTargetMachineTarget, (LLVMTargetMachineRef T)) \
     macro(char *, GetTargetMachineTriple, (LLVMTargetMachineRef T)) \

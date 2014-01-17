@@ -127,6 +127,10 @@ public:
     static const RegisterID framePointerRegister = ARM64Registers::fp;
     static const RegisterID linkRegister = ARM64Registers::lr;
 
+    // FIXME: Get reasonable implementations for these
+    static bool shouldBlindForSpecificArch(uint32_t value) { return value >= 0x00ffffff; }
+    static bool shouldBlindForSpecificArch(uint64_t value) { return value >= 0x00ffffff; }
+    static bool shouldBlindForSpecificArch(uintptr_t value) { return value >= 0x00ffffff; }
 
     // Integer operations:
 
@@ -347,6 +351,19 @@ public:
         signExtend32ToPtr(imm, getCachedDataTempRegisterIDAndInvalidate());
         m_assembler.and_<64>(dest, dest, dataTempRegister);
     }
+
+    void and64(TrustedImmPtr imm, RegisterID dest)
+    {
+        LogicalImmediate logicalImm = LogicalImmediate::create64(reinterpret_cast<uint64_t>(imm.m_value));
+
+        if (logicalImm.isValid()) {
+            m_assembler.and_<64>(dest, dest, logicalImm);
+            return;
+        }
+
+        move(imm, getCachedDataTempRegisterIDAndInvalidate());
+        m_assembler.and_<64>(dest, dest, dataTempRegister);
+    }
     
     void countLeadingZeros32(RegisterID src, RegisterID dest)
     {
@@ -373,9 +390,34 @@ public:
         lshift32(dest, imm, dest);
     }
 
+    void lshift64(RegisterID src, RegisterID shiftAmount, RegisterID dest)
+    {
+        m_assembler.lsl<64>(dest, src, shiftAmount);
+    }
+
+    void lshift64(RegisterID src, TrustedImm32 imm, RegisterID dest)
+    {
+        m_assembler.lsl<64>(dest, src, imm.m_value & 0x3f);
+    }
+
+    void lshift64(RegisterID shiftAmount, RegisterID dest)
+    {
+        lshift64(dest, shiftAmount, dest);
+    }
+
+    void lshift64(TrustedImm32 imm, RegisterID dest)
+    {
+        lshift64(dest, imm, dest);
+    }
+    
     void mul32(RegisterID src, RegisterID dest)
     {
         m_assembler.mul<32>(dest, dest, src);
+    }
+    
+    void mul64(RegisterID src, RegisterID dest)
+    {
+        m_assembler.mul<64>(dest, dest, src);
     }
 
     void mul32(TrustedImm32 imm, RegisterID src, RegisterID dest)
@@ -493,6 +535,26 @@ public:
     void rshift32(TrustedImm32 imm, RegisterID dest)
     {
         rshift32(dest, imm, dest);
+    }
+    
+    void rshift64(RegisterID src, RegisterID shiftAmount, RegisterID dest)
+    {
+        m_assembler.lsr<64>(dest, src, shiftAmount);
+    }
+    
+    void rshift64(RegisterID src, TrustedImm32 imm, RegisterID dest)
+    {
+        m_assembler.lsr<64>(dest, src, imm.m_value & 0x3f);
+    }
+    
+    void rshift64(RegisterID shiftAmount, RegisterID dest)
+    {
+        rshift64(dest, shiftAmount, dest);
+    }
+    
+    void rshift64(TrustedImm32 imm, RegisterID dest)
+    {
+        rshift64(dest, imm, dest);
     }
 
     void sub32(RegisterID src, RegisterID dest)
@@ -849,6 +911,8 @@ public:
     {
         moveToCachedReg(TrustedImmPtr(address), m_cachedMemoryTempRegister);
         m_assembler.ldrb(dest, memoryTempRegister, ARM64Registers::zr);
+        if (dest == memoryTempRegister)
+            m_cachedMemoryTempRegister.invalidate();
     }
 
     void load8Signed(BaseIndex address, RegisterID dest)
@@ -1145,15 +1209,6 @@ public:
         return Jump(makeBranch(branchType == BranchIfTruncateSuccessful ? Equal : NotEqual));
     }
 
-    Jump branchTruncateDoubleToUint32(FPRegisterID src, RegisterID dest, BranchTruncateType branchType = BranchIfTruncateFailed)
-    {
-        // Truncate to a 64-bit integer in dataTempRegister, copy the low 32-bit to dest.
-        m_assembler.fcvtzs<64, 64>(dest, src);
-        // Check thlow 32-bits zero extend to be equal to the full value.
-        m_assembler.cmp<64>(dest, dest, ARM64Assembler::UXTW, 0);
-        return Jump(makeBranch(branchType == BranchIfTruncateSuccessful ? Equal : NotEqual));
-    }
-
     void convertDoubleToFloat(FPRegisterID src, FPRegisterID dest)
     {
         m_assembler.fcvt<32, 64>(dest, src);
@@ -1185,6 +1240,11 @@ public:
     {
         load32(address.m_ptr, getCachedDataTempRegisterIDAndInvalidate());
         convertInt32ToDouble(dataTempRegister, dest);
+    }
+    
+    void convertInt64ToDouble(RegisterID src, FPRegisterID dest)
+    {
+        m_assembler.scvtf<64, 64>(dest, src);
     }
     
     void divDouble(FPRegisterID src, FPRegisterID dest)
@@ -1516,8 +1576,8 @@ public:
 
     Jump branch32(RelationalCondition cond, AbsoluteAddress left, RegisterID right)
     {
-        load32(left.m_ptr, getCachedMemoryTempRegisterIDAndInvalidate());
-        return branch32(cond, memoryTempRegister, right);
+        load32(left.m_ptr, getCachedDataTempRegisterIDAndInvalidate());
+        return branch32(cond, dataTempRegister, right);
     }
 
     Jump branch32(RelationalCondition cond, AbsoluteAddress left, TrustedImm32 right)
@@ -1554,8 +1614,8 @@ public:
 
     Jump branch64(RelationalCondition cond, AbsoluteAddress left, RegisterID right)
     {
-        load64(left.m_ptr, getCachedMemoryTempRegisterIDAndInvalidate());
-        return branch64(cond, memoryTempRegister, right);
+        load64(left.m_ptr, getCachedDataTempRegisterIDAndInvalidate());
+        return branch64(cond, dataTempRegister, right);
     }
 
     Jump branch64(RelationalCondition cond, Address left, RegisterID right)
@@ -1581,6 +1641,13 @@ public:
     {
         ASSERT(!(0xffffff00 & right.m_value));
         load8(left, getCachedMemoryTempRegisterIDAndInvalidate());
+        return branch32(cond, memoryTempRegister, right);
+    }
+    
+    Jump branch8(RelationalCondition cond, AbsoluteAddress left, TrustedImm32 right)
+    {
+        ASSERT(!(0xffffff00 & right.m_value));
+        load8(left.m_ptr, getCachedMemoryTempRegisterIDAndInvalidate());
         return branch32(cond, memoryTempRegister, right);
     }
     
@@ -1696,6 +1763,12 @@ public:
     {
         move(TrustedImmPtr(reinterpret_cast<void*>(address.offset)), getCachedDataTempRegisterIDAndInvalidate());
         m_assembler.ldrb(dataTempRegister, address.base, dataTempRegister);
+        return branchTest32(cond, dataTempRegister, mask);
+    }
+
+    Jump branchTest8(ResultCondition cond, BaseIndex address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        load8(address, getCachedDataTempRegisterIDAndInvalidate());
         return branchTest32(cond, dataTempRegister, mask);
     }
 
@@ -1828,9 +1901,38 @@ public:
         return branchMul32(cond, dataTempRegister, src, dest);
     }
 
+    Jump branchMul64(ResultCondition cond, RegisterID src1, RegisterID src2, RegisterID dest)
+    {
+        ASSERT(cond != Signed);
+
+        // This is a signed multiple of two 64-bit values, producing a 64-bit result.
+        m_assembler.mul<64>(dest, src1, src2);
+
+        if (cond != Overflow)
+            return branchTest64(cond, dest);
+
+        // Compute bits 127..64 of the result into dataTempRegister.
+        m_assembler.smulh(getCachedDataTempRegisterIDAndInvalidate(), src1, src2);
+        // Splat bit 63 of the result to bits 63..0 of memoryTempRegister.
+        m_assembler.asr<64>(getCachedMemoryTempRegisterIDAndInvalidate(), dest, 63);
+        // Check that bits 31..63 of the original result were all equal.
+        return branch64(NotEqual, memoryTempRegister, dataTempRegister);
+    }
+
+    Jump branchMul64(ResultCondition cond, RegisterID src, RegisterID dest)
+    {
+        return branchMul64(cond, dest, src, dest);
+    }
+
     Jump branchNeg32(ResultCondition cond, RegisterID dest)
     {
         m_assembler.neg<32, S>(dest, dest);
+        return Jump(makeBranch(cond));
+    }
+
+    Jump branchNeg64(ResultCondition cond, RegisterID srcDest)
+    {
+        m_assembler.neg<64, S>(srcDest, srcDest);
         return Jump(makeBranch(cond));
     }
 
@@ -2165,6 +2267,11 @@ public:
     {
         m_assembler.nop();
     }
+    
+    void memoryFence()
+    {
+        m_assembler.dmbSY();
+    }
 
 
     // Misc helper functions.
@@ -2189,6 +2296,8 @@ public:
     {
         return ARM64Assembler::maxJumpReplacementSize();
     }
+
+    RegisterID scratchRegisterForBlinding() { return getCachedDataTempRegisterIDAndInvalidate(); }
 
     static bool canJumpReplacePatchableBranchPtrWithPatch() { return false; }
     
@@ -2396,6 +2505,9 @@ private:
             intptr_t addressAsInt = reinterpret_cast<intptr_t>(address);
             intptr_t addressDelta = addressAsInt - currentRegisterContents;
 
+            if (dest == memoryTempRegister)
+                m_cachedMemoryTempRegister.invalidate();
+
             if (isInIntRange(addressDelta)) {
                 if (ARM64Assembler::canEncodeSImmOffset(addressDelta)) {
                     m_assembler.ldur<datasize>(dest,  memoryTempRegister, addressDelta);
@@ -2417,7 +2529,10 @@ private:
         }
 
         move(TrustedImmPtr(address), memoryTempRegister);
-        m_cachedMemoryTempRegister.setValue(reinterpret_cast<intptr_t>(address));
+        if (dest == memoryTempRegister)
+            m_cachedMemoryTempRegister.invalidate();
+        else
+            m_cachedMemoryTempRegister.setValue(reinterpret_cast<intptr_t>(address));
         m_assembler.ldr<datasize>(dest, memoryTempRegister, ARM64Registers::zr);
     }
 

@@ -25,6 +25,7 @@
 #include "BlockAllocator.h"
 #include "HeapBlock.h"
 
+#include "HeapOperation.h"
 #include "WeakSet.h"
 #include <wtf/Bitmap.h>
 #include <wtf/DataLog.h>
@@ -72,12 +73,15 @@ namespace JSC {
         friend class LLIntOffsetsExtractor;
 
     public:
-        static const size_t atomSize = 8; // bytes
+        static const size_t atomSize = 16; // bytes
+        static const size_t atomShiftAmount = 4; // log_2(atomSize) FIXME: Change atomSize to 16.
         static const size_t blockSize = 64 * KB;
         static const size_t blockMask = ~(blockSize - 1); // blockSize must be a power of two.
 
         static const size_t atomsPerBlock = blockSize / atomSize;
         static const size_t atomMask = atomsPerBlock - 1;
+
+        static const size_t markByteShiftAmount = 3; // log_2(word size for m_marks) FIXME: Change word size for m_marks to uint8_t.
 
         struct FreeCell {
             FreeCell* next;
@@ -137,11 +141,16 @@ namespace JSC {
         void stopAllocating(const FreeList&);
         FreeList resumeAllocating(); // Call this if you canonicalized a block for some non-collection related purpose.
         void didConsumeEmptyFreeList(); // Call this if you sweep a block, but the returned FreeList is empty.
+        void didSweepToNoAvail(); // Call this if you sweep a block and get an empty free list back.
 
         // Returns true if the "newly allocated" bitmap was non-null 
         // and was successfully cleared and false otherwise.
         bool clearNewlyAllocated();
         void clearMarks();
+        void clearRememberedSet();
+        template <HeapOperation collectionType>
+        void clearMarksWithCollectionType();
+
         size_t markCount();
         bool isEmpty();
 
@@ -158,6 +167,11 @@ namespace JSC {
         void setMarked(const void*);
         void clearMarked(const void*);
 
+        void setRemembered(const void*);
+        void clearRemembered(const void*);
+        void atomicClearRemembered(const void*);
+        bool isRemembered(const void*);
+
         bool isNewlyAllocated(const void*);
         void setNewlyAllocated(const void*);
         void clearNewlyAllocated(const void*);
@@ -167,6 +181,8 @@ namespace JSC {
         template <typename Functor> void forEachCell(Functor&);
         template <typename Functor> void forEachLiveCell(Functor&);
         template <typename Functor> void forEachDeadCell(Functor&);
+
+        static ptrdiff_t offsetOfMarks() { return OBJECT_OFFSETOF(MarkedBlock, m_marks); }
 
     private:
         static const size_t atomAlignmentMask = atomSize - 1; // atomSize must be a power of two.
@@ -185,9 +201,11 @@ namespace JSC {
         size_t m_atomsPerCell;
         size_t m_endAtom; // This is a fuzzy end. Always test for < m_endAtom.
 #if ENABLE(PARALLEL_GC)
-        WTF::Bitmap<atomsPerBlock, WTF::BitmapAtomic> m_marks;
+        WTF::Bitmap<atomsPerBlock, WTF::BitmapAtomic, uint8_t> m_marks;
+        WTF::Bitmap<atomsPerBlock, WTF::BitmapAtomic, uint8_t> m_rememberedSet;
 #else
-        WTF::Bitmap<atomsPerBlock, WTF::BitmapNotAtomic> m_marks;
+        WTF::Bitmap<atomsPerBlock, WTF::BitmapNotAtomic, uint8_t> m_marks;
+        WTF::Bitmap<atomsPerBlock, WTF::BitmapNotAtomic, uint8_t> m_rememberedSet;
 #endif
         OwnPtr<WTF::Bitmap<atomsPerBlock>> m_newlyAllocated;
 
@@ -227,15 +245,6 @@ namespace JSC {
     inline MarkedBlock* MarkedBlock::blockFor(const void* p)
     {
         return reinterpret_cast<MarkedBlock*>(reinterpret_cast<Bits>(p) & blockMask);
-    }
-
-    inline void MarkedBlock::lastChanceToFinalize()
-    {
-        m_weakSet.lastChanceToFinalize();
-
-        clearNewlyAllocated();
-        clearMarks();
-        sweep();
     }
 
     inline MarkedAllocator* MarkedBlock::allocator() const
@@ -286,23 +295,7 @@ namespace JSC {
         HEAP_LOG_BLOCK_STATE_TRANSITION(this);
 
         ASSERT(!m_newlyAllocated);
-#ifndef NDEBUG
-        for (size_t i = firstAtom(); i < m_endAtom; i += m_atomsPerCell)
-            ASSERT(m_marks.get(i));
-#endif
         ASSERT(m_state == FreeListed);
-        m_state = Marked;
-    }
-
-    inline void MarkedBlock::clearMarks()
-    {
-        HEAP_LOG_BLOCK_STATE_TRANSITION(this);
-
-        ASSERT(m_state != New && m_state != FreeListed);
-        m_marks.clearAll();
-
-        // This will become true at the end of the mark phase. We set it now to
-        // avoid an extra pass to do so later.
         m_state = Marked;
     }
 
@@ -339,6 +332,26 @@ namespace JSC {
     inline size_t MarkedBlock::atomNumber(const void* p)
     {
         return (reinterpret_cast<Bits>(p) - reinterpret_cast<Bits>(this)) / atomSize;
+    }
+
+    inline void MarkedBlock::setRemembered(const void* p)
+    {
+        m_rememberedSet.set(atomNumber(p));
+    }
+
+    inline void MarkedBlock::clearRemembered(const void* p)
+    {
+        m_rememberedSet.clear(atomNumber(p));
+    }
+
+    inline void MarkedBlock::atomicClearRemembered(const void* p)
+    {
+        m_rememberedSet.concurrentTestAndClear(atomNumber(p));
+    }
+
+    inline bool MarkedBlock::isRemembered(const void* p)
+    {
+        return m_rememberedSet.get(atomNumber(p));
     }
 
     inline bool MarkedBlock::isMarked(const void* p)

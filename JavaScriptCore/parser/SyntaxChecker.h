@@ -153,27 +153,27 @@ public:
     ExpressionType createConditionalExpr(const JSTokenLocation&, ExpressionType, ExpressionType, ExpressionType) { return ConditionalExpr; }
     ExpressionType createAssignResolve(const JSTokenLocation&, const Identifier&, ExpressionType, int, int, int) { return AssignmentExpr; }
     ExpressionType createFunctionExpr(const JSTokenLocation&, const Identifier*, int, int, int, int, int, int, int) { return FunctionExpr; }
-    int createFunctionBody(const JSTokenLocation&, const JSTokenLocation&, int, bool) { return 1; }
-    void setFunctionStart(int, int) { }
+    int createFunctionBody(const JSTokenLocation&, const JSTokenLocation&, int, int, bool) { return 1; }
+    void setFunctionNameStart(int, int) { }
     int createArguments() { return 1; }
     int createArguments(int) { return 1; }
     ExpressionType createSpreadExpression(const JSTokenLocation&, ExpressionType, int, int, int) { return 1; }
     int createArgumentsList(const JSTokenLocation&, int) { return 1; }
     int createArgumentsList(const JSTokenLocation&, int, int) { return 1; }
-    template <bool complete> Property createProperty(const Identifier* name, int, PropertyNode::Type type)
+    Property createProperty(const Identifier* name, int, PropertyNode::Type type, bool complete)
     {
         if (!complete)
             return Property(type);
         ASSERT(name);
         return Property(name, type);
     }
-    template <bool complete> Property createProperty(VM* vm, double name, int, PropertyNode::Type type)
+    Property createProperty(VM* vm, double name, int, PropertyNode::Type type, bool complete)
     {
         if (!complete)
             return Property(type);
         return Property(&vm->parserArena->identifierArena().makeNumericIdentifier(vm, name), type);
     }
-    template <bool complete> Property createProperty(VM*, ExpressionNode*, int, PropertyNode::Type type)
+    Property createProperty(VM*, ExpressionNode*, int, PropertyNode::Type type, bool)
     {
         return Property(type);
     }
@@ -212,14 +212,14 @@ public:
     int createDebugger(const JSTokenLocation&, int, int) { return 1; }
     int createConstStatement(const JSTokenLocation&, int, int, int) { return 1; }
     int appendConstDecl(const JSTokenLocation&, int, const Identifier*, int) { return 1; }
-    template <bool strict> Property createGetterOrSetterProperty(const JSTokenLocation&, PropertyNode::Type type, const Identifier* name, int, int, int, int, int, int, int)
+    Property createGetterOrSetterProperty(const JSTokenLocation&, PropertyNode::Type type, bool strict, const Identifier* name, int, int, int, int, int, int, int)
     {
         ASSERT(name);
         if (!strict)
             return Property(type);
         return Property(name, type);
     }
-    template <bool strict> Property createGetterOrSetterProperty(VM* vm, const JSTokenLocation&, PropertyNode::Type type, double name, int, int, int, int, int, int, int)
+    Property createGetterOrSetterProperty(VM* vm, const JSTokenLocation&, PropertyNode::Type type, bool strict, double name, int, int, int, int, int, int, int)
     {
         if (!strict)
             return Property(type);

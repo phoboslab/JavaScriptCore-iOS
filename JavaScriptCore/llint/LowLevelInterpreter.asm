@@ -71,6 +71,11 @@ const DeletedValueTag = -7
 const LowestTag = DeletedValueTag
 end
 
+# Watchpoint states
+const ClearWatchpoint = 0
+const IsWatched = 1
+const IsInvalidated = 2
+
 # Some register conventions.
 if JSVALUE64
     # - Use a pair of registers to represent the PC: one register for the
@@ -165,7 +170,11 @@ const Dynamic = 6
 
 const ResolveModeMask = 0xffff
 
-const MarkedBlockMask = ~0xffff
+const MarkedBlockSize = 64 * 1024
+const MarkedBlockMask = ~(MarkedBlockSize - 1)
+# Constants for checking mark bits.
+const AtomNumberShift = 3
+const BitMapWordShift = 4
 
 # Allocation constants
 if JSVALUE64
@@ -202,11 +211,9 @@ macro assert(assertion)
 end
 
 macro preserveReturnAddressAfterCall(destinationRegister)
-    if C_LOOP or ARM or ARMv7 or ARMv7_TRADITIONAL or ARM64 or MIPS
+    if C_LOOP or ARM or ARMv7 or ARMv7_TRADITIONAL or ARM64 or MIPS or SH4
         # In C_LOOP case, we're only preserving the bytecode vPC.
         move lr, destinationRegister
-    elsif SH4
-        stspr destinationRegister
     elsif X86 or X86_64
         pop destinationRegister
     else
@@ -215,11 +222,9 @@ macro preserveReturnAddressAfterCall(destinationRegister)
 end
 
 macro restoreReturnAddressBeforeReturn(sourceRegister)
-    if C_LOOP or ARM or ARMv7 or ARMv7_TRADITIONAL or ARM64 or MIPS
+    if C_LOOP or ARM or ARMv7 or ARMv7_TRADITIONAL or ARM64 or MIPS or SH4
         # In C_LOOP case, we're only restoring the bytecode vPC.
         move sourceRegister, lr
-    elsif SH4
-        ldspr sourceRegister
     elsif X86 or X86_64
         push sourceRegister
     else
@@ -258,19 +263,27 @@ end
 macro arrayProfile(structureAndIndexingType, profile, scratch)
     const structure = structureAndIndexingType
     const indexingType = structureAndIndexingType
-    if VALUE_PROFILER
-        storep structure, ArrayProfile::m_lastSeenStructure[profile]
-    end
+    storep structure, ArrayProfile::m_lastSeenStructure[profile]
     loadb Structure::m_indexingType[structure], indexingType
 end
 
+macro checkMarkByte(cell, scratch1, scratch2, continuation)
+    move cell, scratch1
+    move cell, scratch2
+
+    andp MarkedBlockMask, scratch1
+    andp ~MarkedBlockMask, scratch2
+
+    rshiftp AtomNumberShift + BitMapWordShift, scratch2
+    loadb MarkedBlock::m_marks[scratch1, scratch2, 1], scratch1
+    continuation(scratch1)
+end
+
 macro checkSwitchToJIT(increment, action)
-    if JIT_ENABLED
-        loadp CodeBlock[cfr], t0
-        baddis increment, CodeBlock::m_llintExecuteCounter + ExecutionCounter::m_counter[t0], .continue
-        action()
+    loadp CodeBlock[cfr], t0
+    baddis increment, CodeBlock::m_llintExecuteCounter + ExecutionCounter::m_counter[t0], .continue
+    action()
     .continue:
-    end
 end
 
 macro checkSwitchToJITForEpilogue()
@@ -320,18 +333,16 @@ macro prologue(codeBlockGetter, codeBlockSetter, osrSlowPath, traceSlowPath)
         callSlowPath(traceSlowPath)
     end
     codeBlockGetter(t1)
-    if JIT_ENABLED
-        baddis 5, CodeBlock::m_llintExecuteCounter + ExecutionCounter::m_counter[t1], .continue
-        cCall2(osrSlowPath, cfr, PC)
-        move t1, cfr
-        btpz t0, .recover
-        loadp ReturnPC[cfr], t2
-        restoreReturnAddressBeforeReturn(t2)
-        jmp t0
-    .recover:
-        codeBlockGetter(t1)
-    .continue:
-    end
+    baddis 5, CodeBlock::m_llintExecuteCounter + ExecutionCounter::m_counter[t1], .continue
+    cCall2(osrSlowPath, cfr, PC)
+    move t1, cfr
+    btpz t0, .recover
+    loadp ReturnPC[cfr], t2
+    restoreReturnAddressBeforeReturn(t2)
+    jmp t0
+.recover:
+    codeBlockGetter(t1)
+.continue:
     codeBlockSetter(t1)
     
     # Set up the PC.
@@ -346,46 +357,43 @@ end
 # Expects that CodeBlock is in t1, which is what prologue() leaves behind.
 # Must call dispatch(0) after calling this.
 macro functionInitialization(profileArgSkip)
-    if VALUE_PROFILER
-        # Profile the arguments. Unfortunately, we have no choice but to do this. This
-        # code is pretty horrendous because of the difference in ordering between
-        # arguments and value profiles, the desire to have a simple loop-down-to-zero
-        # loop, and the desire to use only three registers so as to preserve the PC and
-        # the code block. It is likely that this code should be rewritten in a more
-        # optimal way for architectures that have more than five registers available
-        # for arbitrary use in the interpreter.
-        loadi CodeBlock::m_numParameters[t1], t0
-        addp -profileArgSkip, t0 # Use addi because that's what has the peephole
-        assert(macro (ok) bpgteq t0, 0, ok end)
-        btpz t0, .argumentProfileDone
-        loadp CodeBlock::m_argumentValueProfiles + VectorBufferOffset[t1], t3
-        mulp sizeof ValueProfile, t0, t2 # Aaaaahhhh! Need strength reduction!
-        lshiftp 3, t0
-        addp t2, t3
-    .argumentProfileLoop:
-        if JSVALUE64
-            loadq ThisArgumentOffset - 8 + profileArgSkip * 8[cfr, t0], t2
-            subp sizeof ValueProfile, t3
-            storeq t2, profileArgSkip * sizeof ValueProfile + ValueProfile::m_buckets[t3]
-        else
-            loadi ThisArgumentOffset + TagOffset - 8 + profileArgSkip * 8[cfr, t0], t2
-            subp sizeof ValueProfile, t3
-            storei t2, profileArgSkip * sizeof ValueProfile + ValueProfile::m_buckets + TagOffset[t3]
-            loadi ThisArgumentOffset + PayloadOffset - 8 + profileArgSkip * 8[cfr, t0], t2
-            storei t2, profileArgSkip * sizeof ValueProfile + ValueProfile::m_buckets + PayloadOffset[t3]
-        end
-        baddpnz -8, t0, .argumentProfileLoop
-    .argumentProfileDone:
+    # Profile the arguments. Unfortunately, we have no choice but to do this. This
+    # code is pretty horrendous because of the difference in ordering between
+    # arguments and value profiles, the desire to have a simple loop-down-to-zero
+    # loop, and the desire to use only three registers so as to preserve the PC and
+    # the code block. It is likely that this code should be rewritten in a more
+    # optimal way for architectures that have more than five registers available
+    # for arbitrary use in the interpreter.
+    loadi CodeBlock::m_numParameters[t1], t0
+    addp -profileArgSkip, t0 # Use addi because that's what has the peephole
+    assert(macro (ok) bpgteq t0, 0, ok end)
+    btpz t0, .argumentProfileDone
+    loadp CodeBlock::m_argumentValueProfiles + VectorBufferOffset[t1], t3
+    mulp sizeof ValueProfile, t0, t2 # Aaaaahhhh! Need strength reduction!
+    lshiftp 3, t0
+    addp t2, t3
+.argumentProfileLoop:
+    if JSVALUE64
+        loadq ThisArgumentOffset - 8 + profileArgSkip * 8[cfr, t0], t2
+        subp sizeof ValueProfile, t3
+        storeq t2, profileArgSkip * sizeof ValueProfile + ValueProfile::m_buckets[t3]
+    else
+        loadi ThisArgumentOffset + TagOffset - 8 + profileArgSkip * 8[cfr, t0], t2
+        subp sizeof ValueProfile, t3
+        storei t2, profileArgSkip * sizeof ValueProfile + ValueProfile::m_buckets + TagOffset[t3]
+        loadi ThisArgumentOffset + PayloadOffset - 8 + profileArgSkip * 8[cfr, t0], t2
+        storei t2, profileArgSkip * sizeof ValueProfile + ValueProfile::m_buckets + PayloadOffset[t3]
     end
+    baddpnz -8, t0, .argumentProfileLoop
+.argumentProfileDone:
         
     # Check stack height.
     loadi CodeBlock::m_numCalleeRegisters[t1], t0
     addi 1, t0 # Account that local0 goes at slot -1
     loadp CodeBlock::m_vm[t1], t2
-    loadp VM::interpreter[t2], t2
     lshiftp 3, t0
     subp cfr, t0, t0
-    bpbeq Interpreter::m_stack + JSStack::m_end[t2], t0, .stackHeightOK
+    bpbeq VM::m_jsStackLimit[t2], t0, .stackHeightOK
 
     # Stack height check failed - need to call a slow_path.
     callSlowPath(_llint_stack_check)
@@ -421,6 +429,19 @@ macro doReturn()
     ret
 end
 
+if C_LOOP
+else
+# stub to call into JavaScript or Native functions
+# EncodedJSValue callToJavaScript(void* code, ExecState** vm, ProtoCallFrame* protoFrame, Register* topOfStack)
+# EncodedJSValue callToNativeFunction(void* code, ExecState** vm, ProtoCallFrame* protoFrame, Register* topOfStack)
+# Note, if these stubs or one of their related macros are changed, make the
+# equivalent changes in jit/JITStubsX86.h and/or jit/JITStubsMSVC64.asm
+_callToJavaScript:
+    doCallToJavaScript(makeJavaScriptCall, doReturnFromJavaScript)
+
+_callToNativeFunction:
+    doCallToJavaScript(makeHostFunctionCall, doReturnFromHostFunction)
+end
 
 # Indicate the beginning of LLInt.
 _llint_begin:
@@ -470,6 +491,12 @@ end
 
 
 # Value-representation-agnostic code.
+_llint_op_touch_entry:
+    traceExecution()
+    callSlowPath(_slow_path_touch_entry)
+    dispatch(1)
+
+
 _llint_op_new_array:
     traceExecution()
     callSlowPath(_llint_slow_path_new_array)
@@ -704,6 +731,8 @@ _llint_op_construct:
 
 _llint_op_call_varargs:
     traceExecution()
+    callSlowPath(_llint_slow_path_size_and_alloc_frame_for_varargs)
+    branchIfException(_llint_throw_from_slow_path_trampoline)
     slowPathForCall(_llint_slow_path_call_varargs)
 
 

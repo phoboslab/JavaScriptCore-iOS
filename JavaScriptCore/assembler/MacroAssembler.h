@@ -140,6 +140,9 @@ public:
     using MacroAssemblerBase::and32;
     using MacroAssemblerBase::branchAdd32;
     using MacroAssemblerBase::branchMul32;
+#if CPU(X86_64)
+    using MacroAssemblerBase::branchPtr;
+#endif // CPU(X86_64)
     using MacroAssemblerBase::branchSub32;
     using MacroAssemblerBase::lshift32;
     using MacroAssemblerBase::or32;
@@ -359,6 +362,7 @@ public:
         return PatchableJump(branchPtrWithPatch(cond, left, dataLabel, initialRightValue));
     }
 
+#if !CPU(ARM_TRADITIONAL)
     PatchableJump patchableJump()
     {
         return PatchableJump(jump());
@@ -373,6 +377,7 @@ public:
     {
         return PatchableJump(branch32(cond, reg, imm));
     }
+#endif
 #endif
 
     void jump(Label target)
@@ -590,6 +595,11 @@ public:
         store32(TrustedImm32(imm), address);
     }
 
+    void storePtr(TrustedImmPtr imm, BaseIndex address)
+    {
+        store32(TrustedImm32(imm), address);
+    }
+
     DataLabel32 storePtrWithAddressOffsetPatch(RegisterID src, Address address)
     {
         return store32WithAddressOffsetPatch(src, address);
@@ -723,6 +733,11 @@ public:
     }
 
     void andPtr(TrustedImm32 imm, RegisterID srcDest)
+    {
+        and64(imm, srcDest);
+    }
+    
+    void andPtr(TrustedImmPtr imm, RegisterID srcDest)
     {
         and64(imm, srcDest);
     }
@@ -983,13 +998,23 @@ public:
         return value > 0xff;
     }
     
+    bool shouldBlindPointerForSpecificArch(uintptr_t value)
+    {
+        if (sizeof(void*) == 4)
+            return shouldBlindForSpecificArch(static_cast<uint32_t>(value));
+        return shouldBlindForSpecificArch(static_cast<uint64_t>(value));
+    }
+    
     bool shouldBlind(ImmPtr imm)
-    { 
+    {
+        if (!canBlind())
+            return false;
+        
 #if ENABLE(FORCED_JIT_BLINDING)
         UNUSED_PARAM(imm);
         // Debug always blind all constants, if only so we know
         // if we've broken blinding during patch development.
-        return true;        
+        return true;
 #endif
 
         // First off we'll special case common, "safe" values to avoid hurting
@@ -1015,7 +1040,7 @@ public:
         if (!shouldConsiderBlinding())
             return false;
 
-        return shouldBlindForSpecificArch(value);
+        return shouldBlindPointerForSpecificArch(value);
     }
     
     struct RotatedImmPtr {
@@ -1387,9 +1412,9 @@ public:
             store32(blind.value1, dest);
             xor32(blind.value2, dest);
 #else // CPU(X86) || CPU(X86_64)
-            if (RegisterID scratchRegister = (RegisterID)scratchRegisterForBlinding()) {
-                loadXorBlindedConstant(xorBlindConstant(imm), scratchRegister);
-                store32(scratchRegister, dest);
+            if (haveScratchRegisterForBlinding()) {
+                loadXorBlindedConstant(xorBlindConstant(imm), scratchRegisterForBlinding());
+                store32(scratchRegisterForBlinding(), dest);
             } else {
                 // If we don't have a scratch register available for use, we'll just 
                 // place a random number of nops.
@@ -1446,9 +1471,9 @@ public:
     Jump branch32(RelationalCondition cond, RegisterID left, Imm32 right)
     {
         if (shouldBlind(right)) {
-            if (RegisterID scratchRegister = (RegisterID)scratchRegisterForBlinding()) {
-                loadXorBlindedConstant(xorBlindConstant(right), scratchRegister);
-                return branch32(cond, left, scratchRegister);
+            if (haveScratchRegisterForBlinding()) {
+                loadXorBlindedConstant(xorBlindConstant(right), scratchRegisterForBlinding());
+                return branch32(cond, left, scratchRegisterForBlinding());
             }
             // If we don't have a scratch register available for use, we'll just 
             // place a random number of nops.
@@ -1464,14 +1489,12 @@ public:
     Jump branchAdd32(ResultCondition cond, RegisterID src, Imm32 imm, RegisterID dest)
     {
         if (src == dest)
-            ASSERT(scratchRegisterForBlinding());
+            ASSERT(haveScratchRegisterForBlinding());
 
         if (shouldBlind(imm)) {
             if (src == dest) {
-                if (RegisterID scratchRegister = (RegisterID)scratchRegisterForBlinding()) {
-                    move(src, scratchRegister);
-                    src = scratchRegister;
-                }
+                move(src, scratchRegisterForBlinding());
+                src = scratchRegisterForBlinding();
             }
             loadXorBlindedConstant(xorBlindConstant(imm), dest);
             return branchAdd32(cond, src, dest);  
@@ -1482,14 +1505,12 @@ public:
     Jump branchMul32(ResultCondition cond, Imm32 imm, RegisterID src, RegisterID dest)
     {
         if (src == dest)
-            ASSERT(scratchRegisterForBlinding());
+            ASSERT(haveScratchRegisterForBlinding());
 
         if (shouldBlind(imm)) {
             if (src == dest) {
-                if (RegisterID scratchRegister = (RegisterID)scratchRegisterForBlinding()) {
-                    move(src, scratchRegister);
-                    src = scratchRegister;
-                }
+                move(src, scratchRegisterForBlinding());
+                src = scratchRegisterForBlinding();
             }
             loadXorBlindedConstant(xorBlindConstant(imm), dest);
             return branchMul32(cond, src, dest);  

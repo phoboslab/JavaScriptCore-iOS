@@ -21,6 +21,7 @@
 #include "config.h"
 #include "MarkedSpace.h"
 
+#include "DelayedReleaseScope.h"
 #include "IncrementalSweeper.h"
 #include "JSGlobalObject.h"
 #include "JSLock.h"
@@ -81,6 +82,7 @@ MarkedSpace::MarkedSpace(Heap* heap)
     : m_heap(heap)
     , m_capacity(0)
     , m_isIterating(false)
+    , m_currentDelayedReleaseScope(nullptr)
 {
     for (size_t cellSize = preciseStep; cellSize <= preciseCutoff; cellSize += preciseStep) {
         allocatorFor(cellSize).init(heap, this, cellSize, MarkedBlock::None);
@@ -103,6 +105,7 @@ MarkedSpace::~MarkedSpace()
 {
     Free free(Free::FreeAll, this);
     forEachBlock(free);
+    ASSERT(!m_blocks.set().size());
 }
 
 struct LastChanceToFinalize : MarkedBlock::VoidFunctor {
@@ -111,12 +114,15 @@ struct LastChanceToFinalize : MarkedBlock::VoidFunctor {
 
 void MarkedSpace::lastChanceToFinalize()
 {
+    DelayedReleaseScope delayedReleaseScope(*this);
     stopAllocating();
     forEachBlock<LastChanceToFinalize>();
 }
 
 void MarkedSpace::sweep()
 {
+    if (Options::logGC())
+        dataLog("Eagerly sweeping...");
     m_heap->sweeper()->willFinishSweeping();
     forEachBlock<Sweep>();
 }
@@ -138,17 +144,29 @@ void MarkedSpace::resetAllocators()
     m_normalSpace.largeAllocator.reset();
     m_normalDestructorSpace.largeAllocator.reset();
     m_immortalStructureDestructorSpace.largeAllocator.reset();
+
+#if ENABLE(GGC)
+    m_blocksWithNewObjects.clear();
+#endif
 }
 
 void MarkedSpace::visitWeakSets(HeapRootVisitor& heapRootVisitor)
 {
     VisitWeakSet visitWeakSet(heapRootVisitor);
-    forEachBlock(visitWeakSet);
+    if (m_heap->operationInProgress() == EdenCollection) {
+        for (unsigned i = 0; i < m_blocksWithNewObjects.size(); ++i)
+            visitWeakSet(m_blocksWithNewObjects[i]);
+    } else
+        forEachBlock(visitWeakSet);
 }
 
 void MarkedSpace::reapWeakSets()
 {
-    forEachBlock<ReapWeakSet>();
+    if (m_heap->operationInProgress() == EdenCollection) {
+        for (unsigned i = 0; i < m_blocksWithNewObjects.size(); ++i)
+            m_blocksWithNewObjects[i]->reapWeakSet();
+    } else
+        forEachBlock<ReapWeakSet>();
 }
 
 template <typename Functor>
@@ -195,6 +213,7 @@ struct ResumeAllocatingFunctor {
 void MarkedSpace::resumeAllocating()
 {
     ASSERT(isIterating());
+    DelayedReleaseScope scope(*this);
     forEachAllocator<ResumeAllocatingFunctor>();
 }
 
@@ -296,6 +315,24 @@ void MarkedSpace::clearNewlyAllocated()
 #ifndef NDEBUG
     VerifyNewlyAllocated verifyFunctor;
     forEachBlock(verifyFunctor);
+#endif
+}
+
+#ifndef NDEBUG
+struct VerifyMarked : MarkedBlock::VoidFunctor {
+    void operator()(MarkedBlock* block) { ASSERT(block->needsSweeping()); }
+};
+#endif
+
+void MarkedSpace::clearMarks()
+{
+    if (m_heap->operationInProgress() == EdenCollection) {
+        for (unsigned i = 0; i < m_blocksWithNewObjects.size(); ++i)
+            m_blocksWithNewObjects[i]->clearMarks();
+    } else
+        forEachBlock<ClearMarks>();
+#ifndef NDEBUG
+    forEachBlock<VerifyMarked>();
 #endif
 }
 

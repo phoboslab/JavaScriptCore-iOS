@@ -64,20 +64,23 @@ public:
         m_offsetToSavingArea =
             (std::max(m_numArgs, NUMBER_OF_ARGUMENT_REGISTERS) - NUMBER_OF_ARGUMENT_REGISTERS) * wordSize;
         
-        unsigned numArgumentRegistersThatNeedSaving = 0;
-        for (unsigned i = std::min(NUMBER_OF_ARGUMENT_REGISTERS, numArgs); i--;) {
-            if (m_usedRegisters.get(GPRInfo::toArgumentRegister(i)))
-                numArgumentRegistersThatNeedSaving++;
-        }
+        for (unsigned i = std::min(NUMBER_OF_ARGUMENT_REGISTERS, numArgs); i--;)
+            m_callingConventionRegisters.set(GPRInfo::toArgumentRegister(i));
+        if (returnRegister != InvalidGPRReg)
+            m_callingConventionRegisters.set(GPRInfo::returnValueGPR);
+        m_callingConventionRegisters.filter(m_usedRegisters);
+        
+        unsigned numberOfCallingConventionRegisters =
+            m_callingConventionRegisters.numberOfSetRegisters();
         
         size_t offsetToThunkSavingArea =
             m_offsetToSavingArea +
-            numArgumentRegistersThatNeedSaving * wordSize;
+            numberOfCallingConventionRegisters * wordSize;
         
         m_stackBytesNeeded =
             offsetToThunkSavingArea +
             stackBytesNeededForReturnAddress +
-            (m_usedRegisters.numberOfSetRegisters() - numArgumentRegistersThatNeedSaving) * wordSize;
+            (m_usedRegisters.numberOfSetRegisters() - numberOfCallingConventionRegisters) * wordSize;
         
         size_t stackAlignment = 16;
         
@@ -87,11 +90,13 @@ public:
         
         m_thunkSaveSet = m_usedRegisters;
         
-        for (unsigned i = std::min(NUMBER_OF_ARGUMENT_REGISTERS, numArgs); i--;) {
-            if (!m_usedRegisters.get(GPRInfo::toArgumentRegister(i)))
+        // This relies on all calling convention registers also being temp registers.
+        unsigned stackIndex = 0;
+        for (unsigned i = GPRInfo::numberOfRegisters; i--;) {
+            GPRReg reg = GPRInfo::toRegister(i);
+            if (!m_callingConventionRegisters.get(reg))
                 continue;
-            GPRReg reg = GPRInfo::toArgumentRegister(i);
-            m_jit.storePtr(reg, CCallHelpers::Address(CCallHelpers::stackPointerRegister, m_offsetToSavingArea + i * wordSize));
+            m_jit.storePtr(reg, CCallHelpers::Address(CCallHelpers::stackPointerRegister, m_offsetToSavingArea + (stackIndex++) * wordSize));
             m_thunkSaveSet.clear(reg);
         }
         
@@ -100,13 +105,15 @@ public:
     
     ~CallContext()
     {
-        m_jit.move(GPRInfo::returnValueGPR, m_returnRegister);
+        if (m_returnRegister != InvalidGPRReg)
+            m_jit.move(GPRInfo::returnValueGPR, m_returnRegister);
         
-        for (unsigned i = std::min(NUMBER_OF_ARGUMENT_REGISTERS, m_numArgs); i--;) {
-            if (!m_usedRegisters.get(GPRInfo::toArgumentRegister(i)))
+        unsigned stackIndex = 0;
+        for (unsigned i = GPRInfo::numberOfRegisters; i--;) {
+            GPRReg reg = GPRInfo::toRegister(i);
+            if (!m_callingConventionRegisters.get(reg))
                 continue;
-            GPRReg reg = GPRInfo::toArgumentRegister(i);
-            m_jit.loadPtr(CCallHelpers::Address(CCallHelpers::stackPointerRegister, m_offsetToSavingArea + i * wordSize), reg);
+            m_jit.loadPtr(CCallHelpers::Address(CCallHelpers::stackPointerRegister, m_offsetToSavingArea + (stackIndex++) * wordSize), reg);
         }
         
         m_jit.addPtr(CCallHelpers::TrustedImm32(m_stackBytesNeeded), CCallHelpers::stackPointerRegister);
@@ -138,6 +145,7 @@ public:
 private:
     State& m_state;
     RegisterSet m_usedRegisters;
+    RegisterSet m_callingConventionRegisters;
     CCallHelpers& m_jit;
     unsigned m_numArgs;
     GPRReg m_returnRegister;
@@ -157,6 +165,20 @@ MacroAssembler::Call callOperation(
     CallContext context(state, usedRegisters, jit, 4, result);
     jit.setupArguments(
         callFrameRegister, CCallHelpers::TrustedImmPtr(stubInfo), object,
+        CCallHelpers::TrustedImmPtr(uid));
+    return context.makeCall(bitwise_cast<void*>(operation));
+    // FIXME: FTL should support exceptions.
+    // https://bugs.webkit.org/show_bug.cgi?id=113622
+}
+
+MacroAssembler::Call callOperation(
+    State& state, const RegisterSet& usedRegisters, CCallHelpers& jit, 
+    V_JITOperation_ESsiJJI operation, GPRReg callFrameRegister,
+    StructureStubInfo* stubInfo, GPRReg value, GPRReg object, StringImpl* uid)
+{
+    CallContext context(state, usedRegisters, jit, 5, InvalidGPRReg);
+    jit.setupArguments(
+        callFrameRegister, CCallHelpers::TrustedImmPtr(stubInfo), value, object,
         CCallHelpers::TrustedImmPtr(uid));
     return context.makeCall(bitwise_cast<void*>(operation));
     // FIXME: FTL should support exceptions.

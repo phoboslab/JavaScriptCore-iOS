@@ -29,11 +29,11 @@
 
 namespace JSC {
 
-static JSValue numberConstructorNaNValue(ExecState*, JSValue, PropertyName);
-static JSValue numberConstructorNegInfinity(ExecState*, JSValue, PropertyName);
-static JSValue numberConstructorPosInfinity(ExecState*, JSValue, PropertyName);
-static JSValue numberConstructorMaxValue(ExecState*, JSValue, PropertyName);
-static JSValue numberConstructorMinValue(ExecState*, JSValue, PropertyName);
+static EncodedJSValue numberConstructorNaNValue(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName);
+static EncodedJSValue numberConstructorNegInfinity(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName);
+static EncodedJSValue numberConstructorPosInfinity(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName);
+static EncodedJSValue numberConstructorMaxValue(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName);
+static EncodedJSValue numberConstructorMinValue(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName);
 
 } // namespace JSC
 
@@ -60,8 +60,6 @@ NumberConstructor::NumberConstructor(VM& vm, Structure* structure)
 {
 }
 
-static double MinValueAccountingForDenormals = DBL_MIN;
-
 void NumberConstructor::finishCreation(VM& vm, NumberPrototype* numberPrototype)
 {
     Base::finishCreation(vm, NumberPrototype::info()->className);
@@ -72,14 +70,6 @@ void NumberConstructor::finishCreation(VM& vm, NumberPrototype* numberPrototype)
 
     // no. of arguments for constructor
     putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(1), ReadOnly | DontEnum | DontDelete);
-	
-	// Test for denormal support. Use 5E-324 as MIN_VALUE if we have denormals
-	// Careful: this test gets easily optimized away by the compiler, hence
-	// the assignment to another var.
-	double denormalTest = MinValueAccountingForDenormals / 2;
-	if( denormalTest != 0 ) {
-			MinValueAccountingForDenormals = 5E-324;
-	}
 }
 
 bool NumberConstructor::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
@@ -92,29 +82,29 @@ void NumberConstructor::put(JSCell* cell, ExecState* exec, PropertyName property
     lookupPut<NumberConstructor, InternalFunction>(exec, propertyName, value, ExecState::numberConstructorTable(exec), jsCast<NumberConstructor*>(cell), slot);
 }
 
-static JSValue numberConstructorNaNValue(ExecState*, JSValue, PropertyName)
+static EncodedJSValue numberConstructorNaNValue(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName)
 {
-    return jsNaN();
+    return JSValue::encode(jsNaN());
 }
 
-static JSValue numberConstructorNegInfinity(ExecState*, JSValue, PropertyName)
+static EncodedJSValue numberConstructorNegInfinity(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName)
 {
-    return jsNumber(-std::numeric_limits<double>::infinity());
+    return JSValue::encode(jsNumber(-std::numeric_limits<double>::infinity()));
 }
 
-static JSValue numberConstructorPosInfinity(ExecState*, JSValue, PropertyName)
+static EncodedJSValue numberConstructorPosInfinity(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName)
 {
-    return jsNumber(std::numeric_limits<double>::infinity());
+    return JSValue::encode(jsNumber(std::numeric_limits<double>::infinity()));
 }
 
-static JSValue numberConstructorMaxValue(ExecState*, JSValue, PropertyName)
+static EncodedJSValue numberConstructorMaxValue(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName)
 {
-    return jsNumber(1.7976931348623157E+308);
+    return JSValue::encode(jsNumber(1.7976931348623157E+308));
 }
 
-static JSValue numberConstructorMinValue(ExecState*, JSValue, PropertyName)
+static EncodedJSValue numberConstructorMinValue(ExecState*, EncodedJSValue, EncodedJSValue, PropertyName)
 {
-    return jsNumber(MinValueAccountingForDenormals);
+    return JSValue::encode(jsNumber(5E-324));
 }
 
 // ECMA 15.7.1

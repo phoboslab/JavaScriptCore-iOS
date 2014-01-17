@@ -26,6 +26,7 @@
 #ifndef DFGVariableAccessData_h
 #define DFGVariableAccessData_h
 
+#include "DFGCommon.h"
 #include "DFGDoubleFormatState.h"
 #include "DFGFlushFormat.h"
 #include "DFGFlushedAt.h"
@@ -38,6 +39,8 @@
 #include <wtf/Vector.h>
 
 namespace JSC { namespace DFG {
+
+struct Node;
 
 enum DoubleBallot { VoteValue, VoteDouble };
 
@@ -71,6 +74,7 @@ public:
         , m_structureCheckHoistingFailed(false)
         , m_checkArrayHoistingFailed(false)
         , m_isProfitableToUnbox(false)
+        , m_isLoadedFrom(false)
         , m_doubleFormatState(EmptyDoubleFormatState)
     {
         clearVotes();
@@ -325,6 +329,9 @@ public:
     {
         ASSERT(find() == this);
         
+        if (isArgumentsAlias())
+            return FlushedArguments;
+        
         if (!shouldUnboxIfPossible())
             return FlushedJSValue;
         
@@ -351,7 +358,7 @@ public:
     {
         return FlushedAt(flushFormat(), machineLocal());
     }
-    
+
 private:
     // This is slightly space-inefficient, since anything we're unified with
     // will have the same operand and should have the same prediction. But

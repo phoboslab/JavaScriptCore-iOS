@@ -45,45 +45,6 @@ namespace JSC {
 
 #if COMPILER(GCC)
 
-asm (
-".text\n"
-".globl " SYMBOL_STRING(ctiTrampoline) "\n"
-HIDE_SYMBOL(ctiTrampoline) "\n"
-SYMBOL_STRING(ctiTrampoline) ":" "\n"
-    "pushl %ebp" "\n"
-    "movl %esp, %ebp" "\n"
-    "pushl %esi" "\n"
-    "pushl %edi" "\n"
-    "pushl %ebx" "\n"
-
-    // JIT Operation can use up to 6 arguments right now. So, we need to
-    // reserve space in this stack frame for the out-going args. To ensure that
-    // the stack remains aligned on an 16 byte boundary, we round the padding up
-    // by 0x1c bytes.
-    "subl $0x1c, %esp" "\n"
-    "movl 0x38(%esp), %edi" "\n"
-    "call *0x30(%esp)" "\n"
-    "addl $0x1c, %esp" "\n"
-
-    "popl %ebx" "\n"
-    "popl %edi" "\n"
-    "popl %esi" "\n"
-    "popl %ebp" "\n"
-    "ret" "\n"
-);
-
-asm (
-".globl " SYMBOL_STRING(ctiOpThrowNotCaught) "\n"
-HIDE_SYMBOL(ctiOpThrowNotCaught) "\n"
-SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
-    "addl $0x1c, %esp" "\n"
-    "popl %ebx" "\n"
-    "popl %edi" "\n"
-    "popl %esi" "\n"
-    "popl %ebp" "\n"
-    "ret" "\n"
-);
-
 #if USE(MASM_PROBE)
 asm (
 ".globl " SYMBOL_STRING(ctiMasmProbeTrampoline) "\n"
@@ -243,18 +204,99 @@ SYMBOL_STRING(ctiMasmProbeTrampolineEnd) ":" "\n"
 
 extern "C" {
 
-    __declspec(naked) EncodedJSValue ctiTrampoline(void* code, JSStack*, CallFrame*, void* /*unused1*/, void* /*unused2*/, VM*)
+    // FIXME: Since Windows doesn't use the LLInt, we have inline stubs here.
+    // Until the LLInt is changed to support Windows, these stub needs to be updated.
+    __declspec(naked) EncodedJSValue callToJavaScript(void* code, ExecState**, ProtoCallFrame*, Register*)
     {
         __asm {
+            mov edx, [esp]
             push ebp;
+            mov eax, ebp;
             mov ebp, esp;
             push esi;
             push edi;
             push ebx;
             sub esp, 0x1c;
-            mov ecx, esp;
-            mov edi, [esp + 0x38];
-            call [esp + 0x30];
+            mov ecx, dword ptr[esp + 0x34];
+            mov esi, dword ptr[esp + 0x38];
+            mov ebp, dword ptr[esp + 0x3c];
+            sub ebp, 0x20;
+            mov dword ptr[ebp + 0x24], 0;
+            mov dword ptr[ebp + 0x20], 0;
+            mov dword ptr[ebp + 0x1c], 0;
+            mov dword ptr[ebp + 0x18], ecx;
+            mov ebx, [ecx];
+            mov dword ptr[ebp + 0x14], 0;
+            mov dword ptr[ebp + 0x10], ebx;
+            mov dword ptr[ebp + 0xc], 0;
+            mov dword ptr[ebp + 0x8], 1;
+            mov dword ptr[ebp + 0x4], edx;
+            mov dword ptr[ebp], eax;
+            mov eax, ebp;
+
+            mov edx, dword ptr[esi + 0x28];
+            add edx, 5;
+            sal edx, 3;
+            sub ebp, edx;
+            mov dword ptr[ebp], eax;
+
+            mov eax, 5;
+
+        copyHeaderLoop:
+            sub eax, 1;
+            mov ecx, dword ptr[esi + eax * 8];
+            mov dword ptr 8[ebp + eax * 8], ecx;
+            mov ecx, dword ptr 4[esi + eax * 8];
+            mov dword ptr 12[ebp + eax * 8], ecx;
+            test eax, eax;
+            jnz copyHeaderLoop;
+
+            mov edx, dword ptr[esi + 0x18];
+            sub edx, 1;
+            mov ecx, dword ptr[esi + 0x28];
+            sub ecx, 1;
+
+            cmp edx, ecx;
+            je copyArgs;
+
+            xor eax, eax;
+            mov ebx, -4;
+
+        fillExtraArgsLoop:
+            sub ecx, 1;
+            mov dword ptr 0x30[ebp + ecx * 8], eax;            
+            mov dword ptr 0x34[ebp + ecx * 8], ebx;
+            cmp edx, ecx;
+            jne fillExtraArgsLoop;
+
+        copyArgs:
+            mov eax, dword ptr[esi + 0x2c];
+
+        copyArgsLoop:
+            test edx, edx;
+            jz copyArgsDone;
+            sub edx, 1;
+            mov ecx, dword ptr 0[eax + edx * 8];
+            mov ebx, dword ptr 4[eax + edx * 8];
+            mov dword ptr 0x30[ebp + edx * 8], ecx;
+            mov dword ptr 0x34[ebp + edx * 8], ebx;
+            jmp copyArgsLoop;
+
+        copyArgsDone:
+            mov ecx, dword ptr[esp + 0x34];
+            mov dword ptr[ecx], ebp;
+
+            call dword ptr[esp + 0x30];
+
+            cmp dword ptr[ebp + 8], 1;
+            je calleeFramePopped;
+            mov ebp, dword ptr[ebp];
+
+        calleeFramePopped:
+            mov ecx, dword ptr[ebp + 0x18];
+            mov ebx, dword ptr[ebp + 0x10];
+            mov dword ptr[ecx], ebx;
+
             add esp, 0x1c;
             pop ebx;
             pop edi;
@@ -264,9 +306,112 @@ extern "C" {
         }
     }
 
-    __declspec(naked) void ctiOpThrowNotCaught()
+    __declspec(naked) void returnFromJavaScript()
     {
         __asm {
+            add esp, 0x1c;
+            pop ebx;
+            pop edi;
+            pop esi;
+            pop ebp;
+            ret;
+        }
+    }
+
+    __declspec(naked) EncodedJSValue callToNativeFunction(void* code, ExecState**, ProtoCallFrame*, Register*)
+    {
+        __asm {
+            mov edx, [esp]
+            push ebp;
+            mov eax, ebp;
+            mov ebp, esp;
+            push esi;
+            push edi;
+            push ebx;
+            sub esp, 0x1c;
+            mov ecx, [esp + 0x34];
+            mov esi, [esp + 0x38];
+            mov ebp, [esp + 0x3c];
+            sub ebp, 0x20;
+            mov dword ptr[ebp + 0x24], 0;
+            mov dword ptr[ebp + 0x20], 0;
+            mov dword ptr[ebp + 0x1c], 0;
+            mov dword ptr[ebp + 0x18], ecx;
+            mov ebx, [ecx];
+            mov dword ptr[ebp + 0x14], 0;
+            mov dword ptr[ebp + 0x10], ebx;
+            mov dword ptr[ebp + 0xc], 0;
+            mov dword ptr[ebp + 0x8], 1;
+            mov dword ptr[ebp + 0x4], edx;
+            mov dword ptr[ebp], eax;
+            mov eax, ebp;
+
+            mov edx, dword ptr[esi + 0x28];
+            add edx, 5;
+            sal edx, 3;
+            sub ebp, edx;
+            mov dword ptr[ebp], eax;
+
+            mov eax, 5;
+
+        copyHeaderLoop:
+            sub eax, 1;
+            mov ecx, dword ptr[esi + eax * 8];
+            mov dword ptr 8[ebp + eax * 8], ecx;
+            mov ecx, dword ptr 4[esi + eax * 8];
+            mov dword ptr 12[ebp + eax * 8], ecx;
+            test eax, eax;
+            jnz copyHeaderLoop;
+
+            mov edx, dword ptr[esi + 0x18];
+            sub edx, 1;
+            mov ecx, dword ptr[esi + 0x28];
+            sub ecx, 1;
+
+            cmp edx, ecx;
+            je copyArgs;
+
+            xor eax, eax;
+            mov ebx, -4;
+
+        fillExtraArgsLoop:
+            sub ecx, 1;
+            mov dword ptr 0x30[ebp + ecx * 8], eax;            
+            mov dword ptr 0x34[ebp + ecx * 8], ebx;
+            cmp edx, ecx;
+            jne fillExtraArgsLoop;
+
+        copyArgs:
+            mov eax, dword ptr[esi + 0x2c];
+
+        copyArgsLoop:
+            test edx, edx;
+            jz copyArgsDone;
+            sub edx, 1;
+            mov ecx, dword ptr 0[eax + edx * 8];
+            mov ebx, dword ptr 4[eax + edx * 8];
+            mov dword ptr 0x30[ebp + edx * 8], ecx;
+            mov dword ptr 0x34[ebp + edx * 8], ebx;
+            jmp copyArgsLoop;
+
+        copyArgsDone:
+            mov ecx, dword ptr[esp + 0x34];
+            mov dword ptr[ecx], ebp;
+
+            mov edi, dword ptr[esp + 0x30];
+            mov dword ptr[esp + 0x30], ebp;
+            mov ecx, ebp;
+            call edi;
+
+            cmp dword ptr[ebp + 8], 1;
+            je calleeFramePopped;
+            mov ebp, dword ptr[ebp];
+
+        calleeFramePopped:
+            mov ecx, dword ptr[ebp + 0x18];
+            mov ebx, dword ptr[ebp + 0x10];
+            mov dword ptr[ecx], ebx;
+
             add esp, 0x1c;
             pop ebx;
             pop edi;

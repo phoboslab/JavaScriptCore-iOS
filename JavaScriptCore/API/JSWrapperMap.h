@@ -25,7 +25,12 @@
 
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <JSValueInternal.h>
+
+#if TARGET_OS_IPHONE
+#import <objc/runtime.h>
+#else
 #import <objc/objc-runtime.h>
+#endif
 
 #if JSC_OBJC_API_ENABLED
 

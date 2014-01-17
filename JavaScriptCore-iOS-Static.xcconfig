@@ -6,7 +6,7 @@
 //
 //
 
-#include "JavaScriptCore.xcconfig"
+#include "JavaScriptCore/Configurations/JavaScriptCore.xcconfig"
 
 ARCHS = arm64;
 ONLY_ACTIVE_ARCH = NO;

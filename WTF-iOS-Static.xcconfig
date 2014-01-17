@@ -6,7 +6,7 @@
 //
 //
 
-#include "WTF.xcconfig"
+#include "WTF/Configurations/WTF.xcconfig"
 
 PRODUCT_NAME = WTF
 ARCHS = arm64 armv7

@@ -40,6 +40,258 @@
 		0FD81AC5154FB22E00983E72 /* FastBitVector.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FD81AC4154FB22E00983E72 /* FastBitVector.h */; settings = {ATTRIBUTES = (); }; };
 		0FDDBFA71666DFA300C55FEF /* StringPrintStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0FDDBFA51666DFA300C55FEF /* StringPrintStream.cpp */; };
 		0FDDBFA81666DFA300C55FEF /* StringPrintStream.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FDDBFA61666DFA300C55FEF /* StringPrintStream.h */; };
+		10EAA7061889E93100DEB161 /* Assertions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4725B151A825A004123FF /* Assertions.cpp */; };
+		10EAA7071889E93100DEB161 /* AtomicString.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4731D151A825B004123FF /* AtomicString.cpp */; };
+		10EAA7081889E93100DEB161 /* AtomicStringTable.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9BC70F04176C379D00101DEC /* AtomicStringTable.cpp */; };
+		10EAA7091889E93100DEB161 /* StringCF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5BA15F8182435A600A82E69 /* StringCF.cpp */; };
+		10EAA70A1889E93100DEB161 /* AutodrainedPoolMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1469419B16EAB10A0024E146 /* AutodrainedPoolMac.mm */; };
+		10EAA70B1889E93100DEB161 /* Base64.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8134013615B092FD001FF0B8 /* Base64.cpp */; };
+		10EAA70C1889E93100DEB161 /* bignum-dtoa.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47282151A825A004123FF /* bignum-dtoa.cc */; };
+		10EAA70D1889E93100DEB161 /* bignum.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47284151A825A004123FF /* bignum.cc */; };
+		10EAA70E1889E93100DEB161 /* BinarySemaphore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4733A151A825B004123FF /* BinarySemaphore.cpp */; };
+		10EAA70F1889E93100DEB161 /* BitVector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47260151A825A004123FF /* BitVector.cpp */; };
+		10EAA7101889E93100DEB161 /* cached-powers.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47286151A825A004123FF /* cached-powers.cc */; };
+		10EAA7111889E93100DEB161 /* CollatorDefault.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4734B151A825B004123FF /* CollatorDefault.cpp */; };
+		10EAA7121889E93100DEB161 /* CollatorICU.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47350151A825B004123FF /* CollatorICU.cpp */; };
+		10EAA7131889E93100DEB161 /* CompilationThread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F8F2B8F172E00F0007DBDA5 /* CompilationThread.cpp */; };
+		10EAA7141889E93100DEB161 /* Compression.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A7E643C417C5423B003BB16B /* Compression.cpp */; };
+		10EAA7151889E93100DEB161 /* CryptographicallyRandomNumber.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47273151A825A004123FF /* CryptographicallyRandomNumber.cpp */; };
+		10EAA7161889E93100DEB161 /* CString.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47321151A825B004123FF /* CString.cpp */; };
+		10EAA7171889E93100DEB161 /* CurrentTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47275151A825A004123FF /* CurrentTime.cpp */; };
+		10EAA7181889E93100DEB161 /* DataLog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47277151A825A004123FF /* DataLog.cpp */; };
+		10EAA7191889E93100DEB161 /* DateMath.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47279151A825A004123FF /* DateMath.cpp */; };
+		10EAA71A1889E93100DEB161 /* DecimalNumber.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4727B151A825A004123FF /* DecimalNumber.cpp */; };
+		10EAA71B1889E93100DEB161 /* diy-fp.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47289151A825A004123FF /* diy-fp.cc */; };
+		10EAA71C1889E93100DEB161 /* double-conversion.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A4728B151A825A004123FF /* double-conversion.cc */; };
+		10EAA71D1889E93100DEB161 /* dtoa.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47297151A825A004123FF /* dtoa.cpp */; };
+		10EAA71E1889E93100DEB161 /* FastBitVector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F885E0E1845AE9F00F1E3FA /* FastBitVector.cpp */; };
+		10EAA71F1889E93100DEB161 /* DynamicAnnotations.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47299151A825A004123FF /* DynamicAnnotations.cpp */; };
+		10EAA7201889E93100DEB161 /* fast-dtoa.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A4728E151A825A004123FF /* fast-dtoa.cc */; };
+		10EAA7211889E93100DEB161 /* FastMalloc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472A1151A825A004123FF /* FastMalloc.cpp */; };
+		10EAA7221889E93100DEB161 /* StringImplCF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5BA15F9182435A600A82E69 /* StringImplCF.cpp */; };
+		10EAA7231889E93100DEB161 /* AtomicStringCF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5BA15F7182435A600A82E69 /* AtomicStringCF.cpp */; };
+		10EAA7241889E93100DEB161 /* FilePrintStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F9D335B165DBA73005AD387 /* FilePrintStream.cpp */; };
+		10EAA7251889E93100DEB161 /* fixed-dtoa.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47290151A825A004123FF /* fixed-dtoa.cc */; };
+		10EAA7261889E93100DEB161 /* FunctionDispatcher.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A1D8B9D1731879800141DA4 /* FunctionDispatcher.cpp */; };
+		10EAA7271889E93100DEB161 /* GregorianDateTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2CCD892915C0390200285083 /* GregorianDateTime.cpp */; };
+		10EAA7281889E93100DEB161 /* HashTable.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472B8151A825A004123FF /* HashTable.cpp */; };
+		10EAA7291889E93100DEB161 /* MainThread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472C6151A825A004123FF /* MainThread.cpp */; };
+		10EAA72A1889E93100DEB161 /* MainThreadMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = A8A472C5151A825A004123FF /* MainThreadMac.mm */; };
+		10EAA72B1889E93100DEB161 /* MD5.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472CA151A825B004123FF /* MD5.cpp */; };
+		10EAA72C1889E93100DEB161 /* MediaTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CD5497AA15857D0300B5BC30 /* MediaTime.cpp */; };
+		10EAA72D1889E93100DEB161 /* MetaAllocator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472CD151A825B004123FF /* MetaAllocator.cpp */; };
+		10EAA72E1889E93100DEB161 /* NumberOfCores.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472D5151A825B004123FF /* NumberOfCores.cpp */; };
+		10EAA72F1889E93100DEB161 /* OSAllocatorPosix.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472D8151A825B004123FF /* OSAllocatorPosix.cpp */; };
+		10EAA7301889E93100DEB161 /* OSRandomSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472DA151A825B004123FF /* OSRandomSource.cpp */; };
+		10EAA7311889E93100DEB161 /* PageAllocationAligned.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472E1151A825B004123FF /* PageAllocationAligned.cpp */; };
+		10EAA7321889E93100DEB161 /* PageBlock.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472E3151A825B004123FF /* PageBlock.cpp */; };
+		10EAA7331889E93100DEB161 /* PrintStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F9D335D165DBA73005AD387 /* PrintStream.cpp */; };
+		10EAA7341889E93100DEB161 /* StringImplMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = A5BA15F41824348000A82E69 /* StringImplMac.mm */; };
+		10EAA7351889E93100DEB161 /* RAMSize.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 143F611D1565F0F900DB514A /* RAMSize.cpp */; };
+		10EAA7361889E93100DEB161 /* RandomNumber.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A472FB151A825B004123FF /* RandomNumber.cpp */; };
+		10EAA7371889E93100DEB161 /* RefCountedLeakCounter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47301151A825B004123FF /* RefCountedLeakCounter.cpp */; };
+		10EAA7381889E93100DEB161 /* RunLoop.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2CDED0F118115C85004DBA70 /* RunLoop.cpp */; };
+		10EAA7391889E93100DEB161 /* RunLoopCF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2CDED0EE18115C38004DBA70 /* RunLoopCF.cpp */; };
+		10EAA73A1889E93100DEB161 /* RunLoopTimerCF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1469419116EAAF6D0024E146 /* RunLoopTimerCF.cpp */; };
+		10EAA73B1889E93100DEB161 /* SchedulePairCF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1469419816EAB0410024E146 /* SchedulePairCF.cpp */; };
+		10EAA73C1889E93100DEB161 /* StringMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = A5BA15F2182433A900A82E69 /* StringMac.mm */; };
+		10EAA73D1889E93100DEB161 /* SchedulePairMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1469419516EAAFF80024E146 /* SchedulePairMac.mm */; };
+		10EAA73E1889E93100DEB161 /* SHA1.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47308151A825B004123FF /* SHA1.cpp */; };
+		10EAA73F1889E93100DEB161 /* SixCharacterHash.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A748744F17A0BDAE00FA04CB /* SixCharacterHash.cpp */; };
+		10EAA7411889E93100DEB161 /* StackBounds.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4730E151A825B004123FF /* StackBounds.cpp */; };
+		10EAA7421889E93100DEB161 /* StackStats.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEDACD3B1630F83F00C69634 /* StackStats.cpp */; };
+		10EAA7431889E93100DEB161 /* StringBuilder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47324151A825B004123FF /* StringBuilder.cpp */; };
+		10EAA7441889E93100DEB161 /* StringImpl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47328151A825B004123FF /* StringImpl.cpp */; };
+		10EAA7451889E93100DEB161 /* StringPrintStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0FDDBFA51666DFA300C55FEF /* StringPrintStream.cpp */; };
+		10EAA7461889E93100DEB161 /* StringStatics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4732B151A825B004123FF /* StringStatics.cpp */; };
+		10EAA7471889E93100DEB161 /* strtod.cc in Sources */ = {isa = PBXBuildFile; fileRef = A8A47294151A825A004123FF /* strtod.cc */; };
+		10EAA7481889E93100DEB161 /* TCSystemAlloc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47318151A825B004123FF /* TCSystemAlloc.cpp */; };
+		10EAA7491889E93100DEB161 /* ThreadIdentifierDataPthreads.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47330151A825B004123FF /* ThreadIdentifierDataPthreads.cpp */; };
+		10EAA74A1889E93100DEB161 /* DeprecatedSymbolsUsedBySafari.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1ACADD821884480100D8B71D /* DeprecatedSymbolsUsedBySafari.mm */; };
+		10EAA74B1889E93100DEB161 /* Threading.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47332151A825B004123FF /* Threading.cpp */; };
+		10EAA74C1889E93100DEB161 /* ThreadingPthreads.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47336151A825B004123FF /* ThreadingPthreads.cpp */; };
+		10EAA74D1889E93100DEB161 /* UTF8.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A47357151A825B004123FF /* UTF8.cpp */; };
+		10EAA74E1889E93100DEB161 /* WebCoreThread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1FA47C88152502DA00568D1B /* WebCoreThread.cpp */; };
+		10EAA74F1889E93100DEB161 /* WTFString.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4732D151A825B004123FF /* WTFString.cpp */; };
+		10EAA7501889E93100DEB161 /* WTFThreadData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8A4737A151A825B004123FF /* WTFThreadData.cpp */; };
+		10EAA7531889E93100DEB161 /* ASCIICType.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725A151A825A004123FF /* ASCIICType.h */; };
+		10EAA7541889E93100DEB161 /* ASCIIFastPath.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4731C151A825B004123FF /* ASCIIFastPath.h */; };
+		10EAA7551889E93100DEB161 /* Assertions.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725C151A825A004123FF /* Assertions.h */; };
+		10EAA7561889E93100DEB161 /* Atomics.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725D151A825A004123FF /* Atomics.h */; };
+		10EAA7571889E93100DEB161 /* AtomicString.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4731E151A825B004123FF /* AtomicString.h */; };
+		10EAA7581889E93100DEB161 /* IteratorAdaptors.h in Headers */ = {isa = PBXBuildFile; fileRef = 7CDD7FF7186D291E007433CD /* IteratorAdaptors.h */; };
+		10EAA7591889E93100DEB161 /* AtomicStringHash.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4731F151A825B004123FF /* AtomicStringHash.h */; };
+		10EAA75A1889E93100DEB161 /* AtomicStringImpl.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47320151A825B004123FF /* AtomicStringImpl.h */; };
+		10EAA75B1889E93100DEB161 /* AtomicStringTable.h in Headers */ = {isa = PBXBuildFile; fileRef = 9BD8F40A176C2AD80002D865 /* AtomicStringTable.h */; };
+		10EAA75C1889E93100DEB161 /* AutodrainedPool.h in Headers */ = {isa = PBXBuildFile; fileRef = 1469419A16EAB10A0024E146 /* AutodrainedPool.h */; };
+		10EAA75D1889E93100DEB161 /* AVLTree.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725E151A825A004123FF /* AVLTree.h */; };
+		10EAA75E1889E93100DEB161 /* Base64.h in Headers */ = {isa = PBXBuildFile; fileRef = 8134013715B092FD001FF0B8 /* Base64.h */; };
+		10EAA75F1889E93100DEB161 /* bignum-dtoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47283151A825A004123FF /* bignum-dtoa.h */; };
+		10EAA7601889E93100DEB161 /* bignum.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47285151A825A004123FF /* bignum.h */; };
+		10EAA7611889E93100DEB161 /* IteratorRange.h in Headers */ = {isa = PBXBuildFile; fileRef = 7CDD7FF9186D2A54007433CD /* IteratorRange.h */; };
+		10EAA7621889E93100DEB161 /* BinarySemaphore.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4733B151A825B004123FF /* BinarySemaphore.h */; };
+		10EAA7631889E93100DEB161 /* Bitmap.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4725F151A825A004123FF /* Bitmap.h */; };
+		10EAA7641889E93100DEB161 /* BitVector.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47261151A825A004123FF /* BitVector.h */; };
+		10EAA7651889E93100DEB161 /* BlockStack.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47264151A825A004123FF /* BlockStack.h */; };
+		10EAA7661889E93100DEB161 /* BloomFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47265151A825A004123FF /* BloomFilter.h */; };
+		10EAA7671889E93100DEB161 /* BoundsCheckedPointer.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47266151A825A004123FF /* BoundsCheckedPointer.h */; };
+		10EAA7681889E93100DEB161 /* BumpPointerAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47267151A825A004123FF /* BumpPointerAllocator.h */; };
+		10EAA7691889E93100DEB161 /* ByteOrder.h in Headers */ = {isa = PBXBuildFile; fileRef = EB95E1EF161A72410089A2F5 /* ByteOrder.h */; };
+		10EAA76A1889E93100DEB161 /* cached-powers.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47287151A825A004123FF /* cached-powers.h */; };
+		10EAA76B1889E93100DEB161 /* CharacterNames.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47349151A825B004123FF /* CharacterNames.h */; };
+		10EAA76C1889E93100DEB161 /* CheckedArithmetic.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4726A151A825A004123FF /* CheckedArithmetic.h */; };
+		10EAA76D1889E93100DEB161 /* CheckedBoolean.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4726B151A825A004123FF /* CheckedBoolean.h */; };
+		10EAA76E1889E93100DEB161 /* Collator.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4734A151A825B004123FF /* Collator.h */; };
+		10EAA76F1889E93100DEB161 /* CommaPrinter.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FC4EDE51696149600F65041 /* CommaPrinter.h */; };
+		10EAA7701889E93100DEB161 /* CompilationThread.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8F2B90172E00F0007DBDA5 /* CompilationThread.h */; };
+		10EAA7711889E93100DEB161 /* Compiler.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47270151A825A004123FF /* Compiler.h */; };
+		10EAA7721889E93100DEB161 /* Compression.h in Headers */ = {isa = PBXBuildFile; fileRef = A7E643C517C5423B003BB16B /* Compression.h */; };
+		10EAA7731889E93100DEB161 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4748B151A8264004123FF /* config.h */; };
+		10EAA7741889E93100DEB161 /* ConversionMode.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8F2B9B172F2594007DBDA5 /* ConversionMode.h */; };
+		10EAA7751889E93100DEB161 /* CryptographicallyRandomNumber.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47274151A825A004123FF /* CryptographicallyRandomNumber.h */; };
+		10EAA7761889E93100DEB161 /* CString.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47322151A825B004123FF /* CString.h */; };
+		10EAA7771889E93100DEB161 /* CurrentTime.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47276151A825A004123FF /* CurrentTime.h */; };
+		10EAA7781889E93100DEB161 /* DataLog.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47278151A825A004123FF /* DataLog.h */; };
+		10EAA7791889E93100DEB161 /* DateMath.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727A151A825A004123FF /* DateMath.h */; };
+		10EAA77A1889E93100DEB161 /* DecimalNumber.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727C151A825A004123FF /* DecimalNumber.h */; };
+		10EAA77B1889E93100DEB161 /* Decoder.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727D151A825A004123FF /* Decoder.h */; };
+		10EAA77C1889E93100DEB161 /* DeferrableRefCounted.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F2B66A417B6B4F700A7AE3F /* DeferrableRefCounted.h */; };
+		10EAA77D1889E93100DEB161 /* Deque.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727E151A825A004123FF /* Deque.h */; };
+		10EAA77E1889E93100DEB161 /* DisallowCType.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4727F151A825A004123FF /* DisallowCType.h */; };
+		10EAA77F1889E93100DEB161 /* diy-fp.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4728A151A825A004123FF /* diy-fp.h */; };
+		10EAA7801889E93100DEB161 /* double-conversion.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4728C151A825A004123FF /* double-conversion.h */; };
+		10EAA7811889E93100DEB161 /* double.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4728D151A825A004123FF /* double.h */; };
+		10EAA7821889E93100DEB161 /* DoublyLinkedList.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47280151A825A004123FF /* DoublyLinkedList.h */; };
+		10EAA7831889E93100DEB161 /* dtoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47298151A825A004123FF /* dtoa.h */; };
+		10EAA7841889E93100DEB161 /* DynamicAnnotations.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4729A151A825A004123FF /* DynamicAnnotations.h */; };
+		10EAA7851889E93100DEB161 /* Encoder.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4729E151A825A004123FF /* Encoder.h */; };
+		10EAA7861889E93100DEB161 /* ExportMacros.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4729F151A825A004123FF /* ExportMacros.h */; };
+		10EAA7871889E93100DEB161 /* fast-dtoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4728F151A825A004123FF /* fast-dtoa.h */; };
+		10EAA7881889E93100DEB161 /* FastBitVector.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FD81AC4154FB22E00983E72 /* FastBitVector.h */; settings = {ATTRIBUTES = (); }; };
+		10EAA7891889E93100DEB161 /* FastMalloc.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A2151A825A004123FF /* FastMalloc.h */; };
+		10EAA78A1889E93100DEB161 /* FeatureDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = B38FD7BC168953E80065C969 /* FeatureDefines.h */; };
+		10EAA78B1889E93100DEB161 /* FilePrintStream.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F9D335C165DBA73005AD387 /* FilePrintStream.h */; };
+		10EAA78C1889E93100DEB161 /* fixed-dtoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47291151A825A004123FF /* fixed-dtoa.h */; };
+		10EAA78D1889E93100DEB161 /* FlipBytes.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F2B66A517B6B4F700A7AE3F /* FlipBytes.h */; };
+		10EAA78E1889E93100DEB161 /* Forward.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A6151A825A004123FF /* Forward.h */; };
+		10EAA78F1889E93100DEB161 /* Functional.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A7151A825A004123FF /* Functional.h */; };
+		10EAA7901889E93100DEB161 /* FunctionDispatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A1D8B9B173186CE00141DA4 /* FunctionDispatcher.h */; };
+		10EAA7911889E93100DEB161 /* GetPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472A8151A825A004123FF /* GetPtr.h */; };
+		10EAA7921889E93100DEB161 /* GregorianDateTime.h in Headers */ = {isa = PBXBuildFile; fileRef = 2C05385315BC819000F21B96 /* GregorianDateTime.h */; };
+		10EAA7931889E93100DEB161 /* HashCountedSet.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B3151A825A004123FF /* HashCountedSet.h */; };
+		10EAA7941889E93100DEB161 /* HashFunctions.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B4151A825A004123FF /* HashFunctions.h */; };
+		10EAA7951889E93100DEB161 /* HashIterators.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B5151A825A004123FF /* HashIterators.h */; };
+		10EAA7961889E93100DEB161 /* HashMap.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B6151A825A004123FF /* HashMap.h */; };
+		10EAA7971889E93100DEB161 /* MallocPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A233C7C17DAA6E300A93ACF /* MallocPtr.h */; };
+		10EAA7981889E93100DEB161 /* HashSet.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B7151A825A004123FF /* HashSet.h */; };
+		10EAA7991889E93100DEB161 /* HashTable.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B9151A825A004123FF /* HashTable.h */; };
+		10EAA79A1889E93100DEB161 /* HashTraits.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472BA151A825A004123FF /* HashTraits.h */; };
+		10EAA79B1889E93100DEB161 /* HexNumber.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472BB151A825A004123FF /* HexNumber.h */; };
+		10EAA79C1889E93100DEB161 /* InlineASM.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472BC151A825A004123FF /* InlineASM.h */; };
+		10EAA79D1889E93100DEB161 /* Ref.h in Headers */ = {isa = PBXBuildFile; fileRef = 26299B6D17A9E5B800ADEBE5 /* Ref.h */; };
+		10EAA79E1889E93100DEB161 /* Insertion.h in Headers */ = {isa = PBXBuildFile; fileRef = A70DA0821799F04D00529A9B /* Insertion.h */; };
+		10EAA79F1889E93100DEB161 /* IntegerToStringConversion.h in Headers */ = {isa = PBXBuildFile; fileRef = 26147B0815DDCCDC00DDB907 /* IntegerToStringConversion.h */; };
+		10EAA7A01889E93100DEB161 /* ListDump.h in Headers */ = {isa = PBXBuildFile; fileRef = A70DA0831799F04D00529A9B /* ListDump.h */; };
+		10EAA7A11889E93100DEB161 /* ListHashSet.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C1151A825A004123FF /* ListHashSet.h */; };
+		10EAA7A21889E93100DEB161 /* Locker.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C3151A825A004123FF /* Locker.h */; };
+		10EAA7A31889E93100DEB161 /* MainThread.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C7151A825B004123FF /* MainThread.h */; };
+		10EAA7A41889E93100DEB161 /* MathExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472C9151A825B004123FF /* MathExtras.h */; };
+		10EAA7A51889E93100DEB161 /* PassRef.h in Headers */ = {isa = PBXBuildFile; fileRef = 93B1AA7F180E5AF3004A2F05 /* PassRef.h */; };
+		10EAA7A61889E93100DEB161 /* MD5.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472CB151A825B004123FF /* MD5.h */; };
+		10EAA7A71889E93100DEB161 /* MediaTime.h in Headers */ = {isa = PBXBuildFile; fileRef = CD5497AB15857D0300B5BC30 /* MediaTime.h */; };
+		10EAA7A81889E93100DEB161 /* MessageQueue.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472CC151A825B004123FF /* MessageQueue.h */; };
+		10EAA7A91889E93100DEB161 /* MetaAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472CE151A825B004123FF /* MetaAllocator.h */; };
+		10EAA7AA1889E93100DEB161 /* MetaAllocatorHandle.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472CF151A825B004123FF /* MetaAllocatorHandle.h */; };
+		10EAA7AB1889E93100DEB161 /* NoLock.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F0D85B317234CB100338210 /* NoLock.h */; };
+		10EAA7AC1889E93100DEB161 /* Noncopyable.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472D0151A825B004123FF /* Noncopyable.h */; };
+		10EAA7AD1889E93100DEB161 /* NumberOfCores.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472D6151A825B004123FF /* NumberOfCores.h */; };
+		10EAA7AE1889E93100DEB161 /* ObjcRuntimeExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E29C33D15FFD79B00516D61 /* ObjcRuntimeExtras.h */; };
+		10EAA7AF1889E93100DEB161 /* OSAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472D7151A825B004123FF /* OSAllocator.h */; };
+		10EAA7B01889E93100DEB161 /* OSRandomSource.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472DB151A825B004123FF /* OSRandomSource.h */; };
+		10EAA7B11889E93100DEB161 /* OwnPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472DD151A825B004123FF /* OwnPtr.h */; };
+		10EAA7B21889E93100DEB161 /* OwnPtrCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472DE151A825B004123FF /* OwnPtrCommon.h */; };
+		10EAA7B31889E93100DEB161 /* BagToHashMap.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FB14E1A1810E1DA009B6B4D /* BagToHashMap.h */; };
+		10EAA7B41889E93100DEB161 /* PackedIntVector.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472DF151A825B004123FF /* PackedIntVector.h */; };
+		10EAA7B51889E93100DEB161 /* PageAllocation.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E0151A825B004123FF /* PageAllocation.h */; };
+		10EAA7B61889E93100DEB161 /* PageAllocationAligned.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E2151A825B004123FF /* PageAllocationAligned.h */; };
+		10EAA7B71889E93100DEB161 /* PageBlock.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E4151A825B004123FF /* PageBlock.h */; };
+		10EAA7B81889E93100DEB161 /* PageReservation.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E5151A825B004123FF /* PageReservation.h */; };
+		10EAA7B91889E93100DEB161 /* ParallelJobs.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E6151A825B004123FF /* ParallelJobs.h */; };
+		10EAA7BA1889E93100DEB161 /* ParallelJobsLibdispatch.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E9151A825B004123FF /* ParallelJobsLibdispatch.h */; };
+		10EAA7BB1889E93100DEB161 /* PassOwnPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472EC151A825B004123FF /* PassOwnPtr.h */; };
+		10EAA7BC1889E93100DEB161 /* PassRefPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472ED151A825B004123FF /* PassRefPtr.h */; };
+		10EAA7BD1889E93100DEB161 /* Platform.h in Headers */ = {isa = PBXBuildFile; fileRef = A876DBD7151816E500DADB95 /* Platform.h */; };
+		10EAA7BE1889E93100DEB161 /* PossiblyNull.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472F3151A825B004123FF /* PossiblyNull.h */; };
+		10EAA7BF1889E93100DEB161 /* Bag.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FB14E18180FA218009B6B4D /* Bag.h */; };
+		10EAA7C01889E93100DEB161 /* PrintStream.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F9D335E165DBA73005AD387 /* PrintStream.h */; };
+		10EAA7C11889E93100DEB161 /* ProcessID.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FC4488216FE9FE100844BE9 /* ProcessID.h */; };
+		10EAA7C21889E93100DEB161 /* RAMSize.h in Headers */ = {isa = PBXBuildFile; fileRef = 143F611E1565F0F900DB514A /* RAMSize.h */; settings = {ATTRIBUTES = (); }; };
+		10EAA7C31889E93100DEB161 /* RandomNumber.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472FC151A825B004123FF /* RandomNumber.h */; };
+		10EAA7C41889E93100DEB161 /* RandomNumberSeed.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472FD151A825B004123FF /* RandomNumberSeed.h */; };
+		10EAA7C51889E93100DEB161 /* RawPointer.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F87105916643F190090B0AD /* RawPointer.h */; };
+		10EAA7C61889E93100DEB161 /* RedBlackTree.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472FE151A825B004123FF /* RedBlackTree.h */; };
+		10EAA7C71889E93100DEB161 /* RefCounted.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472FF151A825B004123FF /* RefCounted.h */; };
+		10EAA7C81889E93100DEB161 /* RefCountedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47300151A825B004123FF /* RefCountedArray.h */; };
+		10EAA7C91889E93100DEB161 /* RefCountedLeakCounter.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47302151A825B004123FF /* RefCountedLeakCounter.h */; };
+		10EAA7CA1889E93100DEB161 /* RefPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47303151A825B004123FF /* RefPtr.h */; };
+		10EAA7CB1889E93100DEB161 /* RefPtrHashMap.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47304151A825B004123FF /* RefPtrHashMap.h */; };
+		10EAA7CC1889E93100DEB161 /* RetainPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47305151A825B004123FF /* RetainPtr.h */; };
+		10EAA7CD1889E93100DEB161 /* RunLoop.h in Headers */ = {isa = PBXBuildFile; fileRef = 2CDED0F218115C85004DBA70 /* RunLoop.h */; };
+		10EAA7CE1889E93100DEB161 /* RunLoopTimer.h in Headers */ = {isa = PBXBuildFile; fileRef = 1469419016EAAF6D0024E146 /* RunLoopTimer.h */; settings = {ATTRIBUTES = (); }; };
+		10EAA7CF1889E93100DEB161 /* SaturatedArithmetic.h in Headers */ = {isa = PBXBuildFile; fileRef = 14F3B0F615E45E4600210069 /* SaturatedArithmetic.h */; settings = {ATTRIBUTES = (); }; };
+		10EAA7D01889E93100DEB161 /* SchedulePair.h in Headers */ = {isa = PBXBuildFile; fileRef = 1469419416EAAFF80024E146 /* SchedulePair.h */; };
+		10EAA7D11889E93100DEB161 /* ScriptCodesFromICU.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47354151A825B004123FF /* ScriptCodesFromICU.h */; };
+		10EAA7D21889E93100DEB161 /* SegmentedVector.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47306151A825B004123FF /* SegmentedVector.h */; };
+		10EAA7D31889E93100DEB161 /* SentinelLinkedList.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47307151A825B004123FF /* SentinelLinkedList.h */; };
+		10EAA7D41889E93100DEB161 /* SHA1.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47309151A825B004123FF /* SHA1.h */; };
+		10EAA7D51889E93100DEB161 /* SimpleStats.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4730A151A825B004123FF /* SimpleStats.h */; };
+		10EAA7D61889E93100DEB161 /* SinglyLinkedList.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4730B151A825B004123FF /* SinglyLinkedList.h */; };
+		10EAA7D71889E93100DEB161 /* SixCharacterHash.h in Headers */ = {isa = PBXBuildFile; fileRef = A748745017A0BDAE00FA04CB /* SixCharacterHash.h */; };
+		10EAA7D81889E93100DEB161 /* Spectrum.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4730D151A825B004123FF /* Spectrum.h */; };
+		10EAA7D91889E93100DEB161 /* StackBounds.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4730F151A825B004123FF /* StackBounds.h */; };
+		10EAA7DA1889E93100DEB161 /* StackStats.h in Headers */ = {isa = PBXBuildFile; fileRef = FEDACD3C1630F83F00C69634 /* StackStats.h */; };
+		10EAA7DB1889E93100DEB161 /* StaticConstructors.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47310151A825B004123FF /* StaticConstructors.h */; };
+		10EAA7DC1889E93100DEB161 /* StdLibExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47311151A825B004123FF /* StdLibExtras.h */; };
+		10EAA7DD1889E93100DEB161 /* StreamBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A6BB768162F300500DD16DB /* StreamBuffer.h */; };
+		10EAA7DE1889E93100DEB161 /* StringBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47323151A825B004123FF /* StringBuffer.h */; };
+		10EAA7DF1889E93100DEB161 /* StringBuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47325151A825B004123FF /* StringBuilder.h */; };
+		10EAA7E01889E93100DEB161 /* StringConcatenate.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47326151A825B004123FF /* StringConcatenate.h */; };
+		10EAA7E11889E93100DEB161 /* StringExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47313151A825B004123FF /* StringExtras.h */; };
+		10EAA7E21889E93100DEB161 /* StringHash.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47327151A825B004123FF /* StringHash.h */; };
+		10EAA7E31889E93100DEB161 /* StringHashDumpContext.h in Headers */ = {isa = PBXBuildFile; fileRef = A748745117A0BDAE00FA04CB /* StringHashDumpContext.h */; };
+		10EAA7E41889E93100DEB161 /* StringHasher.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47314151A825B004123FF /* StringHasher.h */; };
+		10EAA7E51889E93100DEB161 /* StringImpl.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47329151A825B004123FF /* StringImpl.h */; };
+		10EAA7E61889E93100DEB161 /* StringOperators.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4732A151A825B004123FF /* StringOperators.h */; };
+		10EAA7E71889E93100DEB161 /* StringPrintStream.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FDDBFA61666DFA300C55FEF /* StringPrintStream.h */; };
+		10EAA7E81889E93100DEB161 /* strtod.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47295151A825A004123FF /* strtod.h */; };
+		10EAA7E91889E93100DEB161 /* TCPackedCache.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47315151A825B004123FF /* TCPackedCache.h */; };
+		10EAA7EA1889E93100DEB161 /* TCPageMap.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47316151A825B004123FF /* TCPageMap.h */; };
+		10EAA7EB1889E93100DEB161 /* TCSpinLock.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47317151A825B004123FF /* TCSpinLock.h */; };
+		10EAA7EC1889E93100DEB161 /* TCSystemAlloc.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47319151A825B004123FF /* TCSystemAlloc.h */; };
+		10EAA7ED1889E93100DEB161 /* StringView.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A6EB1DF187D0BD30030126F /* StringView.h */; };
+		10EAA7EE1889E93100DEB161 /* TemporaryChange.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4731A151A825B004123FF /* TemporaryChange.h */; };
+		10EAA7EF1889E93100DEB161 /* TextPosition.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4732C151A825B004123FF /* TextPosition.h */; };
+		10EAA7F01889E93100DEB161 /* ThreadFunctionInvocation.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4732F151A825B004123FF /* ThreadFunctionInvocation.h */; };
+		10EAA7F11889E93100DEB161 /* ThreadIdentifierDataPthreads.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47331151A825B004123FF /* ThreadIdentifierDataPthreads.h */; };
+		10EAA7F21889E93100DEB161 /* Threading.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47333151A825B004123FF /* Threading.h */; };
+		10EAA7F31889E93100DEB161 /* ThreadingPrimitives.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47335151A825B004123FF /* ThreadingPrimitives.h */; };
+		10EAA7F41889E93100DEB161 /* ThreadSafeRefCounted.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4733E151A825B004123FF /* ThreadSafeRefCounted.h */; };
+		10EAA7F51889E93100DEB161 /* ThreadSpecific.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4733F151A825B004123FF /* ThreadSpecific.h */; };
+		10EAA7F61889E93100DEB161 /* TriState.h in Headers */ = {isa = PBXBuildFile; fileRef = 149EF16216BBFE0D000A4331 /* TriState.h */; settings = {ATTRIBUTES = (); }; };
+		10EAA7F71889E93100DEB161 /* Unicode.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47355151A825B004123FF /* Unicode.h */; };
+		10EAA7F81889E93100DEB161 /* UnicodeIcu.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47351151A825B004123FF /* UnicodeIcu.h */; };
+		10EAA7F91889E93100DEB161 /* UnicodeMacrosFromICU.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47356151A825B004123FF /* UnicodeMacrosFromICU.h */; };
+		10EAA7FA1889E93100DEB161 /* UnionFind.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4735C151A825B004123FF /* UnionFind.h */; };
+		10EAA7FB1889E93100DEB161 /* UTF8.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47358151A825B004123FF /* UTF8.h */; };
+		10EAA7FC1889E93100DEB161 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47296151A825A004123FF /* utils.h */; };
+		10EAA7FD1889E93100DEB161 /* ValueCheck.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4736F151A825B004123FF /* ValueCheck.h */; };
+		10EAA7FE1889E93100DEB161 /* Vector.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47370151A825B004123FF /* Vector.h */; };
+		10EAA7FF1889E93100DEB161 /* VectorTraits.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47371151A825B004123FF /* VectorTraits.h */; };
+		10EAA8001889E93100DEB161 /* VMTags.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47372151A825B004123FF /* VMTags.h */; };
+		10EAA8011889E93100DEB161 /* WeakPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = 974CFC8D16A4F327006D5404 /* WeakPtr.h */; };
+		10EAA8021889E93100DEB161 /* WebCoreThread.h in Headers */ = {isa = PBXBuildFile; fileRef = 1FA47C89152502DA00568D1B /* WebCoreThread.h */; };
+		10EAA8031889E93100DEB161 /* WTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4732E151A825B004123FF /* WTFString.h */; };
+		10EAA8041889E93100DEB161 /* WTFThreadData.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4737B151A825B004123FF /* WTFThreadData.h */; };
 		143F611F1565F0F900DB514A /* RAMSize.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 143F611D1565F0F900DB514A /* RAMSize.cpp */; };
 		143F61201565F0F900DB514A /* RAMSize.h in Headers */ = {isa = PBXBuildFile; fileRef = 143F611E1565F0F900DB514A /* RAMSize.h */; settings = {ATTRIBUTES = (); }; };
 		1469419216EAAF6D0024E146 /* RunLoopTimer.h in Headers */ = {isa = PBXBuildFile; fileRef = 1469419016EAAF6D0024E146 /* RunLoopTimer.h */; settings = {ATTRIBUTES = (); }; };
@@ -277,6 +529,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		10EAA7041889E93100DEB161 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D247B5914689B8600E78B76 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65AFA16F1630B977003D723C;
+			remoteInfo = "Copy Headers";
+		};
 		65AFA28D1630B99E003D723C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D247B5914689B8600E78B76 /* Project object */;
@@ -307,6 +566,8 @@
 		0FDDBFA51666DFA300C55FEF /* StringPrintStream.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StringPrintStream.cpp; sourceTree = "<group>"; };
 		0FDDBFA61666DFA300C55FEF /* StringPrintStream.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StringPrintStream.h; sourceTree = "<group>"; };
 		0FEC3EE4171B834700FDAC8D /* ByteSpinLock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ByteSpinLock.h; sourceTree = "<group>"; };
+		10EAA7011889E91800DEB161 /* WTF-iOS-Static.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "WTF-iOS-Static.xcconfig"; path = "../../WTF-iOS-Static.xcconfig"; sourceTree = "<group>"; };
+		10EAA8091889E93100DEB161 /* libWTF.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libWTF.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		143F611D1565F0F900DB514A /* RAMSize.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RAMSize.cpp; sourceTree = "<group>"; };
 		143F611E1565F0F900DB514A /* RAMSize.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RAMSize.h; sourceTree = "<group>"; };
 		1469419016EAAF6D0024E146 /* RunLoopTimer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RunLoopTimer.h; sourceTree = "<group>"; };
@@ -554,6 +815,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		10EAA7511889E93100DEB161 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5D247B5F14689B8600E78B76 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -594,6 +862,7 @@
 			isa = PBXGroup;
 			children = (
 				5D247B6214689B8600E78B76 /* libWTF.a */,
+				10EAA8091889E93100DEB161 /* libWTF.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -601,6 +870,7 @@
 		5D247B6D14689C4700E78B76 /* Configurations */ = {
 			isa = PBXGroup;
 			children = (
+				10EAA7011889E91800DEB161 /* WTF-iOS-Static.xcconfig */,
 				5D247B6E14689C4700E78B76 /* Base.xcconfig */,
 				6541CAF41630DB26006D0DEC /* CopyWTFHeaders.xcconfig */,
 				5D247B7014689C4700E78B76 /* DebugRelease.xcconfig */,
@@ -949,6 +1219,191 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		10EAA7521889E93100DEB161 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10EAA7531889E93100DEB161 /* ASCIICType.h in Headers */,
+				10EAA7541889E93100DEB161 /* ASCIIFastPath.h in Headers */,
+				10EAA7551889E93100DEB161 /* Assertions.h in Headers */,
+				10EAA7561889E93100DEB161 /* Atomics.h in Headers */,
+				10EAA7571889E93100DEB161 /* AtomicString.h in Headers */,
+				10EAA7581889E93100DEB161 /* IteratorAdaptors.h in Headers */,
+				10EAA7591889E93100DEB161 /* AtomicStringHash.h in Headers */,
+				10EAA75A1889E93100DEB161 /* AtomicStringImpl.h in Headers */,
+				10EAA75B1889E93100DEB161 /* AtomicStringTable.h in Headers */,
+				10EAA75C1889E93100DEB161 /* AutodrainedPool.h in Headers */,
+				10EAA75D1889E93100DEB161 /* AVLTree.h in Headers */,
+				10EAA75E1889E93100DEB161 /* Base64.h in Headers */,
+				10EAA75F1889E93100DEB161 /* bignum-dtoa.h in Headers */,
+				10EAA7601889E93100DEB161 /* bignum.h in Headers */,
+				10EAA7611889E93100DEB161 /* IteratorRange.h in Headers */,
+				10EAA7621889E93100DEB161 /* BinarySemaphore.h in Headers */,
+				10EAA7631889E93100DEB161 /* Bitmap.h in Headers */,
+				10EAA7641889E93100DEB161 /* BitVector.h in Headers */,
+				10EAA7651889E93100DEB161 /* BlockStack.h in Headers */,
+				10EAA7661889E93100DEB161 /* BloomFilter.h in Headers */,
+				10EAA7671889E93100DEB161 /* BoundsCheckedPointer.h in Headers */,
+				10EAA7681889E93100DEB161 /* BumpPointerAllocator.h in Headers */,
+				10EAA7691889E93100DEB161 /* ByteOrder.h in Headers */,
+				10EAA76A1889E93100DEB161 /* cached-powers.h in Headers */,
+				10EAA76B1889E93100DEB161 /* CharacterNames.h in Headers */,
+				10EAA76C1889E93100DEB161 /* CheckedArithmetic.h in Headers */,
+				10EAA76D1889E93100DEB161 /* CheckedBoolean.h in Headers */,
+				10EAA76E1889E93100DEB161 /* Collator.h in Headers */,
+				10EAA76F1889E93100DEB161 /* CommaPrinter.h in Headers */,
+				10EAA7701889E93100DEB161 /* CompilationThread.h in Headers */,
+				10EAA7711889E93100DEB161 /* Compiler.h in Headers */,
+				10EAA7721889E93100DEB161 /* Compression.h in Headers */,
+				10EAA7731889E93100DEB161 /* config.h in Headers */,
+				10EAA7741889E93100DEB161 /* ConversionMode.h in Headers */,
+				10EAA7751889E93100DEB161 /* CryptographicallyRandomNumber.h in Headers */,
+				10EAA7761889E93100DEB161 /* CString.h in Headers */,
+				10EAA7771889E93100DEB161 /* CurrentTime.h in Headers */,
+				10EAA7781889E93100DEB161 /* DataLog.h in Headers */,
+				10EAA7791889E93100DEB161 /* DateMath.h in Headers */,
+				10EAA77A1889E93100DEB161 /* DecimalNumber.h in Headers */,
+				10EAA77B1889E93100DEB161 /* Decoder.h in Headers */,
+				10EAA77C1889E93100DEB161 /* DeferrableRefCounted.h in Headers */,
+				10EAA77D1889E93100DEB161 /* Deque.h in Headers */,
+				10EAA77E1889E93100DEB161 /* DisallowCType.h in Headers */,
+				10EAA77F1889E93100DEB161 /* diy-fp.h in Headers */,
+				10EAA7801889E93100DEB161 /* double-conversion.h in Headers */,
+				10EAA7811889E93100DEB161 /* double.h in Headers */,
+				10EAA7821889E93100DEB161 /* DoublyLinkedList.h in Headers */,
+				10EAA7831889E93100DEB161 /* dtoa.h in Headers */,
+				10EAA7841889E93100DEB161 /* DynamicAnnotations.h in Headers */,
+				10EAA7851889E93100DEB161 /* Encoder.h in Headers */,
+				10EAA7861889E93100DEB161 /* ExportMacros.h in Headers */,
+				10EAA7871889E93100DEB161 /* fast-dtoa.h in Headers */,
+				10EAA7881889E93100DEB161 /* FastBitVector.h in Headers */,
+				10EAA7891889E93100DEB161 /* FastMalloc.h in Headers */,
+				10EAA78A1889E93100DEB161 /* FeatureDefines.h in Headers */,
+				10EAA78B1889E93100DEB161 /* FilePrintStream.h in Headers */,
+				10EAA78C1889E93100DEB161 /* fixed-dtoa.h in Headers */,
+				10EAA78D1889E93100DEB161 /* FlipBytes.h in Headers */,
+				10EAA78E1889E93100DEB161 /* Forward.h in Headers */,
+				10EAA78F1889E93100DEB161 /* Functional.h in Headers */,
+				10EAA7901889E93100DEB161 /* FunctionDispatcher.h in Headers */,
+				10EAA7911889E93100DEB161 /* GetPtr.h in Headers */,
+				10EAA7921889E93100DEB161 /* GregorianDateTime.h in Headers */,
+				10EAA7931889E93100DEB161 /* HashCountedSet.h in Headers */,
+				10EAA7941889E93100DEB161 /* HashFunctions.h in Headers */,
+				10EAA7951889E93100DEB161 /* HashIterators.h in Headers */,
+				10EAA7961889E93100DEB161 /* HashMap.h in Headers */,
+				10EAA7971889E93100DEB161 /* MallocPtr.h in Headers */,
+				10EAA7981889E93100DEB161 /* HashSet.h in Headers */,
+				10EAA7991889E93100DEB161 /* HashTable.h in Headers */,
+				10EAA79A1889E93100DEB161 /* HashTraits.h in Headers */,
+				10EAA79B1889E93100DEB161 /* HexNumber.h in Headers */,
+				10EAA79C1889E93100DEB161 /* InlineASM.h in Headers */,
+				10EAA79D1889E93100DEB161 /* Ref.h in Headers */,
+				10EAA79E1889E93100DEB161 /* Insertion.h in Headers */,
+				10EAA79F1889E93100DEB161 /* IntegerToStringConversion.h in Headers */,
+				10EAA7A01889E93100DEB161 /* ListDump.h in Headers */,
+				10EAA7A11889E93100DEB161 /* ListHashSet.h in Headers */,
+				10EAA7A21889E93100DEB161 /* Locker.h in Headers */,
+				10EAA7A31889E93100DEB161 /* MainThread.h in Headers */,
+				10EAA7A41889E93100DEB161 /* MathExtras.h in Headers */,
+				10EAA7A51889E93100DEB161 /* PassRef.h in Headers */,
+				10EAA7A61889E93100DEB161 /* MD5.h in Headers */,
+				10EAA7A71889E93100DEB161 /* MediaTime.h in Headers */,
+				10EAA7A81889E93100DEB161 /* MessageQueue.h in Headers */,
+				10EAA7A91889E93100DEB161 /* MetaAllocator.h in Headers */,
+				10EAA7AA1889E93100DEB161 /* MetaAllocatorHandle.h in Headers */,
+				10EAA7AB1889E93100DEB161 /* NoLock.h in Headers */,
+				10EAA7AC1889E93100DEB161 /* Noncopyable.h in Headers */,
+				10EAA7AD1889E93100DEB161 /* NumberOfCores.h in Headers */,
+				10EAA7AE1889E93100DEB161 /* ObjcRuntimeExtras.h in Headers */,
+				10EAA7AF1889E93100DEB161 /* OSAllocator.h in Headers */,
+				10EAA7B01889E93100DEB161 /* OSRandomSource.h in Headers */,
+				10EAA7B11889E93100DEB161 /* OwnPtr.h in Headers */,
+				10EAA7B21889E93100DEB161 /* OwnPtrCommon.h in Headers */,
+				10EAA7B31889E93100DEB161 /* BagToHashMap.h in Headers */,
+				10EAA7B41889E93100DEB161 /* PackedIntVector.h in Headers */,
+				10EAA7B51889E93100DEB161 /* PageAllocation.h in Headers */,
+				10EAA7B61889E93100DEB161 /* PageAllocationAligned.h in Headers */,
+				10EAA7B71889E93100DEB161 /* PageBlock.h in Headers */,
+				10EAA7B81889E93100DEB161 /* PageReservation.h in Headers */,
+				10EAA7B91889E93100DEB161 /* ParallelJobs.h in Headers */,
+				10EAA7BA1889E93100DEB161 /* ParallelJobsLibdispatch.h in Headers */,
+				10EAA7BB1889E93100DEB161 /* PassOwnPtr.h in Headers */,
+				10EAA7BC1889E93100DEB161 /* PassRefPtr.h in Headers */,
+				10EAA7BD1889E93100DEB161 /* Platform.h in Headers */,
+				10EAA7BE1889E93100DEB161 /* PossiblyNull.h in Headers */,
+				10EAA7BF1889E93100DEB161 /* Bag.h in Headers */,
+				10EAA7C01889E93100DEB161 /* PrintStream.h in Headers */,
+				10EAA7C11889E93100DEB161 /* ProcessID.h in Headers */,
+				10EAA7C21889E93100DEB161 /* RAMSize.h in Headers */,
+				10EAA7C31889E93100DEB161 /* RandomNumber.h in Headers */,
+				10EAA7C41889E93100DEB161 /* RandomNumberSeed.h in Headers */,
+				10EAA7C51889E93100DEB161 /* RawPointer.h in Headers */,
+				10EAA7C61889E93100DEB161 /* RedBlackTree.h in Headers */,
+				10EAA7C71889E93100DEB161 /* RefCounted.h in Headers */,
+				10EAA7C81889E93100DEB161 /* RefCountedArray.h in Headers */,
+				10EAA7C91889E93100DEB161 /* RefCountedLeakCounter.h in Headers */,
+				10EAA7CA1889E93100DEB161 /* RefPtr.h in Headers */,
+				10EAA7CB1889E93100DEB161 /* RefPtrHashMap.h in Headers */,
+				10EAA7CC1889E93100DEB161 /* RetainPtr.h in Headers */,
+				10EAA7CD1889E93100DEB161 /* RunLoop.h in Headers */,
+				10EAA7CE1889E93100DEB161 /* RunLoopTimer.h in Headers */,
+				10EAA7CF1889E93100DEB161 /* SaturatedArithmetic.h in Headers */,
+				10EAA7D01889E93100DEB161 /* SchedulePair.h in Headers */,
+				10EAA7D11889E93100DEB161 /* ScriptCodesFromICU.h in Headers */,
+				10EAA7D21889E93100DEB161 /* SegmentedVector.h in Headers */,
+				10EAA7D31889E93100DEB161 /* SentinelLinkedList.h in Headers */,
+				10EAA7D41889E93100DEB161 /* SHA1.h in Headers */,
+				10EAA7D51889E93100DEB161 /* SimpleStats.h in Headers */,
+				10EAA7D61889E93100DEB161 /* SinglyLinkedList.h in Headers */,
+				10EAA7D71889E93100DEB161 /* SixCharacterHash.h in Headers */,
+				10EAA7D81889E93100DEB161 /* Spectrum.h in Headers */,
+				10EAA7D91889E93100DEB161 /* StackBounds.h in Headers */,
+				10EAA7DA1889E93100DEB161 /* StackStats.h in Headers */,
+				10EAA7DB1889E93100DEB161 /* StaticConstructors.h in Headers */,
+				10EAA7DC1889E93100DEB161 /* StdLibExtras.h in Headers */,
+				10EAA7DD1889E93100DEB161 /* StreamBuffer.h in Headers */,
+				10EAA7DE1889E93100DEB161 /* StringBuffer.h in Headers */,
+				10EAA7DF1889E93100DEB161 /* StringBuilder.h in Headers */,
+				10EAA7E01889E93100DEB161 /* StringConcatenate.h in Headers */,
+				10EAA7E11889E93100DEB161 /* StringExtras.h in Headers */,
+				10EAA7E21889E93100DEB161 /* StringHash.h in Headers */,
+				10EAA7E31889E93100DEB161 /* StringHashDumpContext.h in Headers */,
+				10EAA7E41889E93100DEB161 /* StringHasher.h in Headers */,
+				10EAA7E51889E93100DEB161 /* StringImpl.h in Headers */,
+				10EAA7E61889E93100DEB161 /* StringOperators.h in Headers */,
+				10EAA7E71889E93100DEB161 /* StringPrintStream.h in Headers */,
+				10EAA7E81889E93100DEB161 /* strtod.h in Headers */,
+				10EAA7E91889E93100DEB161 /* TCPackedCache.h in Headers */,
+				10EAA7EA1889E93100DEB161 /* TCPageMap.h in Headers */,
+				10EAA7EB1889E93100DEB161 /* TCSpinLock.h in Headers */,
+				10EAA7EC1889E93100DEB161 /* TCSystemAlloc.h in Headers */,
+				10EAA7ED1889E93100DEB161 /* StringView.h in Headers */,
+				10EAA7EE1889E93100DEB161 /* TemporaryChange.h in Headers */,
+				10EAA7EF1889E93100DEB161 /* TextPosition.h in Headers */,
+				10EAA7F01889E93100DEB161 /* ThreadFunctionInvocation.h in Headers */,
+				10EAA7F11889E93100DEB161 /* ThreadIdentifierDataPthreads.h in Headers */,
+				10EAA7F21889E93100DEB161 /* Threading.h in Headers */,
+				10EAA7F31889E93100DEB161 /* ThreadingPrimitives.h in Headers */,
+				10EAA7F41889E93100DEB161 /* ThreadSafeRefCounted.h in Headers */,
+				10EAA7F51889E93100DEB161 /* ThreadSpecific.h in Headers */,
+				10EAA7F61889E93100DEB161 /* TriState.h in Headers */,
+				10EAA7F71889E93100DEB161 /* Unicode.h in Headers */,
+				10EAA7F81889E93100DEB161 /* UnicodeIcu.h in Headers */,
+				10EAA7F91889E93100DEB161 /* UnicodeMacrosFromICU.h in Headers */,
+				10EAA7FA1889E93100DEB161 /* UnionFind.h in Headers */,
+				10EAA7FB1889E93100DEB161 /* UTF8.h in Headers */,
+				10EAA7FC1889E93100DEB161 /* utils.h in Headers */,
+				10EAA7FD1889E93100DEB161 /* ValueCheck.h in Headers */,
+				10EAA7FE1889E93100DEB161 /* Vector.h in Headers */,
+				10EAA7FF1889E93100DEB161 /* VectorTraits.h in Headers */,
+				10EAA8001889E93100DEB161 /* VMTags.h in Headers */,
+				10EAA8011889E93100DEB161 /* WeakPtr.h in Headers */,
+				10EAA8021889E93100DEB161 /* WebCoreThread.h in Headers */,
+				10EAA8031889E93100DEB161 /* WTFString.h in Headers */,
+				10EAA8041889E93100DEB161 /* WTFThreadData.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5D247B6014689B8600E78B76 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -1137,6 +1592,24 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		10EAA7021889E93100DEB161 /* WTF iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 10EAA8051889E93100DEB161 /* Build configuration list for PBXNativeTarget "WTF iOS" */;
+			buildPhases = (
+				10EAA7051889E93100DEB161 /* Sources */,
+				10EAA7511889E93100DEB161 /* Frameworks */,
+				10EAA7521889E93100DEB161 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				10EAA7031889E93100DEB161 /* PBXTargetDependency */,
+			);
+			name = "WTF iOS";
+			productName = WTF;
+			productReference = 10EAA8091889E93100DEB161 /* libWTF.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		5D247B6114689B8600E78B76 /* WTF */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5D247B6614689B8600E78B76 /* Build configuration list for PBXNativeTarget "WTF" */;
@@ -1177,6 +1650,7 @@
 			targets = (
 				5D247B6114689B8600E78B76 /* WTF */,
 				65AFA16F1630B977003D723C /* Copy WTF Headers */,
+				10EAA7021889E93100DEB161 /* WTF iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -1199,6 +1673,87 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		10EAA7051889E93100DEB161 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10EAA7061889E93100DEB161 /* Assertions.cpp in Sources */,
+				10EAA7071889E93100DEB161 /* AtomicString.cpp in Sources */,
+				10EAA7081889E93100DEB161 /* AtomicStringTable.cpp in Sources */,
+				10EAA7091889E93100DEB161 /* StringCF.cpp in Sources */,
+				10EAA70A1889E93100DEB161 /* AutodrainedPoolMac.mm in Sources */,
+				10EAA70B1889E93100DEB161 /* Base64.cpp in Sources */,
+				10EAA70C1889E93100DEB161 /* bignum-dtoa.cc in Sources */,
+				10EAA70D1889E93100DEB161 /* bignum.cc in Sources */,
+				10EAA70E1889E93100DEB161 /* BinarySemaphore.cpp in Sources */,
+				10EAA70F1889E93100DEB161 /* BitVector.cpp in Sources */,
+				10EAA7101889E93100DEB161 /* cached-powers.cc in Sources */,
+				10EAA7111889E93100DEB161 /* CollatorDefault.cpp in Sources */,
+				10EAA7121889E93100DEB161 /* CollatorICU.cpp in Sources */,
+				10EAA7131889E93100DEB161 /* CompilationThread.cpp in Sources */,
+				10EAA7141889E93100DEB161 /* Compression.cpp in Sources */,
+				10EAA7151889E93100DEB161 /* CryptographicallyRandomNumber.cpp in Sources */,
+				10EAA7161889E93100DEB161 /* CString.cpp in Sources */,
+				10EAA7171889E93100DEB161 /* CurrentTime.cpp in Sources */,
+				10EAA7181889E93100DEB161 /* DataLog.cpp in Sources */,
+				10EAA7191889E93100DEB161 /* DateMath.cpp in Sources */,
+				10EAA71A1889E93100DEB161 /* DecimalNumber.cpp in Sources */,
+				10EAA71B1889E93100DEB161 /* diy-fp.cc in Sources */,
+				10EAA71C1889E93100DEB161 /* double-conversion.cc in Sources */,
+				10EAA71D1889E93100DEB161 /* dtoa.cpp in Sources */,
+				10EAA71E1889E93100DEB161 /* FastBitVector.cpp in Sources */,
+				10EAA71F1889E93100DEB161 /* DynamicAnnotations.cpp in Sources */,
+				10EAA7201889E93100DEB161 /* fast-dtoa.cc in Sources */,
+				10EAA7211889E93100DEB161 /* FastMalloc.cpp in Sources */,
+				10EAA7221889E93100DEB161 /* StringImplCF.cpp in Sources */,
+				10EAA7231889E93100DEB161 /* AtomicStringCF.cpp in Sources */,
+				10EAA7241889E93100DEB161 /* FilePrintStream.cpp in Sources */,
+				10EAA7251889E93100DEB161 /* fixed-dtoa.cc in Sources */,
+				10EAA7261889E93100DEB161 /* FunctionDispatcher.cpp in Sources */,
+				10EAA7271889E93100DEB161 /* GregorianDateTime.cpp in Sources */,
+				10EAA7281889E93100DEB161 /* HashTable.cpp in Sources */,
+				10EAA7291889E93100DEB161 /* MainThread.cpp in Sources */,
+				10EAA72A1889E93100DEB161 /* MainThreadMac.mm in Sources */,
+				10EAA72B1889E93100DEB161 /* MD5.cpp in Sources */,
+				10EAA72C1889E93100DEB161 /* MediaTime.cpp in Sources */,
+				10EAA72D1889E93100DEB161 /* MetaAllocator.cpp in Sources */,
+				10EAA72E1889E93100DEB161 /* NumberOfCores.cpp in Sources */,
+				10EAA72F1889E93100DEB161 /* OSAllocatorPosix.cpp in Sources */,
+				10EAA7301889E93100DEB161 /* OSRandomSource.cpp in Sources */,
+				10EAA7311889E93100DEB161 /* PageAllocationAligned.cpp in Sources */,
+				10EAA7321889E93100DEB161 /* PageBlock.cpp in Sources */,
+				10EAA7331889E93100DEB161 /* PrintStream.cpp in Sources */,
+				10EAA7341889E93100DEB161 /* StringImplMac.mm in Sources */,
+				10EAA7351889E93100DEB161 /* RAMSize.cpp in Sources */,
+				10EAA7361889E93100DEB161 /* RandomNumber.cpp in Sources */,
+				10EAA7371889E93100DEB161 /* RefCountedLeakCounter.cpp in Sources */,
+				10EAA7381889E93100DEB161 /* RunLoop.cpp in Sources */,
+				10EAA7391889E93100DEB161 /* RunLoopCF.cpp in Sources */,
+				10EAA73A1889E93100DEB161 /* RunLoopTimerCF.cpp in Sources */,
+				10EAA73B1889E93100DEB161 /* SchedulePairCF.cpp in Sources */,
+				10EAA73C1889E93100DEB161 /* StringMac.mm in Sources */,
+				10EAA73D1889E93100DEB161 /* SchedulePairMac.mm in Sources */,
+				10EAA73E1889E93100DEB161 /* SHA1.cpp in Sources */,
+				10EAA73F1889E93100DEB161 /* SixCharacterHash.cpp in Sources */,
+				10EAA7411889E93100DEB161 /* StackBounds.cpp in Sources */,
+				10EAA7421889E93100DEB161 /* StackStats.cpp in Sources */,
+				10EAA7431889E93100DEB161 /* StringBuilder.cpp in Sources */,
+				10EAA7441889E93100DEB161 /* StringImpl.cpp in Sources */,
+				10EAA7451889E93100DEB161 /* StringPrintStream.cpp in Sources */,
+				10EAA7461889E93100DEB161 /* StringStatics.cpp in Sources */,
+				10EAA7471889E93100DEB161 /* strtod.cc in Sources */,
+				10EAA7481889E93100DEB161 /* TCSystemAlloc.cpp in Sources */,
+				10EAA7491889E93100DEB161 /* ThreadIdentifierDataPthreads.cpp in Sources */,
+				10EAA74A1889E93100DEB161 /* DeprecatedSymbolsUsedBySafari.mm in Sources */,
+				10EAA74B1889E93100DEB161 /* Threading.cpp in Sources */,
+				10EAA74C1889E93100DEB161 /* ThreadingPthreads.cpp in Sources */,
+				10EAA74D1889E93100DEB161 /* UTF8.cpp in Sources */,
+				10EAA74E1889E93100DEB161 /* WebCoreThread.cpp in Sources */,
+				10EAA74F1889E93100DEB161 /* WTFString.cpp in Sources */,
+				10EAA7501889E93100DEB161 /* WTFThreadData.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5D247B5E14689B8600E78B76 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1284,6 +1839,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		10EAA7031889E93100DEB161 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65AFA16F1630B977003D723C /* Copy WTF Headers */;
+			targetProxy = 10EAA7041889E93100DEB161 /* PBXContainerItemProxy */;
+		};
 		65AFA28E1630B99E003D723C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 65AFA16F1630B977003D723C /* Copy WTF Headers */;
@@ -1292,6 +1852,27 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		10EAA8061889E93100DEB161 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 10EAA7011889E91800DEB161 /* WTF-iOS-Static.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		10EAA8071889E93100DEB161 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 10EAA7011889E91800DEB161 /* WTF-iOS-Static.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		10EAA8081889E93100DEB161 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 10EAA7011889E91800DEB161 /* WTF-iOS-Static.xcconfig */;
+			buildSettings = {
+			};
+			name = Production;
+		};
 		5D247B6414689B8600E78B76 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5D247B7014689C4700E78B76 /* DebugRelease.xcconfig */;
@@ -1365,6 +1946,16 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		10EAA8051889E93100DEB161 /* Build configuration list for PBXNativeTarget "WTF iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				10EAA8061889E93100DEB161 /* Debug */,
+				10EAA8071889E93100DEB161 /* Release */,
+				10EAA8081889E93100DEB161 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
 		5D247B5C14689B8600E78B76 /* Build configuration list for PBXProject "WTF" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

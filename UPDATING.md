@@ -63,3 +63,4 @@ Thoughts for improvement:
 - It's probably simpler and faster not to make duplicates, but just set the xcconfig files on the existing targets
 - The step to mod the script for "Generate Derived Sources" can probably be avoided by mucking with the build settings EXECUTABLE_PREFIX (`lib`) and EXECUTABLE_EXTENSION (`a`) to make the output file name match what the script expects.
 - Can the product type be set from an xcconfig file? Perhaps using the PRODUCT_TYPE and/or PACKAGE_TYPE build settings?
+- For some reason the WTF headers get included in the JavaScriptCore.framework. Probably something I'm missing.

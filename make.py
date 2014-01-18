@@ -22,7 +22,7 @@ def build(out, derived_data_path):
     outdir = out if out else tempfile.mkdtemp()
 
     jsc = FrameworkBuild(workspace="JavaScriptCore-iOS.xcworkspace",
-                         scheme="JavaScriptCore-iOS",
+                         scheme="JavaScriptCore iOS",
                          name="JavaScriptCore",
                          conf="Production",
                          outdir=outdir,

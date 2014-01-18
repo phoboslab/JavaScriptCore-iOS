@@ -574,6 +574,8 @@
 		0FFFC96014EF90BD00C72532 /* DFGVirtualRegisterAllocationPhase.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFFC95414EF909500C72532 /* DFGVirtualRegisterAllocationPhase.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		104A28CC188A011B002CCBE0 /* JSTypedArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 104A28CA188A011B002CCBE0 /* JSTypedArray.cpp */; };
 		104A28CD188A011B002CCBE0 /* JSTypedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = 104A28CB188A011B002CCBE0 /* JSTypedArray.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		104A28CE188A030B002CCBE0 /* JSTypedArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 104A28CA188A011B002CCBE0 /* JSTypedArray.cpp */; };
+		104A28CF188A030F002CCBE0 /* JSTypedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = 104A28CB188A011B002CCBE0 /* JSTypedArray.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		10D58E051889C1A000C05A0D /* LLIntOffsetsExtractor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F4680A114BA7F8200BFE272 /* LLIntOffsetsExtractor.cpp */; };
 		10D58E141889C3DF00C05A0D /* A64DOpcode.h in Headers */ = {isa = PBXBuildFile; fileRef = 652A3A231651C69700A80AFE /* A64DOpcode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		10D58E151889C3DF00C05A0D /* AbstractMacroAssembler.h in Headers */ = {isa = PBXBuildFile; fileRef = 860161DF0F3A83C100F84710 /* AbstractMacroAssembler.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -6505,6 +6507,7 @@
 			files = (
 				0FFA549816B8835300B3A982 /* A64DOpcode.h in Headers */,
 				860161E30F3A83C100F84710 /* AbstractMacroAssembler.h in Headers */,
+				104A28CF188A030F002CCBE0 /* JSTypedArray.h in Headers */,
 				0F55F0F514D1063C00AC7649 /* AbstractPC.h in Headers */,
 				2A48D1911772365B00C65A5F /* APICallbackFunction.h in Headers */,
 				BC18C3E50E16F5CD00B34460 /* APICast.h in Headers */,
@@ -8496,6 +8499,7 @@
 				147F39C8107EC37600427A48 /* ErrorConstructor.cpp in Sources */,
 				147F39C9107EC37600427A48 /* ErrorInstance.cpp in Sources */,
 				147F39CA107EC37600427A48 /* ErrorPrototype.cpp in Sources */,
+				104A28CE188A030B002CCBE0 /* JSTypedArray.cpp in Sources */,
 				1429D8780ED21ACD00B89619 /* ExceptionHelpers.cpp in Sources */,
 				86CA032E1038E8440028A609 /* Executable.cpp in Sources */,
 				A7B48F490EE8936F00DCBDB6 /* ExecutableAllocator.cpp in Sources */,

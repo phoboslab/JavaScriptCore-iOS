@@ -15,7 +15,7 @@ Note however, that the source code of JSC was still modified:
 
 ## Binaries
 
-A compiled version of the `libJavaScriptCore.a` for armv7 and the Simulator can be found in the [source tree](https://github.com/phoboslab/Ejecta/tree/master/Source/lib) of the [Ejecta project](https://github.com/phoboslab/Ejecta).
+A compiled version of the `libJavaScriptCore.a` for armv7, armv7s, arm64 and the Simulator can be found in the [source tree](https://github.com/phoboslab/Ejecta/tree/master/Source/lib) of the [Ejecta project](https://github.com/phoboslab/Ejecta).
 
 ## How to Compile
 

@@ -29,6 +29,10 @@ def build(out, derived_data_path):
                          derived_data_path=derived_data_path)
     jsc.build()
 
+    # FIXME: wtf headers are copied... remove them:
+    shutil.rmtree(os.path.join(outdir, 'JavaScriptCore.framework',
+                               'Headers', 'wtf'))
+
     return outdir
 
 if __name__ == "__main__":

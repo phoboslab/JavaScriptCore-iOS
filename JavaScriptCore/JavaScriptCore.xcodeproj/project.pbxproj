@@ -5195,7 +5195,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 armv7s";
 			};
 			name = Debug;
 		};
@@ -5216,10 +5216,11 @@
 					"$(SOURCE_ROOT)/../WTF",
 					"\"$(SRCROOT)/../Build\"",
 				);
+				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 armv7s";
 			};
 			name = Release;
 		};
@@ -5243,7 +5244,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 armv7s";
 			};
 			name = Profiling;
 		};
@@ -5267,7 +5268,7 @@
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = JavaScriptCore;
 				SDKROOT = iphoneos;
-				VALID_ARCHS = armv7;
+				VALID_ARCHS = "armv7 armv7s";
 			};
 			name = Production;
 		};

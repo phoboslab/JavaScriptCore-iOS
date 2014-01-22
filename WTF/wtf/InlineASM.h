@@ -82,7 +82,8 @@
 #elif   OS(LINUX)               \
      || OS(FREEBSD)             \
      || OS(OPENBSD)             \
-     || OS(NETBSD)
+     || OS(NETBSD)              \
+     || OS(QNX)
     // GNU as-compatible syntax.
 #define LOCAL_LABEL_STRING(name) ".L" #name
 #endif

@@ -26,36 +26,21 @@
 #ifndef CopiedBlockInlines_h
 #define CopiedBlockInlines_h
 
-#include "ClassInfo.h"
 #include "CopiedBlock.h"
 #include "Heap.h"
-#include "MarkedBlock.h"
 
 namespace JSC {
     
-inline bool CopiedBlock::shouldReportLiveBytes(SpinLockHolder&, JSCell* owner)
+inline void CopiedBlock::reportLiveBytes(JSCell* owner, CopyToken token, unsigned bytes)
 {
-    // We want to add to live bytes if the owner isn't part of the remembered set or
-    // if this block was allocated during the last cycle. 
-    // If we always added live bytes we would double count for elements in the remembered
-    // set across collections. 
-    // If we didn't always add live bytes to new blocks, we'd get too few.
-    bool ownerIsRemembered = MarkedBlock::blockFor(owner)->isRemembered(owner);
-    return !ownerIsRemembered || !m_isOld;
-}
-
-inline void CopiedBlock::reportLiveBytes(SpinLockHolder&, JSCell* owner, CopyToken token, unsigned bytes)
-{
-    checkConsistency();
+#if ENABLE(PARALLEL_GC)
+    SpinLockHolder locker(&m_workListLock);
+#endif
 #ifndef NDEBUG
+    checkConsistency();
     m_liveObjects++;
 #endif
     m_liveBytes += bytes;
-    checkConsistency();
-    ASSERT(m_liveBytes <= CopiedBlock::blockSize);
-
-    if (isPinned())
-        return;
 
     if (!shouldEvacuate()) {
         pin();
@@ -66,19 +51,6 @@ inline void CopiedBlock::reportLiveBytes(SpinLockHolder&, JSCell* owner, CopyTok
         m_workList = adoptPtr(new CopyWorkList(Heap::heap(owner)->blockAllocator()));
 
     m_workList->append(CopyWorklistItem(owner, token));
-}
-
-inline void CopiedBlock::reportLiveBytesDuringCopying(unsigned bytes)
-{
-    checkConsistency();
-    // This doesn't need to be locked because the thread that calls this function owns the current block.
-    m_isOld = true;
-#ifndef NDEBUG
-    m_liveObjects++;
-#endif
-    m_liveBytes += bytes;
-    checkConsistency();
-    ASSERT(m_liveBytes <= CopiedBlock::blockSize);
 }
 
 } // namespace JSC

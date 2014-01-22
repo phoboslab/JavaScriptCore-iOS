@@ -48,11 +48,7 @@
   typedef __int32 int32_t;
   typedef __int64 int64_t;
 #else
-# if defined(__GNU_LIBRARY__) && defined(__WORDSIZE) && (__WORDSIZE == 64)
-#  define FMT64 "%l"
-# else
-#  define FMT64 "%ll"
-# endif
+# define FMT64 "%ll"
 # ifndef __UD_STANDALONE__
 #  include <inttypes.h>
 # endif /* __UD_STANDALONE__ */

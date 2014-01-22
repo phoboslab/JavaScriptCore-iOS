@@ -33,6 +33,8 @@
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/MathExtras.h>
 
+using namespace std;
+
 namespace WTF {
 
 static int32_t greatestCommonDivisor(int32_t a, int32_t b)
@@ -88,12 +90,12 @@ MediaTime MediaTime::createWithFloat(float floatTime, int32_t timeScale)
         return invalidTime();
     if (std::isinf(floatTime))
         return std::signbit(floatTime) ? negativeInfiniteTime() : positiveInfiniteTime();
-    if (floatTime > std::numeric_limits<int64_t>::max())
+    if (floatTime > numeric_limits<int64_t>::max())
         return positiveInfiniteTime();
-    if (floatTime < std::numeric_limits<int64_t>::min())
+    if (floatTime < numeric_limits<int64_t>::min())
         return negativeInfiniteTime();
 
-    while (floatTime * timeScale > std::numeric_limits<int64_t>::max())
+    while (floatTime * timeScale > numeric_limits<int64_t>::max())
         timeScale /= 2;
     return MediaTime(static_cast<int64_t>(floatTime * timeScale), timeScale, Valid);
 }
@@ -104,12 +106,12 @@ MediaTime MediaTime::createWithDouble(double doubleTime, int32_t timeScale)
         return invalidTime();
     if (std::isinf(doubleTime))
         return std::signbit(doubleTime) ? negativeInfiniteTime() : positiveInfiniteTime();
-    if (doubleTime > std::numeric_limits<int64_t>::max())
+    if (doubleTime > numeric_limits<int64_t>::max())
         return positiveInfiniteTime();
-    if (doubleTime < std::numeric_limits<int64_t>::min())
+    if (doubleTime < numeric_limits<int64_t>::min())
         return negativeInfiniteTime();
 
-    while (doubleTime * timeScale > std::numeric_limits<int64_t>::max())
+    while (doubleTime * timeScale > numeric_limits<int64_t>::max())
         timeScale /= 2;
     return MediaTime(static_cast<int64_t>(doubleTime * timeScale), timeScale, Valid);
 }

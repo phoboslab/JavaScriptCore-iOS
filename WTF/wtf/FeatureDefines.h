@@ -56,10 +56,6 @@
 /* PLATFORM(MAC) is always enabled when PLATFORM(IOS) is enabled. */
 #if PLATFORM(IOS)
 
-#if !defined(ENABLE_ASYNC_SCROLLING)
-#define ENABLE_ASYNC_SCROLLING 1
-#endif
-
 #if !defined(ENABLE_8BIT_TEXTRUN)
 #define ENABLE_8BIT_TEXTRUN 1
 #endif
@@ -337,6 +333,15 @@
 #endif
 
 #endif /* PLATFORM(GTK) */
+
+/* --------- Blackberry port (QNX) --------- */
+#if PLATFORM(BLACKBERRY)
+
+#if !defined(ENABLE_BLACKBERRY_CREDENTIAL_PERSIST)
+#define ENABLE_BLACKBERRY_CREDENTIAL_PERSIST 1
+#endif
+
+#endif /* PLATFORM(BLACKBERRY) */
 
 /* ENABLE macro defaults for WebCore */
 /* Do not use PLATFORM() tests in this section ! */
@@ -861,10 +866,6 @@
 
 #if !defined(ENABLE_WEB_AUDIO)
 #define ENABLE_WEB_AUDIO 0
-#endif
-
-#if !defined(ENABLE_WEB_REPLAY)
-#define ENABLE_WEB_REPLAY 0
 #endif
 
 #if !defined(ENABLE_WEB_SOCKETS)

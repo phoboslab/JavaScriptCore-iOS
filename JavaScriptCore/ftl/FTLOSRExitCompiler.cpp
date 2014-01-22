@@ -34,7 +34,6 @@
 #include "FTLJITCode.h"
 #include "FTLOSRExit.h"
 #include "FTLSaveRestore.h"
-#include "OperandsInlines.h"
 #include "Operations.h"
 #include "RepatchBuffer.h"
 

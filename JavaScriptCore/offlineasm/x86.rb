@@ -100,7 +100,7 @@ class RegisterID
             when :quad
                 isX64 ? "%rax" : raise
             else
-                raise "Invalid kind #{kind} for name #{name}"
+                raise
             end
         when "t1", "a1", "r1"
             case kind
@@ -978,15 +978,9 @@ class Instruction
                 $asm.puts "xorpd #{operands[0].x86Operand(:double)}, #{operands[0].x86Operand(:double)}"
             end
         when "pop"
-            operands.each {
-                | op |
-                $asm.puts "pop #{op.x86Operand(:ptr)}"
-            }
+            $asm.puts "pop #{operands[0].x86Operand(:ptr)}"
         when "push"
-            operands.each {
-                | op |
-                $asm.puts "push #{op.x86Operand(:ptr)}"
-            }
+            $asm.puts "push #{operands[0].x86Operand(:ptr)}"
         when "popCalleeSaves"
             if isX64
                 $asm.puts "pop %rbx"

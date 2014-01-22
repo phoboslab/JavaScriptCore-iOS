@@ -47,7 +47,6 @@ for %%d in (
     heap
     debugger
     inspector
-    inspector\agents
     interpreter
     jit
     llint
@@ -63,7 +62,7 @@ echo Copying Inspector scripts as if they were private headers...
 for %%d in (
     inspector\scripts
 ) do (
-    xcopy /y /d ..\%%d\* "%PrivateHeadersDirectory%" >NUL
+    xcopy /y /d ..\%%d\*.py "%PrivateHeadersDirectory%" >NUL
 )
 
 echo Copying Inspector generated files as if they were private headers...

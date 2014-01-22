@@ -459,8 +459,6 @@ decode_modrm_rm(struct ud         *u,
   rm  = (REX_B(u->pfx_rex) << 3) | MODRM_RM(modrm(u));
   reg = (REX_R(u->pfx_rex) << 3) | MODRM_REG(modrm(u));
 
-  UNUSED_PARAM(reg);
-  
   op->size = resolve_operand_size(u, size);
 
   /* 

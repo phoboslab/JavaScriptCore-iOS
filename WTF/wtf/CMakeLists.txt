@@ -28,6 +28,7 @@ set(WTF_HEADERS
     FastMalloc.h
     FeatureDefines.h
     FilePrintStream.h
+    FilterIterator.h
     FlipBytes.h
     Forward.h
     FunctionDispatcher.h
@@ -42,8 +43,7 @@ set(WTF_HEADERS
     HashTable.h
     HashTraits.h
     HexNumber.h
-    IteratorAdaptors.h
-    IteratorRange.h
+    IteratorPair.h
     ListHashSet.h
     Locker.h
     MD5.h
@@ -101,6 +101,7 @@ set(WTF_HEADERS
     TCSpinLock.h
     TCSystemAlloc.h
     ThreadIdentifierDataPthreads.h
+    ThreadRestrictionVerifier.h
     ThreadSafeRefCounted.h
     ThreadSpecific.h
     Threading.h
@@ -133,7 +134,6 @@ set(WTF_HEADERS
     text/StringBuffer.h
     text/StringHash.h
     text/StringImpl.h
-    text/StringView.h
     text/WTFString.h
 
     threads/BinarySemaphore.h

@@ -839,17 +839,11 @@ class Instruction
             # FIXME: either support this or remove it.
             raise "MIPS does not support this opcode yet, #{codeOrigin}"
         when "pop"
-            operands.each {
-                | op |
-                $asm.puts "lw #{op.mipsOperand}, 0($sp)"
-                $asm.puts "addiu $sp, $sp, 4"
-            }
+            $asm.puts "lw #{operands[0].mipsOperand}, 0($sp)"
+            $asm.puts "addiu $sp, $sp, 4"
         when "push"
-            operands.each {
-                | op |
-                $asm.puts "addiu $sp, $sp, -4"
-                $asm.puts "sw #{op.mipsOperand}, 0($sp)"
-            }
+            $asm.puts "addiu $sp, $sp, -4"
+            $asm.puts "sw #{operands[0].mipsOperand}, 0($sp)"
         when "popCalleeSaves"
             $asm.puts "lw $16, 0($sp)"
             $asm.puts "lw $17, 4($sp)"

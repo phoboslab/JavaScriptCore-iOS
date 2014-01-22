@@ -636,12 +636,20 @@ void BytecodeGenerator::emitOpcode(OpcodeID opcodeID)
 
 UnlinkedArrayProfile BytecodeGenerator::newArrayProfile()
 {
+#if ENABLE(VALUE_PROFILER)
     return m_codeBlock->addArrayProfile();
+#else
+    return 0;
+#endif
 }
 
 UnlinkedArrayAllocationProfile BytecodeGenerator::newArrayAllocationProfile()
 {
+#if ENABLE(VALUE_PROFILER)
     return m_codeBlock->addArrayAllocationProfile();
+#else
+    return 0;
+#endif
 }
 
 UnlinkedObjectAllocationProfile BytecodeGenerator::newObjectAllocationProfile()
@@ -651,7 +659,11 @@ UnlinkedObjectAllocationProfile BytecodeGenerator::newObjectAllocationProfile()
 
 UnlinkedValueProfile BytecodeGenerator::emitProfiledOpcode(OpcodeID opcodeID)
 {
+#if ENABLE(VALUE_PROFILER)
     UnlinkedValueProfile result = m_codeBlock->addValueProfile();
+#else
+    UnlinkedValueProfile result = 0;
+#endif
     emitOpcode(opcodeID);
     return result;
 }
@@ -1954,10 +1966,6 @@ void BytecodeGenerator::emitDebugHook(DebugHookID debugHookID, unsigned line, un
 
 void BytecodeGenerator::pushFinallyContext(StatementNode* finallyBlock)
 {
-    // Reclaim free label scopes.
-    while (m_labelScopes.size() && !m_labelScopes.last().refCount())
-        m_labelScopes.removeLast();
-
     ControlFlowContext scope;
     scope.isFinallyBlock = true;
     FinallyContext context = {

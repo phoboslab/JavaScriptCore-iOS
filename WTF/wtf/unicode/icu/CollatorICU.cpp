@@ -31,9 +31,9 @@
 
 #if USE(ICU_UNICODE) && !UCONFIG_NO_COLLATION
 
-#include <mutex>
 #include <wtf/Assertions.h>
 #include <wtf/StringExtras.h>
+#include <wtf/Threading.h>
 #include <unicode/ucol.h>
 #include <string.h>
 
@@ -45,16 +45,10 @@
 namespace WTF {
 
 static UCollator* cachedCollator;
-
-static std::mutex& cachedCollatorMutex()
+static Mutex& cachedCollatorMutex()
 {
-    static std::once_flag onceFlag;
-    static std::mutex* mutex;
-    std::call_once(onceFlag, []{
-        mutex = std::make_unique<std::mutex>().release();
-    });
-
-    return *mutex;
+    AtomicallyInitializedStatic(Mutex&, mutex = *new Mutex);
+    return mutex;
 }
 
 Collator::Collator(const char* locale)
@@ -110,7 +104,7 @@ void Collator::createCollator() const
     UErrorCode status = U_ZERO_ERROR;
 
     {
-        std::lock_guard<std::mutex> lock(cachedCollatorMutex());
+        Locker<Mutex> lock(cachedCollatorMutex());
         if (cachedCollator) {
             const char* cachedCollatorLocale = ucol_getLocaleByType(cachedCollator, ULOC_REQUESTED_LOCALE, &status);
             ASSERT(U_SUCCESS(status));
@@ -123,7 +117,7 @@ void Collator::createCollator() const
             if (m_locale && 0 == strcmp(cachedCollatorLocale, m_locale)
                 && ((UCOL_LOWER_FIRST == cachedCollatorLowerFirst && m_lowerFirst) || (UCOL_UPPER_FIRST == cachedCollatorLowerFirst && !m_lowerFirst))) {
                 m_collator = cachedCollator;
-                cachedCollator = nullptr;
+                cachedCollator = 0;
                 return;
             }
         }
@@ -146,11 +140,11 @@ void Collator::createCollator() const
 void Collator::releaseCollator()
 {
     {
-        std::lock_guard<std::mutex> lock(cachedCollatorMutex());
+        Locker<Mutex> lock(cachedCollatorMutex());
         if (cachedCollator)
             ucol_close(cachedCollator);
         cachedCollator = m_collator;
-        m_collator = nullptr;
+        m_collator  = 0;
     }
 }
 

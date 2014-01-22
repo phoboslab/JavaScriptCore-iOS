@@ -58,7 +58,6 @@ namespace WTF {
         void releaseCollator();
         mutable UCollator* m_collator;
 #endif
-
 #if !UCONFIG_NO_COLLATION
         char* m_locale;
         bool m_lowerFirst;

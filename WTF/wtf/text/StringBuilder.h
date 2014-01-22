@@ -248,22 +248,21 @@ public:
         return m_buffer->characters16();
     }
     
-    const UChar* characters() const { return deprecatedCharacters(); } // FIXME: Delete this.
-    const UChar* deprecatedCharacters() const
+    const UChar* characters() const
     {
         if (!m_length)
             return 0;
         if (!m_string.isNull())
-            return m_string.deprecatedCharacters();
+            return m_string.characters();
         ASSERT(m_buffer);
         if (m_buffer->has16BitShadow() && m_valid16BitShadowLength < m_length)
             m_buffer->upconvertCharacters(m_valid16BitShadowLength, m_length);
 
         m_valid16BitShadowLength = m_length;
 
-        return m_buffer->deprecatedCharacters();
+        return m_buffer->characters();
     }
-
+    
     bool is8Bit() const { return m_is8Bit; }
 
     void clear()

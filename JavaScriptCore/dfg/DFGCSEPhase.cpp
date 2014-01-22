@@ -136,10 +136,8 @@ private:
             if (node->op() != otherNode->op())
                 continue;
             
-            if (node->hasArithMode()) {
-                if (node->arithMode() != otherNode->arithMode())
-                    continue;
-            }
+            if (node->arithNodeFlags() != otherNode->arithNodeFlags())
+                continue;
             
             Edge otherChild = otherNode->child1();
             if (!otherChild)
@@ -1084,6 +1082,7 @@ private:
         case ArithSub:
         case ArithNegate:
         case ArithMul:
+        case ArithIMul:
         case ArithMod:
         case ArithDiv:
         case ArithAbs:

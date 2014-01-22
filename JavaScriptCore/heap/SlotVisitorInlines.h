@@ -101,17 +101,10 @@ ALWAYS_INLINE void SlotVisitor::internalAppend(void* from, JSCell* cell)
         return;
 
     m_bytesVisited += MarkedBlock::blockFor(cell)->cellSize();
+    m_visitCount++;
         
     MARK_LOG_CHILD(*this, cell);
 
-    unconditionallyAppend(cell);
-}
-
-ALWAYS_INLINE void SlotVisitor::unconditionallyAppend(JSCell* cell)
-{
-    ASSERT(Heap::isMarked(cell));
-    m_visitCount++;
-        
     // Should never attempt to mark something that is zapped.
     ASSERT(!cell->isZapped());
         
@@ -225,29 +218,22 @@ inline void SlotVisitor::donateAndDrain()
 inline void SlotVisitor::copyLater(JSCell* owner, CopyToken token, void* ptr, size_t bytes)
 {
     ASSERT(bytes);
+    m_bytesCopied += bytes;
+
     CopiedBlock* block = CopiedSpace::blockFor(ptr);
     if (block->isOversize()) {
         m_shared.m_copiedSpace->pin(block);
         return;
     }
 
-    SpinLockHolder locker(&block->workListLock());
-    if (heap()->operationInProgress() == FullCollection || block->shouldReportLiveBytes(locker, owner)) {
-        m_bytesCopied += bytes;
-        block->reportLiveBytes(locker, owner, token, bytes);
-    }
+    if (block->isPinned())
+        return;
+
+    block->reportLiveBytes(owner, token, bytes);
 }
     
-inline void SlotVisitor::reportExtraMemoryUsage(JSCell* owner, size_t size)
+inline void SlotVisitor::reportExtraMemoryUsage(size_t size)
 {
-#if ENABLE(GGC)
-    // We don't want to double-count the extra memory that was reported in previous collections.
-    if (heap()->operationInProgress() == EdenCollection && MarkedBlock::blockFor(owner)->isRemembered(owner))
-        return;
-#else
-    UNUSED_PARAM(owner);
-#endif
-
     size_t* counter = &m_shared.m_vm->heap.m_extraMemoryUsage;
     
 #if ENABLE(COMPARE_AND_SWAP)
@@ -259,11 +245,6 @@ inline void SlotVisitor::reportExtraMemoryUsage(JSCell* owner, size_t size)
 #else
     (*counter) += size;
 #endif
-}
-
-inline Heap* SlotVisitor::heap() const
-{
-    return &sharedData().m_vm->heap;
 }
 
 } // namespace JSC

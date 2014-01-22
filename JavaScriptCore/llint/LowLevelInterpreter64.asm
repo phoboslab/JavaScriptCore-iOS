@@ -140,6 +140,10 @@ macro doCallToJavaScript(makeCall, doReturn)
         const temp3 = t6
     end
 
+    if X86_64
+        loadp [sp], previousPC
+    end
+    move cfr, previousCFR
     functionPrologue(extraStackSpace)
 
     move topOfStack, cfr
@@ -149,10 +153,6 @@ macro doCallToJavaScript(makeCall, doReturn)
     loadp [vmTopCallFrame], temp1
     storep temp1, ScopeChain[cfr]
     storep 1, CodeBlock[cfr]
-    if X86_64
-        loadp 7*8[sp], previousPC
-        loadp 6*8[sp], previousCFR
-    end
     storep previousPC, ReturnPC[cfr]
     storep previousCFR, CallerFrame[cfr]
     move cfr, temp1
@@ -331,56 +331,15 @@ macro loadConstantOrVariableCell(index, value, slow)
     btqnz value, tagMask, slow
 end
 
-macro writeBarrierOnOperand(cellOperand)
-    if GGC
-        loadisFromInstruction(cellOperand, t1)
-        loadConstantOrVariableCell(t1, t0, .writeBarrierDone)
-        checkMarkByte(t0, t1, t2, 
-            macro(marked)
-                btbz marked, .writeBarrierDone
-                push PB, PC
-                cCall2(_llint_write_barrier_slow, cfr, t0)
-                pop PC, PB
-            end
-        )
-    .writeBarrierDone:
-    end
-end
-
-macro writeBarrierOnOperands(cellOperand, valueOperand)
-    if GGC
-        loadisFromInstruction(valueOperand, t1)
-        loadConstantOrVariable(t1, t0)
-        btpz t0, .writeBarrierDone
-    
-        writeBarrierOnOperand(cellOperand)
-    .writeBarrierDone:
-    end
-end
-
-macro writeBarrierOnGlobalObject(valueOperand)
-    if GGC
-        loadisFromInstruction(valueOperand, t1)
-        loadConstantOrVariable(t1, t0)
-        btpz t0, .writeBarrierDone
-    
-        loadp CodeBlock[cfr], t0
-        loadp CodeBlock::m_globalObject[t0], t0
-        checkMarkByte(t0, t1, t2,
-            macro(marked)
-                btbz marked, .writeBarrierDone
-                push PB, PC
-                cCall2(_llint_write_barrier_slow, cfr, t0)
-                pop PC, PB
-            end
-        )
-    .writeBarrierDone:
-    end
+macro writeBarrier(value)
+    # Nothing to do, since we don't have a generational or incremental collector.
 end
 
 macro valueProfile(value, operand, scratch)
-    loadpFromInstruction(operand, scratch)
-    storeq value, ValueProfile::m_buckets[scratch]
+    if VALUE_PROFILER
+        loadpFromInstruction(operand, scratch)
+        storeq value, ValueProfile::m_buckets[scratch]
+    end
 end
 
 
@@ -455,7 +414,6 @@ _llint_op_enter:
     addq 1, t2
     btqnz t2, .opEnterLoop
 .opEnterDone:
-    callSlowPath(_slow_path_enter)
     dispatch(1)
 
 
@@ -1108,10 +1066,10 @@ end
 
 _llint_op_init_global_const:
     traceExecution()
-    writeBarrierOnGlobalObject(2)
     loadisFromInstruction(2, t1)
     loadpFromInstruction(1, t0)
     loadConstantOrVariable(t1, t2)
+    writeBarrier(t2)
     storeq t2, [t0]
     dispatch(5)
 
@@ -1193,7 +1151,6 @@ _llint_op_get_arguments_length:
 
 macro putById(getPropertyStorage)
     traceExecution()
-    writeBarrierOnOperands(1, 3)
     loadisFromInstruction(1, t3)
     loadpFromInstruction(4, t1)
     loadConstantOrVariableCell(t3, t0, .opPutByIdSlow)
@@ -1205,6 +1162,7 @@ macro putById(getPropertyStorage)
             bpneq JSCell::m_structure[t0], t1, .opPutByIdSlow
             loadisFromInstruction(5, t1)
             loadConstantOrVariable(t2, scratch)
+            writeBarrier(t0)
             storeq scratch, [propertyStorage, t1]
             dispatch(9)
         end)
@@ -1224,7 +1182,6 @@ _llint_op_put_by_id_out_of_line:
 
 macro putByIdTransition(additionalChecks, getPropertyStorage)
     traceExecution()
-    writeBarrierOnOperand(1)
     loadisFromInstruction(1, t3)
     loadpFromInstruction(4, t1)
     loadConstantOrVariableCell(t3, t0, .opPutByIdSlow)
@@ -1238,6 +1195,7 @@ macro putByIdTransition(additionalChecks, getPropertyStorage)
         macro (propertyStorage, scratch)
             addp t1, propertyStorage, t3
             loadConstantOrVariable(t2, t1)
+            writeBarrier(t1)
             storeq t1, [t3]
             loadpFromInstruction(6, t1)
             storep t1, JSCell::m_structure[t0]
@@ -1326,8 +1284,10 @@ _llint_op_get_by_val:
     dispatch(6)
 
 .opGetByValOutOfBounds:
-    loadpFromInstruction(4, t0)
-    storeb 1, ArrayProfile::m_outOfBounds[t0]
+    if VALUE_PROFILER
+        loadpFromInstruction(4, t0)
+        storeb 1, ArrayProfile::m_outOfBounds[t0]
+    end
 .opGetByValSlow:
     callSlowPath(_llint_slow_path_get_by_val)
     dispatch(6)
@@ -1397,8 +1357,10 @@ macro contiguousPutByVal(storeCallback)
 
 .outOfBounds:
     biaeq t3, -sizeof IndexingHeader + IndexingHeader::u.lengths.vectorLength[t0], .opPutByValOutOfBounds
-    loadp 32[PB, PC, 8], t2
-    storeb 1, ArrayProfile::m_mayStoreToHole[t2]
+    if VALUE_PROFILER
+        loadp 32[PB, PC, 8], t2
+        storeb 1, ArrayProfile::m_mayStoreToHole[t2]
+    end
     addi 1, t3, t2
     storei t2, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t0]
     jmp .storeResult
@@ -1406,7 +1368,6 @@ end
 
 macro putByVal(holeCheck, slowPath)
     traceExecution()
-    writeBarrierOnOperands(1, 3)
     loadisFromInstruction(1, t0)
     loadConstantOrVariableCell(t0, t1, .opPutByValSlow)
     loadp JSCell::m_structure[t1], t2
@@ -1446,6 +1407,7 @@ macro putByVal(holeCheck, slowPath)
     contiguousPutByVal(
         macro (operand, scratch, address)
             loadConstantOrVariable(operand, scratch)
+            writeBarrier(scratch)
             storep scratch, address
         end)
 
@@ -1456,12 +1418,15 @@ macro putByVal(holeCheck, slowPath)
 .opPutByValArrayStorageStoreResult:
     loadisFromInstruction(3, t2)
     loadConstantOrVariable(t2, t1)
+    writeBarrier(t1)
     storeq t1, ArrayStorage::m_vector[t0, t3, 8]
     dispatch(5)
 
 .opPutByValArrayStorageEmpty:
-    loadpFromInstruction(4, t1)
-    storeb 1, ArrayProfile::m_mayStoreToHole[t1]
+    if VALUE_PROFILER
+        loadpFromInstruction(4, t1)
+        storeb 1, ArrayProfile::m_mayStoreToHole[t1]
+    end
     addi 1, ArrayStorage::m_numValuesInVector[t0]
     bib t3, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t0], .opPutByValArrayStorageStoreResult
     addi 1, t3, t1
@@ -1469,8 +1434,10 @@ macro putByVal(holeCheck, slowPath)
     jmp .opPutByValArrayStorageStoreResult
 
 .opPutByValOutOfBounds:
-    loadpFromInstruction(4, t0)
-    storeb 1, ArrayProfile::m_outOfBounds[t0]
+    if VALUE_PROFILER
+        loadpFromInstruction(4, t0)
+        storeb 1, ArrayProfile::m_outOfBounds[t0]
+    end
 .opPutByValSlow:
     callSlowPath(slowPath)
     dispatch(5)
@@ -1692,14 +1659,16 @@ _llint_op_new_captured_func:
 
 
 macro arrayProfileForCall()
-    loadisFromInstruction(4, t3)
-    negp t3
-    loadq ThisArgumentOffset[cfr, t3, 8], t0
-    btqnz t0, tagMask, .done
-    loadp JSCell::m_structure[t0], t0
-    loadpFromInstruction(6, t1)
-    storep t0, ArrayProfile::m_lastSeenStructure[t1]
-.done:
+    if VALUE_PROFILER
+        loadisFromInstruction(4, t3)
+        negp t3
+        loadq ThisArgumentOffset[cfr, t3, 8], t0
+        btqnz t0, tagMask, .done
+        loadp JSCell::m_structure[t0], t0
+        loadpFromInstruction(6, t1)
+        storep t0, ArrayProfile::m_lastSeenStructure[t1]
+    .done:
+    end
 end
 
 macro doCall(slowPath)
@@ -2150,41 +2119,35 @@ _llint_op_put_to_scope:
 
 #pGlobalProperty:
     bineq t0, GlobalProperty, .pGlobalVar
-    writeBarrierOnOperands(1, 3)
     loadWithStructureCheck(1, .pDynamic)
     putProperty()
     dispatch(7)
 
 .pGlobalVar:
     bineq t0, GlobalVar, .pClosureVar
-    writeBarrierOnGlobalObject(3)
     putGlobalVar()
     dispatch(7)
 
 .pClosureVar:
     bineq t0, ClosureVar, .pGlobalPropertyWithVarInjectionChecks
-    writeBarrierOnOperands(1, 3)
     loadVariable(1, t0)
     putClosureVar()
     dispatch(7)
 
 .pGlobalPropertyWithVarInjectionChecks:
     bineq t0, GlobalPropertyWithVarInjectionChecks, .pGlobalVarWithVarInjectionChecks
-    writeBarrierOnOperands(1, 3)
     loadWithStructureCheck(1, .pDynamic)
     putProperty()
     dispatch(7)
 
 .pGlobalVarWithVarInjectionChecks:
     bineq t0, GlobalVarWithVarInjectionChecks, .pClosureVarWithVarInjectionChecks
-    writeBarrierOnGlobalObject(3)
     varInjectionCheck(.pDynamic)
     putGlobalVar()
     dispatch(7)
 
 .pClosureVarWithVarInjectionChecks:
     bineq t0, ClosureVarWithVarInjectionChecks, .pDynamic
-    writeBarrierOnOperands(1, 3)
     varInjectionCheck(.pDynamic)
     loadVariable(1, t0)
     putClosureVar()

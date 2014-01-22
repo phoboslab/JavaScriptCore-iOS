@@ -23,34 +23,55 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WTF_IteratorRange_h
-#define WTF_IteratorRange_h
+#ifndef WTF_FilterIterator_h
+#define WTF_FilterIterator_h
+
+#include <wtf/Forward.h>
+#include <wtf/PassRefPtr.h>
+#include <wtf/Vector.h>
 
 namespace WTF {
 
-template<typename Iterator>
-class IteratorRange {
+template<typename Predicate, typename Cast, typename Iterator>
+class FilterIterator {
 public:
-    IteratorRange(Iterator begin, Iterator end)
-        : m_begin(std::move(begin))
+    FilterIterator(Predicate pred, Cast cast, Iterator begin, Iterator end)
+        : m_pred(std::move(pred))
+        , m_cast(std::move(cast))
+        , m_iter(std::move(begin))
         , m_end(std::move(end))
     {
+        while (m_iter != m_end && !m_pred(*m_iter))
+            ++m_iter;
     }
 
-    Iterator begin() const { return m_begin; }
-    Iterator end() const { return m_end; }
+    FilterIterator& operator++()
+    {
+        while (m_iter != m_end) {
+            ++m_iter;
+            if (m_iter == m_end || m_pred(*m_iter))
+                break;
+        }
+        return *this;
+    }
+
+    const decltype(std::declval<Cast>()(*std::declval<Iterator>())) operator*() const
+    {
+        ASSERT(m_iter != m_end);
+        ASSERT(m_pred(*m_iter));
+        return m_cast(*m_iter);
+    }
+
+    inline bool operator==(FilterIterator& other) const { return m_iter == other.m_iter; }
+    inline bool operator!=(FilterIterator& other) const { return m_iter != other.m_iter; }
 
 private:
-    Iterator m_begin;
+    const Predicate m_pred;
+    const Cast m_cast;
+    Iterator m_iter;
     Iterator m_end;
 };
 
-template<typename Iterator>
-IteratorRange<Iterator> makeIteratorRange(Iterator&& begin, Iterator&& end)
-{
-    return IteratorRange<Iterator>(std::forward<Iterator>(begin), std::forward<Iterator>(end));
-}
-
 } // namespace WTF
 
-#endif // WTF_IteratorRange_h
+#endif // WTF_FilterIterator_h

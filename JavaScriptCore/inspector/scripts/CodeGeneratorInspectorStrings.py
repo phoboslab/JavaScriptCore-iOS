@@ -179,8 +179,6 @@ backend_cpp = (
 
 namespace Inspector {
 
-${handlerImplementations}
-
 ${methods}
 } // namespace Inspector
 

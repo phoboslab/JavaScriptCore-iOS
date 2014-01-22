@@ -32,6 +32,14 @@
 #include <objc/objc.h>
 #endif
 
+#if PLATFORM(BLACKBERRY)
+namespace BlackBerry {
+namespace Platform {
+class String;
+}
+}
+#endif
+
 namespace WTF {
 
 class CString;
@@ -156,14 +164,13 @@ public:
         return m_impl->length();
     }
 
-    const UChar* characters() const { return deprecatedCharacters(); } // FIXME: Delete this.
-    const UChar* deprecatedCharacters() const
+    const UChar* characters() const
     {
         if (!m_impl)
             return 0;
-        return m_impl->deprecatedCharacters();
+        return m_impl->characters();
     }
-
+    
     const LChar* characters8() const
     {
         if (!m_impl)
@@ -407,6 +414,11 @@ public:
     operator NSString*() const { if (!m_impl) return @""; return *m_impl; }
 #endif
 
+#if PLATFORM(BLACKBERRY)
+    String(const BlackBerry::Platform::String&);
+    operator BlackBerry::Platform::String() const;
+#endif
+
     WTF_EXPORT_STRING_API static String make8BitFrom16BitSource(const UChar*, size_t);
     template<size_t inlineCapacity>
     static String make8BitFrom16BitSource(const Vector<UChar, inlineCapacity>& buffer)
@@ -541,7 +553,7 @@ inline const LChar* String::getCharactersWithUpconvert<LChar>() const
 template<>
 inline const UChar* String::getCharactersWithUpconvert<UChar>() const
 {
-    return deprecatedCharacters();
+    return characters();
 }
 
 inline bool String::containsOnlyLatin1() const
@@ -588,7 +600,7 @@ inline bool codePointCompareLessThan(const String& a, const String& b)
 template<size_t inlineCapacity>
 inline void append(Vector<UChar, inlineCapacity>& vector, const String& string)
 {
-    vector.append(string.deprecatedCharacters(), string.length());
+    vector.append(string.characters(), string.length());
 }
 
 template<typename CharacterType>

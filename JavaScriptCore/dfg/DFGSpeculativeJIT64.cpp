@@ -2275,7 +2275,7 @@ void SpeculativeJIT::compile(Node* node)
             JSValueOperand value(this, node->child1());
             m_jit.store64(value.gpr(), JITCompiler::addressFor(node->machineLocal()));
             noResult(node);
-            recordSetLocal(dataFormatFor(node->variableAccessData()->flushFormat()));
+            recordSetLocal(DataFormatJS);
             break;
         }
             
@@ -2421,6 +2421,10 @@ void SpeculativeJIT::compile(Node* node)
 
     case ArithMul:
         compileArithMul(node);
+        break;
+
+    case ArithIMul:
+        compileArithIMul(node);
         break;
 
     case ArithDiv: {
@@ -4998,7 +5002,6 @@ void SpeculativeJIT::compile(Node* node)
     case GetArgument:
     case ExtractOSREntryLocal:
     case CheckInBounds:
-    case ArithIMul:
         RELEASE_ASSERT_NOT_REACHED();
         break;
     }

@@ -95,7 +95,7 @@ void DefaultGCActivityCallback::doWork()
         return;
     }
 #endif
-    heap->collect();
+    heap->collect(Heap::DoNotSweep);
 }
     
 #if USE(CF)

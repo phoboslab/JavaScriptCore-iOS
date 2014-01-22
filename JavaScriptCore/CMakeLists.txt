@@ -13,11 +13,9 @@ set(JavaScriptCore_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/heap"
     "${JAVASCRIPTCORE_DIR}/debugger"
     "${JAVASCRIPTCORE_DIR}/inspector"
-    "${JAVASCRIPTCORE_DIR}/inspector/agents"
     "${JAVASCRIPTCORE_DIR}/interpreter"
     "${JAVASCRIPTCORE_DIR}/jit"
     "${JAVASCRIPTCORE_DIR}/llint"
-    "${JAVASCRIPTCORE_DIR}/llvm"
     "${JAVASCRIPTCORE_DIR}/parser"
     "${JAVASCRIPTCORE_DIR}/profiler"
     "${JAVASCRIPTCORE_DIR}/runtime"
@@ -97,7 +95,6 @@ set(JavaScriptCore_SOURCES
     dfg/DFGAbstractHeap.cpp
     dfg/DFGAbstractValue.cpp
     dfg/DFGArgumentsSimplificationPhase.cpp
-    dfg/DFGArithMode.cpp
     dfg/DFGArrayMode.cpp
     dfg/DFGAtTailAbstractState.cpp
     dfg/DFGAvailability.cpp
@@ -229,14 +226,6 @@ set(JavaScriptCore_SOURCES
     inspector/InspectorAgentRegistry.cpp
     inspector/InspectorBackendDispatcher.cpp
     inspector/InspectorValues.cpp
-    inspector/InjectedScript.cpp
-    inspector/InjectedScriptBase.cpp
-    inspector/InjectedScriptHost.cpp
-    inspector/InjectedScriptManager.cpp
-    inspector/InjectedScriptModule.cpp
-    inspector/JSInjectedScriptHost.cpp
-    inspector/JSInjectedScriptHostPrototype.cpp
-    inspector/agents/InspectorAgent.cpp
 
     interpreter/AbstractPC.cpp
     interpreter/CallFrame.cpp
@@ -500,36 +489,6 @@ if (WTF_USE_ICU_UNICODE)
     )
 endif ()
 
-if (WTF_USE_UDIS86)
-    set(UDIS_GEN_DEP
-        disassembler/udis86/ud_opcode.py
-        disassembler/udis86/ud_optable.py
-    )
-
-    add_custom_command(
-        OUTPUT ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/udis86_itab.c ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/udis86_itab.h
-        DEPENDS ${UDIS_GEN_DEP}
-        WORKING_DIRECTORY ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}
-        COMMAND ${PYTHON_EXECUTABLE} ${JAVASCRIPTCORE_DIR}/disassembler/udis86/itab.py ${JAVASCRIPTCORE_DIR}/disassembler/udis86/optable.xml
-        VERBATIM)
-
-    list(APPEND JavaScriptCore_INCLUDE_DIRECTORIES
-        ${JAVASCRIPTCORE_DIR}/disassembler/udis86
-    )
-    list(APPEND JavaScriptCore_HEADERS
-        ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/udis86_itab.h
-    )
-    list(APPEND JavaScriptCore_SOURCES
-        disassembler/udis86/udis86.c
-        disassembler/udis86/udis86_decode.c
-        disassembler/udis86/udis86_input.c
-        disassembler/udis86/udis86_itab_holder.c
-        disassembler/udis86/udis86_syn-att.c
-        disassembler/udis86/udis86_syn-intel.c
-        disassembler/udis86/udis86_syn.c
-    )
-endif ()
-
 if (ENABLE_LLINT)
     # We cannot check for RUBY_FOUND because it is set only when the full package is installed and
     # the only thing we need is the interpreter. Unlike Python, cmake does not provide a macro
@@ -616,81 +575,6 @@ if (ENABLE_LLINT)
     )
 endif ()
 
-if (ENABLE_FTL_JIT)
-    if (NOT LLVM_STATIC_LIBRARIES)
-        message(FATAL_ERROR "No LLVM libs found, but FTL is enabled. Stopping build.")
-    endif ()
-
-    # Configure llvmForJSC.so
-    set(llvmForJSC_SOURCES
-        llvm/library/LLVMAnchor.cpp
-        llvm/library/LLVMExports.cpp
-        llvm/library/LLVMOverrides.cpp
-    )
-    set(llvmForJSC_INCLUDE_DIRECTORIES
-        ${LLVM_INCLUDE_DIRS}
-        "${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}"
-    )
-
-    add_custom_command(
-        OUTPUT ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/WebKitLLVMLibraryToken.h
-        DEPENDS ${LLVM_STATIC_LIBRARIES}
-        COMMAND ${CMAKE_COMMAND} -E touch ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/WebKitLLVMLibraryToken.h
-        VERBATIM)
-
-    WEBKIT_WRAP_SOURCELIST(${llvmForJSC_SOURCES})
-    add_library(llvmForJSC SHARED ${llvmForJSC_SOURCES} ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/WebKitLLVMLibraryToken.h)
-    target_link_libraries(llvmForJSC ${LLVM_STATIC_LIBRARIES} "pthread" "dl")
-
-    # Added extra items for JavaScriptCore
-    list(APPEND JavaScriptCore_INCLUDE_DIRECTORIES
-        ${LLVM_INCLUDE_DIRS}
-    )
-
-    list(APPEND JavaScriptCore_SOURCES
-        llvm/InitializeLLVM.cpp
-        llvm/InitializeLLVMPOSIX.cpp
-        llvm/InitializeLLVMLinux.cpp
-        llvm/LLVMAPI.cpp
-
-        dfg/DFGToFTLDeferredCompilationCallback.cpp
-        dfg/DFGToFTLForOSREntryDeferredCompilationCallback.cpp
-
-        disassembler/LLVMDisassembler.cpp
-        disassembler/X86Disassembler.cpp
-
-        ftl/FTLAbstractHeap.cpp
-        ftl/FTLAbstractHeapRepository.cpp
-        ftl/FTLCapabilities.cpp
-        ftl/FTLCommonValues.cpp
-        ftl/FTLCompile.cpp
-        ftl/FTLExitArgument.cpp
-        ftl/FTLExitArgumentForOperand.cpp
-        ftl/FTLExitThunkGenerator.cpp
-        ftl/FTLExitValue.cpp
-        ftl/FTLFail.cpp
-        ftl/FTLForOSREntryJITCode.cpp
-        ftl/FTLInlineCacheSize.cpp
-        ftl/FTLIntrinsicRepository.cpp
-        ftl/FTLJITCode.cpp
-        ftl/FTLJITFinalizer.cpp
-        ftl/FTLLink.cpp
-        ftl/FTLLocation.cpp
-        ftl/FTLLowerDFGToLLVM.cpp
-        ftl/FTLOSREntry.cpp
-        ftl/FTLOSRExit.cpp
-        ftl/FTLOSRExitCompiler.cpp
-        ftl/FTLOutput.cpp
-        ftl/FTLSaveRestore.cpp
-        ftl/FTLSlowPathCall.cpp
-        ftl/FTLSlowPathCallKey.cpp
-        ftl/FTLStackMaps.cpp
-        ftl/FTLState.cpp
-        ftl/FTLThunks.cpp
-        ftl/FTLValueFormat.cpp
-    )
-endif ()
-
 set(HASH_LUT_GENERATOR ${CMAKE_CURRENT_SOURCE_DIR}/create_hash_table)
 macro(GENERATE_HASH_LUT _input _output)
     add_custom_command(
@@ -711,10 +595,10 @@ set(JavaScriptCore_FORWARDING_HEADERS_DIRECTORIES
     assembler
     bindings
     bytecode
+    collector/handles
     debugger
     heap
     inspector
-    inspector/agents
     interpreter
     jit
     llint
@@ -722,8 +606,6 @@ set(JavaScriptCore_FORWARDING_HEADERS_DIRECTORIES
     profiler
     runtime
     yarr
-
-    collector/handles
 )
 
 set(JavaScriptCore_FORWARDING_HEADERS_FILES
@@ -815,16 +697,6 @@ list(APPEND JavaScriptCore_HEADERS
     ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InspectorJSTypeBuilders.h
 )
 
-add_custom_command(
-    OUTPUT ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InjectedScriptSource.h ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InjectedScriptSource.min.js
-    MAIN_DEPENDENCY ${JAVASCRIPTCORE_DIR}/inspector/InjectedScriptSource.js
-    DEPENDS ${JavaScriptCore_INSPECTOR_SCRIPTS_DIR}/xxd.pl ${JavaScriptCore_INSPECTOR_SCRIPTS_DIR}/jsmin.py
-    COMMAND ${PYTHON_EXECUTABLE} ${JavaScriptCore_INSPECTOR_SCRIPTS_DIR}/jsmin.py < ${JAVASCRIPTCORE_DIR}/inspector/InjectedScriptSource.js > ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InjectedScriptSource.min.js
-    COMMAND ${PERL_EXECUTABLE} ${JavaScriptCore_INSPECTOR_SCRIPTS_DIR}/xxd.pl InjectedScriptSource_js ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InjectedScriptSource.min.js ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InjectedScriptSource.h
-    VERBATIM)
-
-list(APPEND JavaScriptCore_HEADERS ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InjectedScriptSource.h)
-
 
 if (WTF_CPU_ARM)
     list(APPEND JavaScriptCore_SOURCES
@@ -897,8 +769,4 @@ if (${JavaScriptCore_LIBRARY_TYPE} STREQUAL "SHARED")
     POPULATE_LIBRARY_VERSION(JAVASCRIPTCORE)
     set_target_properties(JavaScriptCore PROPERTIES VERSION ${JAVASCRIPTCORE_VERSION} SOVERSION ${JAVASCRIPTCORE_VERSION_MAJOR})
     install(TARGETS JavaScriptCore DESTINATION "${LIB_INSTALL_DIR}")
-endif ()
-
-if (ENABLE_FTL_JIT)
-    add_dependencies(JavaScriptCore llvmForJSC)
 endif ()

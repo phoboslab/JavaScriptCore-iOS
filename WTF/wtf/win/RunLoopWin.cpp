@@ -29,6 +29,8 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/WindowsExtras.h>
 
+using namespace std;
+
 namespace WTF {
 
 static const UINT PerformWorkMessage = WM_USER + 1;

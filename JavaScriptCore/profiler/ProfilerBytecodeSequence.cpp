@@ -38,6 +38,7 @@ BytecodeSequence::BytecodeSequence(CodeBlock* codeBlock)
 {
     StringPrintStream out;
     
+#if ENABLE(VALUE_PROFILER)
     for (unsigned i = 0; i < codeBlock->numberOfArgumentValueProfiles(); ++i) {
         ConcurrentJITLocker locker(codeBlock->m_lock);
         CString description = codeBlock->valueProfileForArgument(i)->briefDescription(locker);
@@ -47,6 +48,7 @@ BytecodeSequence::BytecodeSequence(CodeBlock* codeBlock)
         out.print("arg", i, " (r", virtualRegisterForArgument(i).offset(), "): ", description);
         m_header.append(out.toCString());
     }
+#endif // ENABLE(VALUE_PROFILER)
     
     for (unsigned bytecodeIndex = 0; bytecodeIndex < codeBlock->instructions().size();) {
         out.reset();

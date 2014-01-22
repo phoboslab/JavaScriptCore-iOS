@@ -45,8 +45,7 @@ CodeBlockSet::~CodeBlockSet()
 
 void CodeBlockSet::add(PassRefPtr<CodeBlock> codeBlock)
 {
-    CodeBlock* block = codeBlock.leakRef();
-    bool isNewEntry = m_set.add(block).isNewEntry;
+    bool isNewEntry = m_set.add(codeBlock.leakRef()).isNewEntry;
     ASSERT_UNUSED(isNewEntry, isNewEntry);
 }
 
@@ -102,19 +101,8 @@ void CodeBlockSet::traceMarked(SlotVisitor& visitor)
         CodeBlock* codeBlock = *iter;
         if (!codeBlock->m_mayBeExecuting)
             continue;
-        codeBlock->ownerExecutable()->methodTable()->visitChildren(codeBlock->ownerExecutable(), visitor);
+        codeBlock->visitAggregate(visitor);
     }
-}
-
-void CodeBlockSet::rememberCurrentlyExecutingCodeBlocks(Heap* heap)
-{
-#if ENABLE(GGC)
-    for (size_t i = 0; i < m_currentlyExecuting.size(); ++i)
-        heap->addToRememberedSet(m_currentlyExecuting[i]->ownerExecutable());
-    m_currentlyExecuting.clear();
-#else
-    UNUSED_PARAM(heap);
-#endif // ENABLE(GGC)
 }
 
 } // namespace JSC

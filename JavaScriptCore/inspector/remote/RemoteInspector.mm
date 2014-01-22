@@ -131,7 +131,8 @@ void RemoteInspector::updateDebuggable(RemoteInspectorDebuggable* debuggable)
     auto result = m_debuggableMap.set(identifier, std::make_pair(debuggable, debuggable->info()));
     ASSERT_UNUSED(result, !result.isNewEntry);
 
-    pushListingSoon();
+    if (debuggable->remoteDebuggingAllowed())
+        pushListingSoon();
 }
 
 void RemoteInspector::sendMessageToRemoteFrontend(unsigned identifier, const String& message)
@@ -296,11 +297,6 @@ NSDictionary *RemoteInspector::listingForDebuggable(const RemoteInspectorDebugga
 
     if (debuggableInfo.hasLocalDebugger)
         [debuggableDetails setObject:@YES forKey:WIRHasLocalDebuggerKey];
-
-    if (debuggableInfo.hasParentProcess()) {
-        NSString *parentApplicationIdentifier = [NSString stringWithFormat:@"PID:%lu", (unsigned long)debuggableInfo.parentProcessIdentifier];
-        [debuggableDetails setObject:parentApplicationIdentifier forKey:WIRHostApplicationIdentifierKey];
-    }
 
     return debuggableDetails;
 }

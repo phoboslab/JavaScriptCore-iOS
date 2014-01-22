@@ -119,6 +119,7 @@ namespace JSC { namespace LLInt {
         LLINT_END_IMPL();                       \
     } while (false)
 
+#if ENABLE(VALUE_PROFILER)
 #define LLINT_RETURN_PROFILED(opcode, value) do {               \
         JSValue __rp_returnValue = (value);                     \
         LLINT_CHECK_EXCEPTION();                                \
@@ -131,6 +132,13 @@ namespace JSC { namespace LLInt {
         pc[OPCODE_LENGTH(opcode) - 1].u.profile->m_buckets[0] = \
         JSValue::encode(value);                  \
     } while (false)
+
+#else // ENABLE(VALUE_PROFILER)
+#define LLINT_RETURN_PROFILED(opcode, value) LLINT_RETURN(value)
+
+#define LLINT_PROFILE_VALUE(opcode, value) do { } while (false)
+
+#endif // ENABLE(VALUE_PROFILER)
 
 #define LLINT_CALL_END_IMPL(exec, callTarget) LLINT_RETURN_TWO((callTarget), (exec))
 
@@ -260,8 +268,6 @@ LLINT_SLOW_PATH_DECL(special_trace)
     LLINT_END_IMPL();
 }
 
-enum EntryKind { Prologue, ArityCheck };
-
 #if ENABLE(JIT)
 inline bool shouldJIT(ExecState* exec)
 {
@@ -315,6 +321,7 @@ inline bool jitCompileAndSetHeuristics(CodeBlock* codeBlock, ExecState* exec)
     }
 }
 
+enum EntryKind { Prologue, ArityCheck };
 static SlowPathReturnType entryOSR(ExecState* exec, Instruction*, CodeBlock* codeBlock, const char *name, EntryKind kind)
 {
     if (Options::verboseOSR()) {
@@ -335,13 +342,6 @@ static SlowPathReturnType entryOSR(ExecState* exec, Instruction*, CodeBlock* cod
     ASSERT(kind == ArityCheck);
     LLINT_RETURN_TWO(codeBlock->jitCodeWithArityCheck().executableAddress(), exec);
 }
-#else // ENABLE(JIT)
-static SlowPathReturnType entryOSR(ExecState* exec, Instruction*, CodeBlock* codeBlock, const char*, EntryKind)
-{
-    codeBlock->dontJITAnytimeSoon();
-    LLINT_RETURN_TWO(0, exec);
-}
-#endif // ENABLE(JIT)
 
 LLINT_SLOW_PATH_DECL(entry_osr)
 {
@@ -372,7 +372,6 @@ LLINT_SLOW_PATH_DECL(loop_osr)
 {
     CodeBlock* codeBlock = exec->codeBlock();
 
-#if ENABLE(JIT)
     if (Options::verboseOSR()) {
         dataLog(
             *codeBlock, ": Entered loop_osr with executeCounter = ",
@@ -399,17 +398,12 @@ LLINT_SLOW_PATH_DECL(loop_osr)
     ASSERT(jumpTarget);
     
     LLINT_RETURN_TWO(jumpTarget, exec);
-#else // ENABLE(JIT)
-    codeBlock->dontJITAnytimeSoon();
-    LLINT_RETURN_TWO(0, exec);
-#endif // ENABLE(JIT)
 }
 
 LLINT_SLOW_PATH_DECL(replace)
 {
     CodeBlock* codeBlock = exec->codeBlock();
 
-#if ENABLE(JIT)
     if (Options::verboseOSR()) {
         dataLog(
             *codeBlock, ": Entered replace with executeCounter = ",
@@ -421,11 +415,8 @@ LLINT_SLOW_PATH_DECL(replace)
     else
         codeBlock->dontJITAnytimeSoon();
     LLINT_END_IMPL();
-#else // ENABLE(JIT)
-    codeBlock->dontJITAnytimeSoon();
-    LLINT_END_IMPL();
-#endif // ENABLE(JIT)
 }
+#endif // ENABLE(JIT)
 
 LLINT_SLOW_PATH_DECL(stack_check)
 {
@@ -557,12 +548,16 @@ LLINT_SLOW_PATH_DECL(slow_path_get_by_id)
         && isJSArray(baseValue)
         && ident == exec->propertyNames().length) {
         pc[0].u.opcode = LLInt::getOpcode(llint_op_get_array_length);
+#if ENABLE(VALUE_PROFILER)
         ArrayProfile* arrayProfile = codeBlock->getOrAddArrayProfile(pc - codeBlock->instructions().begin());
         arrayProfile->observeStructure(baseValue.asCell()->structure());
         pc[4].u.arrayProfile = arrayProfile;
+#endif
     }
 
+#if ENABLE(VALUE_PROFILER)    
     pc[OPCODE_LENGTH(op_get_by_id) - 1].u.profile->m_buckets[0] = JSValue::encode(result);
+#endif
     LLINT_END();
 }
 
@@ -1386,11 +1381,6 @@ LLINT_SLOW_PATH_DECL(slow_path_put_to_scope)
     }
 
     LLINT_END();
-}
-
-extern "C" void llint_write_barrier_slow(ExecState*, JSCell* cell)
-{
-    Heap::writeBarrier(cell);
 }
 
 } } // namespace JSC::LLInt

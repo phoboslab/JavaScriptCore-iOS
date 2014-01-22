@@ -622,11 +622,16 @@ void CodeBlock::dumpValueProfiling(PrintStream& out, const Instruction*& it, boo
     ConcurrentJITLocker locker(m_lock);
     
     ++it;
+#if ENABLE(VALUE_PROFILER)
     CString description = it->u.profile->briefDescription(locker);
     if (!description.length())
         return;
     beginDumpProfiling(out, hasPrintedProfiling);
     out.print(description);
+#else
+    UNUSED_PARAM(out);
+    UNUSED_PARAM(hasPrintedProfiling);
+#endif
 }
 
 void CodeBlock::dumpArrayProfiling(PrintStream& out, const Instruction*& it, bool& hasPrintedProfiling)
@@ -634,6 +639,7 @@ void CodeBlock::dumpArrayProfiling(PrintStream& out, const Instruction*& it, boo
     ConcurrentJITLocker locker(m_lock);
     
     ++it;
+#if ENABLE(VALUE_PROFILER)
     if (!it->u.arrayProfile)
         return;
     CString description = it->u.arrayProfile->briefDescription(locker, this);
@@ -641,8 +647,13 @@ void CodeBlock::dumpArrayProfiling(PrintStream& out, const Instruction*& it, boo
         return;
     beginDumpProfiling(out, hasPrintedProfiling);
     out.print(description);
+#else
+    UNUSED_PARAM(out);
+    UNUSED_PARAM(hasPrintedProfiling);
+#endif
 }
 
+#if ENABLE(VALUE_PROFILER)
 void CodeBlock::dumpRareCaseProfile(PrintStream& out, const char* name, RareCaseProfile* profile, bool& hasPrintedProfiling)
 {
     if (!profile || !profile->m_counter)
@@ -651,6 +662,7 @@ void CodeBlock::dumpRareCaseProfile(PrintStream& out, const char* name, RareCase
     beginDumpProfiling(out, hasPrintedProfiling);
     out.print(name, profile->m_counter);
 }
+#endif
 
 void CodeBlock::dumpBytecode(PrintStream& out, ExecState* exec, const Instruction* begin, const Instruction*& it, const StubInfoMap& map)
 {
@@ -1410,8 +1422,10 @@ void CodeBlock::dumpBytecode(PrintStream& out, ExecState* exec, const Instructio
 #endif
     }
 
+#if ENABLE(VALUE_PROFILER)
     dumpRareCaseProfile(out, "rare case: ", rareCaseProfileForBytecodeOffset(location), hasPrintedProfiling);
     dumpRareCaseProfile(out, "special fast case: ", specialFastCaseProfileForBytecodeOffset(location), hasPrintedProfiling);
+#endif
     
 #if ENABLE(DFG_JIT)
     Vector<DFG::FrequentExitSite> exitSites = exitProfile().exitSitesFor(location);
@@ -1644,12 +1658,14 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, UnlinkedCodeBlock* unlin
     if (size_t size = unlinkedCodeBlock->numberOfLLintCallLinkInfos())
         m_llintCallLinkInfos.resizeToFit(size);
 #endif
+#if ENABLE(DFG_JIT)
     if (size_t size = unlinkedCodeBlock->numberOfArrayProfiles())
         m_arrayProfiles.grow(size);
     if (size_t size = unlinkedCodeBlock->numberOfArrayAllocationProfiles())
         m_arrayAllocationProfiles.resizeToFit(size);
     if (size_t size = unlinkedCodeBlock->numberOfValueProfiles())
         m_valueProfiles.resizeToFit(size);
+#endif
     if (size_t size = unlinkedCodeBlock->numberOfObjectAllocationProfiles())
         m_objectAllocationProfiles.resizeToFit(size);
 
@@ -1666,6 +1682,7 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, UnlinkedCodeBlock* unlin
             instructions[i + j].u.operand = pc[i + j].u.operand;
         }
         switch (pc[i].u.opcode) {
+#if ENABLE(DFG_JIT)
         case op_get_by_val:
         case op_get_argument_by_val: {
             int arrayProfileIndex = pc[i + opLength - 2].u.operand;
@@ -1702,6 +1719,7 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, UnlinkedCodeBlock* unlin
             instructions[i + opLength - 1] = &m_arrayAllocationProfiles[arrayAllocationProfileIndex];
             break;
         }
+#endif
         case op_new_object: {
             int objectAllocationProfileIndex = pc[i + opLength - 1].u.operand;
             ObjectAllocationProfile* objectAllocationProfile = &m_objectAllocationProfiles[objectAllocationProfileIndex];
@@ -1715,6 +1733,7 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, UnlinkedCodeBlock* unlin
 
         case op_call:
         case op_call_eval: {
+#if ENABLE(DFG_JIT)
             ValueProfile* profile = &m_valueProfiles[pc[i + opLength - 1].u.operand];
             ASSERT(profile->m_bytecodeOffset == -1);
             profile->m_bytecodeOffset = i;
@@ -1722,6 +1741,7 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, UnlinkedCodeBlock* unlin
             int arrayProfileIndex = pc[i + opLength - 2].u.operand;
             m_arrayProfiles[arrayProfileIndex] = ArrayProfile(i);
             instructions[i + opLength - 2] = &m_arrayProfiles[arrayProfileIndex];
+#endif
 #if ENABLE(LLINT)
             instructions[i + 5] = &m_llintCallLinkInfos[pc[i + 5].u.operand];
 #endif
@@ -1731,10 +1751,12 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, UnlinkedCodeBlock* unlin
 #if ENABLE(LLINT)
             instructions[i + 5] = &m_llintCallLinkInfos[pc[i + 5].u.operand];
 #endif
+#if ENABLE(DFG_JIT)
             ValueProfile* profile = &m_valueProfiles[pc[i + opLength - 1].u.operand];
             ASSERT(profile->m_bytecodeOffset == -1);
             profile->m_bytecodeOffset = i;
             instructions[i + opLength - 1] = profile;
+#endif
             break;
         }
         case op_get_by_id_out_of_line:
@@ -1777,10 +1799,12 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, UnlinkedCodeBlock* unlin
         }
 
         case op_get_from_scope: {
+#if ENABLE(VALUE_PROFILER)
             ValueProfile* profile = &m_valueProfiles[pc[i + opLength - 1].u.operand];
             ASSERT(profile->m_bytecodeOffset == -1);
             profile->m_bytecodeOffset = i;
             instructions[i + opLength - 1] = profile;
+#endif
 
             // get_from_scope dst, scope, id, ResolveModeAndType, Structure, Operand
             const Identifier& ident = identifier(pc[i + 3].u.operand);
@@ -1900,7 +1924,9 @@ void CodeBlock::setNumParameters(int newValue)
 {
     m_numParameters = newValue;
 
+#if ENABLE(VALUE_PROFILER)
     m_argumentValueProfiles.resizeToFit(newValue);
+#endif
 }
 
 void EvalCodeCache::visitAggregate(SlotVisitor& visitor)
@@ -1954,15 +1980,15 @@ void CodeBlock::visitAggregate(SlotVisitor& visitor)
     if (CodeBlock* otherBlock = specialOSREntryBlockOrNull())
         otherBlock->visitAggregate(visitor);
 
-    visitor.reportExtraMemoryUsage(ownerExecutable(), sizeof(CodeBlock));
+    visitor.reportExtraMemoryUsage(sizeof(CodeBlock));
     if (m_jitCode)
-        visitor.reportExtraMemoryUsage(ownerExecutable(), m_jitCode->size());
+        visitor.reportExtraMemoryUsage(m_jitCode->size());
     if (m_instructions.size()) {
         // Divide by refCount() because m_instructions points to something that is shared
         // by multiple CodeBlocks, and we only want to count it towards the heap size once.
         // Having each CodeBlock report only its proportional share of the size is one way
         // of accomplishing this.
-        visitor.reportExtraMemoryUsage(ownerExecutable(), m_instructions.size() * sizeof(Instruction) / m_instructions.refCount());
+        visitor.reportExtraMemoryUsage(m_instructions.size() * sizeof(Instruction) / m_instructions.refCount());
     }
 
     visitor.append(&m_unlinkedCode);
@@ -2570,8 +2596,10 @@ void CodeBlock::shrinkToFit(ShrinkMode shrinkMode)
 #if ENABLE(JIT)
     m_callLinkInfos.shrinkToFit();
 #endif
+#if ENABLE(VALUE_PROFILER)
     m_rareCaseProfiles.shrinkToFit();
     m_specialFastCaseProfiles.shrinkToFit();
+#endif
     
     if (shrinkMode == EarlyShrink) {
         m_additionalIdentifiers.shrinkToFit();
@@ -3153,6 +3181,7 @@ bool CodeBlock::shouldReoptimizeFromLoopNow()
 }
 #endif
 
+#if ENABLE(VALUE_PROFILER)
 ArrayProfile* CodeBlock::getArrayProfile(unsigned bytecodeOffset)
 {
     for (unsigned i = 0; i < m_arrayProfiles.size(); ++i) {
@@ -3225,6 +3254,10 @@ bool CodeBlock::shouldOptimizeNow()
     if (Options::verboseOSR())
         dataLog("Considering optimizing ", *this, "...\n");
 
+#if ENABLE(VERBOSE_VALUE_PROFILE)
+    dumpValueProfiles();
+#endif
+
     if (m_optimizationDelayCounter >= Options::maximumOptimizationDelay())
         return true;
     
@@ -3253,6 +3286,7 @@ bool CodeBlock::shouldOptimizeNow()
     optimizeAfterWarmUp();
     return false;
 }
+#endif
 
 #if ENABLE(DFG_JIT)
 void CodeBlock::tallyFrequentExitSites()

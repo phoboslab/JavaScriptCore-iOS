@@ -19,9 +19,7 @@
 
 #include "config.h"
 #include "HashTable.h"
-
 #include "DataLog.h"
-#include <mutex>
 
 namespace WTF {
 
@@ -35,21 +33,15 @@ int HashTableStats::numRehashes;
 int HashTableStats::numRemoves;
 int HashTableStats::numReinserts;
 
-static std::mutex& hashTableStatsMutex()
+static Mutex& hashTableStatsMutex()
 {
-    static std::once_flag onceFlag;
-    static std::mutex* mutex;
-    std::call_once(onceFlag, []{
-        mutex = std::make_unique<std::mutex>().release();
-    });
-
-    return *mutex;
+    AtomicallyInitializedStatic(Mutex&, mutex = *new Mutex);
+    return mutex;
 }
 
 void HashTableStats::recordCollisionAtCount(int count)
 {
-    std::lock_guard<std::mutex> lock(hashTableStatsMutex());
-
+    MutexLocker lock(hashTableStatsMutex());
     if (count > maxCollisions)
         maxCollisions = count;
     numCollisions++;
@@ -58,7 +50,7 @@ void HashTableStats::recordCollisionAtCount(int count)
 
 void HashTableStats::dumpStats()
 {
-    std::lock_guard<std::mutex> lock(hashTableStatsMutex());
+    MutexLocker lock(hashTableStatsMutex());
 
     dataLogF("\nWTF::HashTable statistics\n\n");
     dataLogF("%d accesses\n", numAccesses);

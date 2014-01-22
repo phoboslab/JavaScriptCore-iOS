@@ -142,7 +142,7 @@ ALWAYS_INLINE MacroAssembler::Call JIT::appendCallWithExceptionCheckSetJSValueRe
 ALWAYS_INLINE MacroAssembler::Call JIT::appendCallWithExceptionCheckSetJSValueResultWithProfile(const FunctionPtr& function, int dst)
 {
     MacroAssembler::Call call = appendCallWithExceptionCheck(function);
-    emitValueProfilingSite();
+    emitValueProfilingSite(regT4);
 #if USE(JSVALUE64)
     emitPutVirtualRegister(dst, returnValueGPR);
 #else
@@ -680,7 +680,8 @@ inline void JIT::emitAllocateJSObject(RegisterID allocator, StructureType struct
     storePtr(TrustedImmPtr(0), Address(result, JSObject::butterflyOffset()));
 }
 
-inline void JIT::emitValueProfilingSite(ValueProfile* valueProfile)
+#if ENABLE(VALUE_PROFILER)
+inline void JIT::emitValueProfilingSite(ValueProfile* valueProfile, RegisterID bucketCounterRegister)
 {
     ASSERT(shouldEmitProfiling());
     ASSERT(valueProfile);
@@ -689,29 +690,47 @@ inline void JIT::emitValueProfilingSite(ValueProfile* valueProfile)
 #if USE(JSVALUE32_64)
     const RegisterID valueTag = regT1;
 #endif
+    const RegisterID scratch = regT3;
     
-    // We're in a simple configuration: only one bucket, so we can just do a direct
-    // store.
+    if (ValueProfile::numberOfBuckets == 1) {
+        // We're in a simple configuration: only one bucket, so we can just do a direct
+        // store.
 #if USE(JSVALUE64)
-    store64(value, valueProfile->m_buckets);
+        store64(value, valueProfile->m_buckets);
 #else
-    EncodedValueDescriptor* descriptor = bitwise_cast<EncodedValueDescriptor*>(valueProfile->m_buckets);
-    store32(value, &descriptor->asBits.payload);
-    store32(valueTag, &descriptor->asBits.tag);
+        EncodedValueDescriptor* descriptor = bitwise_cast<EncodedValueDescriptor*>(valueProfile->m_buckets);
+        store32(value, &descriptor->asBits.payload);
+        store32(valueTag, &descriptor->asBits.tag);
+#endif
+        return;
+    }
+    
+    if (m_randomGenerator.getUint32() & 1)
+        add32(TrustedImm32(1), bucketCounterRegister);
+    else
+        add32(TrustedImm32(3), bucketCounterRegister);
+    and32(TrustedImm32(ValueProfile::bucketIndexMask), bucketCounterRegister);
+    move(TrustedImmPtr(valueProfile->m_buckets), scratch);
+#if USE(JSVALUE64)
+    store64(value, BaseIndex(scratch, bucketCounterRegister, TimesEight));
+#elif USE(JSVALUE32_64)
+    store32(value, BaseIndex(scratch, bucketCounterRegister, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.payload)));
+    store32(valueTag, BaseIndex(scratch, bucketCounterRegister, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.tag)));
 #endif
 }
 
-inline void JIT::emitValueProfilingSite(unsigned bytecodeOffset)
+inline void JIT::emitValueProfilingSite(unsigned bytecodeOffset, RegisterID bucketCounterRegister)
 {
     if (!shouldEmitProfiling())
         return;
-    emitValueProfilingSite(m_codeBlock->valueProfileForBytecodeOffset(bytecodeOffset));
+    emitValueProfilingSite(m_codeBlock->valueProfileForBytecodeOffset(bytecodeOffset), bucketCounterRegister);
 }
 
-inline void JIT::emitValueProfilingSite()
+inline void JIT::emitValueProfilingSite(RegisterID bucketCounterRegister)
 {
-    emitValueProfilingSite(m_bytecodeOffset);
+    emitValueProfilingSite(m_bytecodeOffset, bucketCounterRegister);
 }
+#endif // ENABLE(VALUE_PROFILER)
 
 inline void JIT::emitArrayProfilingSite(RegisterID structureAndIndexingType, RegisterID scratch, ArrayProfile* arrayProfile)
 {
@@ -728,26 +747,46 @@ inline void JIT::emitArrayProfilingSite(RegisterID structureAndIndexingType, Reg
 
 inline void JIT::emitArrayProfilingSiteForBytecodeIndex(RegisterID structureAndIndexingType, RegisterID scratch, unsigned bytecodeIndex)
 {
+#if ENABLE(VALUE_PROFILER)
     emitArrayProfilingSite(structureAndIndexingType, scratch, m_codeBlock->getOrAddArrayProfile(bytecodeIndex));
+#else
+    UNUSED_PARAM(bytecodeIndex);
+    emitArrayProfilingSite(structureAndIndexingType, scratch, 0);
+#endif
 }
 
 inline void JIT::emitArrayProfileStoreToHoleSpecialCase(ArrayProfile* arrayProfile)
 {
+#if ENABLE(VALUE_PROFILER)    
     store8(TrustedImm32(1), arrayProfile->addressOfMayStoreToHole());
+#else
+    UNUSED_PARAM(arrayProfile);
+#endif
 }
 
 inline void JIT::emitArrayProfileOutOfBoundsSpecialCase(ArrayProfile* arrayProfile)
 {
+#if ENABLE(VALUE_PROFILER)    
     store8(TrustedImm32(1), arrayProfile->addressOfOutOfBounds());
+#else
+    UNUSED_PARAM(arrayProfile);
+#endif
 }
 
 static inline bool arrayProfileSaw(ArrayModes arrayModes, IndexingType capability)
 {
+#if ENABLE(VALUE_PROFILER)
     return arrayModesInclude(arrayModes, capability);
+#else
+    UNUSED_PARAM(arrayModes);
+    UNUSED_PARAM(capability);
+    return false;
+#endif
 }
 
 inline JITArrayMode JIT::chooseArrayMode(ArrayProfile* profile)
 {
+#if ENABLE(VALUE_PROFILER)
     ConcurrentJITLocker locker(m_codeBlock->m_lock);
     profile->computeUpdatedPrediction(locker, m_codeBlock);
     ArrayModes arrayModes = profile->observedArrayModes(locker);
@@ -758,6 +797,10 @@ inline JITArrayMode JIT::chooseArrayMode(ArrayProfile* profile)
     if (arrayProfileSaw(arrayModes, ArrayStorageShape))
         return JITArrayStorage;
     return JITContiguous;
+#else
+    UNUSED_PARAM(profile);
+    return JITContiguous;
+#endif
 }
 
 #if USE(JSVALUE32_64)

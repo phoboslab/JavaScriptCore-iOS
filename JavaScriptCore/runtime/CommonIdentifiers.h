@@ -212,11 +212,7 @@
     macro(reject) \
     macro(promise) \
     macro(fulfillmentHandler) \
-    macro(rejectionHandler) \
-    macro(index) \
-    macro(values) \
-    macro(deferred) \
-    macro(countdownHolder)
+    macro(rejectionHandler)
 
 namespace JSC {
 

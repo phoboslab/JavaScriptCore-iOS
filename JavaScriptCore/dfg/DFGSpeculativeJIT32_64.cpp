@@ -1958,7 +1958,7 @@ void SpeculativeJIT::compile(Node* node)
             m_jit.store32(value.payloadGPR(), JITCompiler::payloadFor(node->machineLocal()));
             m_jit.store32(value.tagGPR(), JITCompiler::tagFor(node->machineLocal()));
             noResult(node);
-            recordSetLocal(dataFormatFor(node->variableAccessData()->flushFormat()));
+            recordSetLocal(DataFormatJS);
             break;
         }
             
@@ -2090,6 +2090,10 @@ void SpeculativeJIT::compile(Node* node)
 
     case ArithMul:
         compileArithMul(node);
+        break;
+
+    case ArithIMul:
+        compileArithIMul(node);
         break;
 
     case ArithDiv: {
@@ -4698,7 +4702,6 @@ void SpeculativeJIT::compile(Node* node)
     case Int52ToDouble:
     case Int52ToValue:
     case CheckInBounds:
-    case ArithIMul:
         RELEASE_ASSERT_NOT_REACHED();
         break;
     }

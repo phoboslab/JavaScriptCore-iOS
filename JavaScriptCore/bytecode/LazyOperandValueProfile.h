@@ -26,6 +26,10 @@
 #ifndef LazyOperandValueProfile_h
 #define LazyOperandValueProfile_h
 
+#include <wtf/Platform.h>
+
+#if ENABLE(VALUE_PROFILER)
+
 #include "ConcurrentJITLock.h"
 #include "ValueProfile.h"
 #include "VirtualRegister.h"
@@ -183,6 +187,8 @@ private:
 };
 
 } // namespace JSC
+
+#endif // ENABLE(VALUE_PROFILER)
 
 #endif // LazyOperandValueProfile_h
 

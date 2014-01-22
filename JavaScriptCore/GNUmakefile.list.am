@@ -8,7 +8,6 @@ javascriptcore_h_api += \
 	Source/JavaScriptCore/API/WebKitAvailability.h
 
 javascriptcore_built_nosources += \
-	DerivedSources/JavaScriptCore/InjectedScriptSource.h \
 	DerivedSources/JavaScriptCore/KeywordLookup.h \
 	DerivedSources/JavaScriptCore/Lexer.lut.h \
 	DerivedSources/JavaScriptCore/RegExpJitTables.h \
@@ -212,8 +211,6 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/dfg/DFGArgumentPosition.h \
 	Source/JavaScriptCore/dfg/DFGArgumentsSimplificationPhase.cpp \
 	Source/JavaScriptCore/dfg/DFGArgumentsSimplificationPhase.h \
-	Source/JavaScriptCore/dfg/DFGArithMode.cpp \
-	Source/JavaScriptCore/dfg/DFGArithMode.h \
 	Source/JavaScriptCore/dfg/DFGArrayMode.cpp \
 	Source/JavaScriptCore/dfg/DFGArrayMode.h \
 	Source/JavaScriptCore/dfg/DFGArrayifySlowPathGenerator.h \
@@ -628,32 +625,15 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/icu/unicode/utf_old.h \
 	Source/JavaScriptCore/icu/unicode/utypes.h \
 	Source/JavaScriptCore/icu/unicode/uversion.h \
-	Source/JavaScriptCore/inspector/InjectedScript.cpp \
-	Source/JavaScriptCore/inspector/InjectedScript.h \
-	Source/JavaScriptCore/inspector/InjectedScriptBase.cpp \
-	Source/JavaScriptCore/inspector/InjectedScriptBase.h \
-	Source/JavaScriptCore/inspector/InjectedScriptHost.cpp \
-	Source/JavaScriptCore/inspector/InjectedScriptHost.h \
-	Source/JavaScriptCore/inspector/InjectedScriptManager.cpp \
-	Source/JavaScriptCore/inspector/InjectedScriptManager.h \
-	Source/JavaScriptCore/inspector/InjectedScriptModule.cpp \
-	Source/JavaScriptCore/inspector/InjectedScriptModule.h \
 	Source/JavaScriptCore/inspector/InspectorAgentBase.h \
 	Source/JavaScriptCore/inspector/InspectorAgentRegistry.cpp \
 	Source/JavaScriptCore/inspector/InspectorAgentRegistry.h \
 	Source/JavaScriptCore/inspector/InspectorBackendDispatcher.cpp \
 	Source/JavaScriptCore/inspector/InspectorBackendDispatcher.h \
-	Source/JavaScriptCore/inspector/InspectorEnvironment.h \
 	Source/JavaScriptCore/inspector/InspectorFrontendChannel.h \
 	Source/JavaScriptCore/inspector/InspectorTypeBuilder.h \
 	Source/JavaScriptCore/inspector/InspectorValues.cpp \
 	Source/JavaScriptCore/inspector/InspectorValues.h \
-	Source/JavaScriptCore/inspector/JSInjectedScriptHost.cpp \
-	Source/JavaScriptCore/inspector/JSInjectedScriptHost.h \
-	Source/JavaScriptCore/inspector/JSInjectedScriptHostPrototype.cpp \
-	Source/JavaScriptCore/inspector/JSInjectedScriptHostPrototype.h \
-	Source/JavaScriptCore/inspector/agents/InspectorAgent.h \
-	Source/JavaScriptCore/inspector/agents/InspectorAgent.cpp \
 	Source/JavaScriptCore/interpreter/AbstractPC.cpp \
 	Source/JavaScriptCore/interpreter/AbstractPC.h \
 	Source/JavaScriptCore/interpreter/CachedCall.h \

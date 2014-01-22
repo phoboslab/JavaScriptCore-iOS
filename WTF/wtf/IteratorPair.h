@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,46 +23,28 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-
-#include "Functional.h"
-#include "MainThread.h"
-#include "StdLibExtras.h"
-#include <mutex>
-
-// This file contains deprecated symbols that the last released version of Safari uses.
-// Once Safari stops using them, we should remove them.
+#ifndef WTF_IteratorPair_h
+#define WTF_IteratorPair_h
 
 namespace WTF {
 
-WTF_EXPORT_PRIVATE void callOnMainThread(const Function<void ()>&);
-WTF_EXPORT_PRIVATE void lockAtomicallyInitializedStaticMutex();
-WTF_EXPORT_PRIVATE void unlockAtomicallyInitializedStaticMutex();
+template<typename Iterator>
+class IteratorPair {
+public:
+    IteratorPair(Iterator begin, Iterator end)
+        : m_begin(std::move(begin))
+        , m_end(std::move(end))
+    {
+    }
 
-void callOnMainThread(const Function<void ()>& function)
-{
-    callOnMainThread(std::function<void ()>(function));
-}
+    Iterator begin() const { return m_begin; }
+    Iterator end() const { return m_end; }
 
-static std::mutex& atomicallyInitializedStaticMutex()
-{
-    static std::once_flag onceFlag;
-    static std::mutex* mutex;
-    std::call_once(onceFlag, []{
-        mutex = std::make_unique<std::mutex>().release();
-    });
-
-    return *mutex;
-}
-
-void lockAtomicallyInitializedStaticMutex()
-{
-    atomicallyInitializedStaticMutex().lock();
-}
-
-void unlockAtomicallyInitializedStaticMutex()
-{
-    atomicallyInitializedStaticMutex().unlock();
-}
+private:
+    Iterator m_begin;
+    Iterator m_end;
+};
 
 } // namespace WTF
+
+#endif // WTF_IteratorPair

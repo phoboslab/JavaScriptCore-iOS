@@ -28,7 +28,6 @@
 
 #if ENABLE(REMOTE_INSPECTOR)
 
-#include "APIShims.h"
 #include "InspectorFrontendChannel.h"
 #include "JSGlobalObject.h"
 #include "RemoteInspector.h"
@@ -42,40 +41,29 @@ JSGlobalObjectDebuggable::JSGlobalObjectDebuggable(JSGlobalObject& globalObject)
 {
 }
 
-JSGlobalObjectDebuggable::~JSGlobalObjectDebuggable()
-{
-    if (m_inspectorController)
-        disconnect();
-}
-
 String JSGlobalObjectDebuggable::name() const
 {
     String name = m_globalObject.name();
     return name.isEmpty() ? ASCIILiteral("JSContext") : name;
 }
 
-void JSGlobalObjectDebuggable::connect(InspectorFrontendChannel* frontendChannel)
+void JSGlobalObjectDebuggable::connect(InspectorFrontendChannel*)
 {
-    APIEntryShim entryShim(&m_globalObject.vm());
-
-    ASSERT(!m_inspectorController);
-    m_inspectorController = std::make_unique<Inspector::JSGlobalObjectInspectorController>(m_globalObject);
-    m_inspectorController->connectFrontend(frontendChannel);
+    // FIXME: Implement.
+    // Create an InspectorController, InspectorFrontend, InspectorBackend, and Agents.
+    // "InspectorController::connectFrontend".
 }
 
 void JSGlobalObjectDebuggable::disconnect()
 {
-    APIEntryShim entryShim(&m_globalObject.vm());
-
-    m_inspectorController->disconnectFrontend();
-    m_inspectorController = nullptr;
+    // FIXME: Implement.
+    // "InspectorController::disconnectFrontend".
 }
 
-void JSGlobalObjectDebuggable::dispatchMessageFromRemoteFrontend(const String& message)
+void JSGlobalObjectDebuggable::dispatchMessageFromRemoteFrontend(const String&)
 {
-    APIEntryShim entryShim(&m_globalObject.vm());
-
-    m_inspectorController->dispatchMessageFromFrontend(message);
+    // FIXME: Implement.
+    // "InspectorController::dispatchMessageFromFrontend"
 }
 
 } // namespace JSC

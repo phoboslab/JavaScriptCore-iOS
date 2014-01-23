@@ -4,7 +4,7 @@ The JavaScriptCore library is part of the [WebKit project](http://www.webkit.org
 
 This repo aims to re-produce the missing iOS targets while staying on a somewhat up-to-date version.
 
-Currently, the [Safari-538.12.1 tag](https://svn.webkit.org/repository/webkit/tags/Safari-538.12.1/) is used as the basis. With the current settings, the WTF and JavaScriptCore libraries can be compiled for armv7, armv7s, arm64 and x86 (for the iOS simulator). It will be compiled without Unicode collation support, because Apple claims [ICU](http://site.icu-project.org/) is a private framework on iOS. It should be AppStore compatible this way.
+Currently, the [Safari-538.11.1 tag](https://svn.webkit.org/repository/webkit/tags/Safari-538.11.1/) is used as the basis. With the current settings, the WTF and JavaScriptCore libraries can be compiled for armv7, armv7s, arm64 and x86 (for the iOS simulator). It will be compiled without Unicode collation support, because Apple claims [ICU](http://site.icu-project.org/) is a private framework on iOS. It should be AppStore compatible this way.
 
 This version of JSC deprecates the `typed-arrays` branch of this repository. JSC now supports Typed Arrays natively, without any hacks.
 

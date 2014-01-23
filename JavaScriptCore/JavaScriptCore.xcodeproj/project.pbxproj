@@ -8822,7 +8822,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 10EAA7001889E6C600DEB161 /* ToolExecutable-iOS-Static.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				PRODUCT_NAME = JSCLLIntOffsetsExtractor;
+				SDKROOT = iphoneos7.0;
+				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Debug;
 		};
@@ -8830,7 +8833,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 10EAA7001889E6C600DEB161 /* ToolExecutable-iOS-Static.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				PRODUCT_NAME = JSCLLIntOffsetsExtractor;
+				SDKROOT = iphoneos7.0;
+				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Release;
 		};
@@ -8838,7 +8844,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 10EAA7001889E6C600DEB161 /* ToolExecutable-iOS-Static.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				PRODUCT_NAME = JSCLLIntOffsetsExtractor;
+				SDKROOT = iphoneos7.0;
+				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Profiling;
 		};
@@ -8846,7 +8855,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 10EAA7001889E6C600DEB161 /* ToolExecutable-iOS-Static.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				PRODUCT_NAME = JSCLLIntOffsetsExtractor;
+				SDKROOT = iphoneos7.0;
+				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Production;
 		};

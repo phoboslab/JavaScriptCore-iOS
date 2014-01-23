@@ -9,7 +9,7 @@
 #include "WTF/Configurations/WTF.xcconfig"
 
 PRODUCT_NAME = WTF
-ARCHS = arm64 armv7
+ARCHS = arm64 armv7 armv7s
 ONLY_ACTIVE_ARCH = NO
 SDKROOT = iphoneos
 SUPPORTED_PLATFORMS = iphoneos iphonesimulator

@@ -7312,9 +7312,9 @@
 				14BD59BE0A3E8F9000BAF59C /* testapi */,
 				932F5BDA0822A1C700736975 /* jsc */,
 				651122F714046A4C002B101D /* testRegExp */,
-				0F4680A914BA7FD900BFE272 /* LLInt Offsets */,
-				0FF922C314F46B130041A24E /* JSCLLIntOffsetsExtractor */,
 				5D6B2A47152B9E17005231DE /* Test Tools */,
+				0FF922C314F46B130041A24E /* JSCLLIntOffsetsExtractor */,
+				0F4680A914BA7FD900BFE272 /* LLInt Offsets */,
 				0FCEFAB51805D61600472CE4 /* llvmForJSC */,
 				10D58E011889C1A000C05A0D /* JSCLLIntOffsetsExtractor iOS */,
 				10D58E0D1889C3DF00C05A0D /* JavaScriptCore iOS */,
@@ -8737,28 +8737,36 @@
 		0F4680AD14BA7FD900BFE272 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				PRODUCT_NAME = "Derived Sources copy";
+				SDKROOT = iphoneos;
 			};
 			name = Debug;
 		};
 		0F4680AE14BA7FD900BFE272 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				PRODUCT_NAME = "Derived Sources copy";
+				SDKROOT = iphoneos;
 			};
 			name = Release;
 		};
 		0F4680AF14BA7FD900BFE272 /* Profiling */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				PRODUCT_NAME = "Derived Sources copy";
+				SDKROOT = iphoneos;
 			};
 			name = Profiling;
 		};
 		0F4680B014BA7FD900BFE272 /* Production */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				PRODUCT_NAME = "Derived Sources copy";
+				SDKROOT = iphoneos;
 			};
 			name = Production;
 		};
@@ -8877,7 +8885,6 @@
 			baseConfigurationReference = 10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
-				ONLY_ACTIVE_ARCH = NO;
 				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Release;
@@ -8887,7 +8894,6 @@
 			baseConfigurationReference = 10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
-				ONLY_ACTIVE_ARCH = NO;
 				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Profiling;
@@ -8908,7 +8914,7 @@
 			baseConfigurationReference = 10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "Derived Sources copy";
-				VALID_ARCHS = arm64;
+				VALID_ARCHS = "arm64 armv7 armv7s";
 			};
 			name = Debug;
 		};
@@ -8917,7 +8923,7 @@
 			baseConfigurationReference = 10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "Derived Sources copy";
-				VALID_ARCHS = arm64;
+				VALID_ARCHS = "arm64 armv7 armv7s";
 			};
 			name = Release;
 		};
@@ -8926,7 +8932,7 @@
 			baseConfigurationReference = 10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "Derived Sources copy";
-				VALID_ARCHS = arm64;
+				VALID_ARCHS = "arm64 armv7 armv7s";
 			};
 			name = Profiling;
 		};
@@ -8935,7 +8941,7 @@
 			baseConfigurationReference = 10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "Derived Sources copy";
-				VALID_ARCHS = arm64;
+				VALID_ARCHS = "arm64 armv7 armv7s";
 			};
 			name = Production;
 		};

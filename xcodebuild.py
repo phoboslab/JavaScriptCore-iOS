@@ -20,7 +20,7 @@ class PebbleXcodeBuildException (Exception):
 
 
 class XcodeBuild(object):
-    sdk_version = "7.0"
+    sdk_version = ""
     conf = None
     archs = None
     project = None

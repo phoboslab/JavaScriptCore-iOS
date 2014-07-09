@@ -536,6 +536,13 @@ JSValue CLoop::execute(CallFrame* callFrame, Opcode entryOpcode, bool isInitiali
     ".thumb\n"                                   \
     ".thumb_func " THUMB_FUNC_PARAM(label) "\n"  \
     SYMBOL_STRING(label) ":\n"
+#elif CPU(ARM64)
+#define OFFLINE_ASM_GLOBAL_LABEL(label)          \
+    ".text\n"                                    \
+    ".align 4\n"                                 \
+    ".globl " SYMBOL_STRING(label) "\n"          \
+    HIDE_SYMBOL(label) "\n"                      \
+    SYMBOL_STRING(label) ":\n"
 #else
 #define OFFLINE_ASM_GLOBAL_LABEL(label)         \
     ".text\n"                                   \

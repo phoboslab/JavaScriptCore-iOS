@@ -629,29 +629,6 @@ static ALWAYS_INLINE uint32_t freedObjectEndPoison()
 //-------------------------------------------------------------------
 // Configuration
 //-------------------------------------------------------------------
-
-//// Not all possible combinations of the following parameters make
-//// sense.  In particular, if kMaxSize increases, you may have to
-//// increase kNumClasses as well.
-//#if OS(DARWIN)
-//#    define K_PAGE_SHIFT PAGE_SHIFT
-//#    if (K_PAGE_SHIFT == 12)
-//#        define K_NUM_CLASSES 68
-//#    elif (K_PAGE_SHIFT == 14)
-//#        define K_NUM_CLASSES 77
-//#    else
-//#        error "Unsupported PAGE_SHIFT amount"
-//#    endif
-//#else
-//#    define K_PAGE_SHIFT 12
-//#    define K_NUM_CLASSES 68
-//#endif
-//static const size_t kPageShift  = K_PAGE_SHIFT;
-//static const size_t kPageSize   = 1 << kPageShift;
-//static const size_t kMaxSize    = 32u * 1024;
-//static const size_t kAlignShift = 3;
-//static const size_t kAlignment  = 1 << kAlignShift;
-//static const size_t kNumClasses = K_NUM_CLASSES;
     
     // Type that can hold the length of a run of pages
     typedef uintptr_t Length;

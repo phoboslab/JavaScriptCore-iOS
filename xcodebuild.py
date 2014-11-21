@@ -166,7 +166,9 @@ class FrameworkBuild(object):
                    os.path.join(framework_dir, name))
 
         # Move public headers:
-        os.renames(self.devicebuildarm64.public_headers_path(), headers_dir)
+        for filename in os.listdir(self.devicebuildarm64.public_headers_path()):
+            shutil.move(os.path.join(self.devicebuildarm64.public_headers_path(), filename), headers_dir)
+        #shutil.move(self.devicebuildarm64.public_headers_path(), headers_dir)
 
         # Use lipo to create one fat static library:
         lipo_cmd = ["lipo", "-create",
@@ -192,7 +194,7 @@ class FrameworkBuild(object):
                                                      "A", "Headers")
             if os.path.exists(self._built_product_path):
                 shutil.rmtree(self._built_product_path)
-            os.rename(framework_dir, self._built_product_path)
+            shutil.move(framework_dir, self._built_product_path)
         else:
             self._built_product_path = framework_dir
             self._public_headers_path = headers_dir

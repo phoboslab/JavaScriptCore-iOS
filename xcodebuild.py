@@ -123,11 +123,11 @@ class FrameworkBuild(object):
                  derived_data_path=None):
         self.scheme = scheme
         self.name = name
-        self.devicebuildarm64 = XcodeBuild(project, derived_data_path=derived_data_path)
-        self.devicebuildarmv7 = XcodeBuild(project, derived_data_path=derived_data_path)
-        self.devicebuildarmv7s = XcodeBuild(project, derived_data_path=derived_data_path)
-        self.simulatorbuild = XcodeBuild(project, derived_data_path=derived_data_path)
-        self.simulatorbuild64 = XcodeBuild(project, derived_data_path=derived_data_path)
+        self.devicebuildarm64 = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "arm64"))
+        self.devicebuildarmv7 = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "armv7"))
+        self.devicebuildarmv7s = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "armv7s"))
+        self.simulatorbuild = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "i386"))
+        self.simulatorbuild64 = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "x86_64"))
         self.outdir = outdir
         for (bld, archs) in [self.devicebuildarm64, ["arm64"]], \
                             [self.devicebuildarmv7, ["armv7"]], \

@@ -44,7 +44,7 @@ class XcodeBuild(object):
                          if arch.startswith("arm")]) > 0
         is_simulator = len([arch for arch in self.archs
                             if arch.startswith("i386") or
-                            arch.startswith("x64")]) > 0
+                            arch.startswith("x86_64")]) > 0
         if is_device and is_simulator:
             raise PebbleXcodeBuildException("Can't build for Device and"
                                             "Simulator in one go! (archs=%s)" %
@@ -123,15 +123,17 @@ class FrameworkBuild(object):
                  derived_data_path=None):
         self.scheme = scheme
         self.name = name
-        self.devicebuildarm64 = XcodeBuild(project, derived_data_path=derived_data_path)
-        self.devicebuildarmv7 = XcodeBuild(project, derived_data_path=derived_data_path)
-        self.devicebuildarmv7s = XcodeBuild(project, derived_data_path=derived_data_path)
-        self.simulatorbuild = XcodeBuild(project, derived_data_path=derived_data_path)
+        self.devicebuildarm64 = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "arm64"))
+        self.devicebuildarmv7 = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "armv7"))
+        self.devicebuildarmv7s = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "armv7s"))
+        self.simulatorbuild = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "i386"))
+        self.simulatorbuild64 = XcodeBuild(project, derived_data_path=None if derived_data_path is None else os.path.join(derived_data_path, "x86_64"))
         self.outdir = outdir
         for (bld, archs) in [self.devicebuildarm64, ["arm64"]], \
                             [self.devicebuildarmv7, ["armv7"]], \
                             [self.devicebuildarmv7s, ["armv7s"]], \
-                            [self.simulatorbuild, ["i386"]]:
+                            [self.simulatorbuild, ["i386"]], \
+                            [self.simulatorbuild64, ["x86_64"]]:
             bld.archs = archs
             bld.scheme = scheme
             bld.conf = conf
@@ -146,6 +148,7 @@ class FrameworkBuild(object):
         self.devicebuildarmv7.build()
         self.devicebuildarmv7s.build()
         self.simulatorbuild.build()
+        self.simulatorbuild64.build()
 
         # Create the framework directory structure:
         temp_dir = tempfile.mkdtemp()
@@ -163,7 +166,9 @@ class FrameworkBuild(object):
                    os.path.join(framework_dir, name))
 
         # Move public headers:
-        os.renames(self.devicebuildarm64.public_headers_path(), headers_dir)
+        for filename in os.listdir(self.devicebuildarm64.public_headers_path()):
+            shutil.move(os.path.join(self.devicebuildarm64.public_headers_path(), filename), headers_dir)
+        #shutil.move(self.devicebuildarm64.public_headers_path(), headers_dir)
 
         # Use lipo to create one fat static library:
         lipo_cmd = ["lipo", "-create",
@@ -171,6 +176,7 @@ class FrameworkBuild(object):
                     self.devicebuildarmv7.built_product_path(),
                     self.devicebuildarmv7s.built_product_path(),
                     self.simulatorbuild.built_product_path(),
+                    self.simulatorbuild64.built_product_path(),
                     "-output", lib_path]
         logging.debug("Executing: %s" % " ".join(lipo_cmd))
         if subprocess.call(lipo_cmd):
@@ -188,7 +194,7 @@ class FrameworkBuild(object):
                                                      "A", "Headers")
             if os.path.exists(self._built_product_path):
                 shutil.rmtree(self._built_product_path)
-            os.rename(framework_dir, self._built_product_path)
+            shutil.move(framework_dir, self._built_product_path)
         else:
             self._built_product_path = framework_dir
             self._public_headers_path = headers_dir

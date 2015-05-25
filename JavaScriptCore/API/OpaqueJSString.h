@@ -53,8 +53,11 @@ struct OpaqueJSString : public ThreadSafeRefCounted<OpaqueJSString> {
 
     JS_EXPORT_PRIVATE static PassRefPtr<OpaqueJSString> create(const String&);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-bool-conversion"
     const UChar* characters() { return !!this ? m_string.characters() : 0; }
     unsigned length() { return !!this ? m_string.length() : 0; }
+#pragma clang diagnostic pop
 
     JS_EXPORT_PRIVATE String string() const;
     JSC::Identifier identifier(JSC::VM*) const;

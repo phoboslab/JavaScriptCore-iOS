@@ -1778,10 +1778,7 @@
 		10D592E31889C3DF00C05A0D /* YarrSyntaxChecker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 86704B4012DB8A8100A9FE7B /* YarrSyntaxChecker.cpp */; };
 		10D592E51889C3DF00C05A0D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6560A4CF04B3B3E7008AE952 /* CoreFoundation.framework */; };
 		10D592E61889C3DF00C05A0D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51F0EB6105C86C6B00E6DF1B /* Foundation.framework */; };
-		10D592E71889C3DF00C05A0D /* libicucore.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 9322A00306C341D3009067BB /* libicucore.dylib */; };
-		10D592E81889C3DF00C05A0D /* libobjc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 51F0EC0705C86C9A00E6DF1B /* libobjc.dylib */; };
 		10D592E91889C3DF00C05A0D /* libWTF.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A8A4748D151A8306004123FF /* libWTF.a */; };
-		10D592EA1889C3DF00C05A0D /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 371D842C17C98B6E00ECF994 /* libz.dylib */; };
 		140566C4107EC255005DBC8D /* JSAPIValueWrapper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC0894D50FAFBA2D00001865 /* JSAPIValueWrapper.cpp */; };
 		140566D6107EC271005DBC8D /* JSFunction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F692A85E0255597D01FF60F7 /* JSFunction.cpp */; };
 		140B7D1D0DC69AF7009C42B8 /* JSActivation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 14DA818F0D99FD2000B0A4FB /* JSActivation.cpp */; };
@@ -1952,18 +1949,15 @@
 		2ACCF3DE185FE26B0083E2AD /* DFGStoreBarrierElisionPhase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2ACCF3DC185FE26B0083E2AD /* DFGStoreBarrierElisionPhase.cpp */; };
 		2ACCF3DF185FE26B0083E2AD /* DFGStoreBarrierElisionPhase.h in Headers */ = {isa = PBXBuildFile; fileRef = 2ACCF3DD185FE26B0083E2AD /* DFGStoreBarrierElisionPhase.h */; };
 		2AD8932B17E3868F00668276 /* HeapIterationScope.h in Headers */ = {isa = PBXBuildFile; fileRef = 2AD8932917E3868F00668276 /* HeapIterationScope.h */; };
-		371D842D17C98B6E00ECF994 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 371D842C17C98B6E00ECF994 /* libz.dylib */; };
 		41359CF30FDD89AD00206180 /* DateConversion.h in Headers */ = {isa = PBXBuildFile; fileRef = D21202290AD4310C00ED79B6 /* DateConversion.h */; };
 		4443AE3316E188D90076F110 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51F0EB6105C86C6B00E6DF1B /* Foundation.framework */; };
 		451539B912DC994500EF7AC4 /* Yarr.h in Headers */ = {isa = PBXBuildFile; fileRef = 451539B812DC994500EF7AC4 /* Yarr.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5D53726F0E1C54880021E549 /* Tracing.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D53726E0E1C54880021E549 /* Tracing.h */; };
-		5D5D8AD10E0D0EBE00F9C692 /* libedit.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D5D8AD00E0D0EBE00F9C692 /* libedit.dylib */; };
 		5DBB151B131D0B310056AD36 /* testapi.js in Copy Support Script */ = {isa = PBXBuildFile; fileRef = 14D857740A4696C80032146C /* testapi.js */; };
 		5DBB1525131D0BD70056AD36 /* minidom.js in Copy Support Script */ = {isa = PBXBuildFile; fileRef = 1412110D0A48788700480255 /* minidom.js */; };
 		5DE6E5B30E1728EC00180407 /* create_hash_table in Headers */ = {isa = PBXBuildFile; fileRef = F692A8540255597D01FF60F7 /* create_hash_table */; settings = {ATTRIBUTES = (); }; };
 		6507D29E0E871E5E00D7D896 /* JSTypeInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 6507D2970E871E4A00D7D896 /* JSTypeInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		651122FD14046A4C002B101D /* JavaScriptCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 932F5BD90822A1C700736975 /* JavaScriptCore.framework */; };
-		651122FE14046A4C002B101D /* libedit.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D5D8AD00E0D0EBE00F9C692 /* libedit.dylib */; };
 		6511230714046B0A002B101D /* testRegExp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 651122E5140469BA002B101D /* testRegExp.cpp */; };
 		65303D641447B9E100D3F904 /* ParserTokens.h in Headers */ = {isa = PBXBuildFile; fileRef = 65303D631447B9E100D3F904 /* ParserTokens.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		6553A33117A1F1EE008CF6F3 /* CommonSlowPathsExceptions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6553A32F17A1F1EE008CF6F3 /* CommonSlowPathsExceptions.cpp */; };
@@ -2089,8 +2083,6 @@
 		93052C340FB792190048FDC3 /* ParserArena.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 93052C320FB792190048FDC3 /* ParserArena.cpp */; };
 		93052C350FB792190048FDC3 /* ParserArena.h in Headers */ = {isa = PBXBuildFile; fileRef = 93052C330FB792190048FDC3 /* ParserArena.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		932F5BD30822A1C700736975 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6560A4CF04B3B3E7008AE952 /* CoreFoundation.framework */; };
-		932F5BD60822A1C700736975 /* libobjc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 51F0EC0705C86C9A00E6DF1B /* libobjc.dylib */; };
-		932F5BD70822A1C700736975 /* libicucore.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 9322A00306C341D3009067BB /* libicucore.dylib */; };
 		932F5BDD0822A1C700736975 /* jsc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45E12D8806A49B0F00E9DF84 /* jsc.cpp */; };
 		932F5BEA0822A1C700736975 /* JavaScriptCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 932F5BD90822A1C700736975 /* JavaScriptCore.framework */; };
 		933040040E6A749400786E6A /* SmallStrings.h in Headers */ = {isa = PBXBuildFile; fileRef = 93303FEA0E6A72C000786E6A /* SmallStrings.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3150,8 +3142,6 @@
 		10D592F41889C3DF00C05A0D /* libJavaScriptCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJavaScriptCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = "JavaScriptCore-iOS-Static.xcconfig"; path = "../../JavaScriptCore-iOS-Static.xcconfig"; sourceTree = "<group>"; };
 		10EAA7001889E6C600DEB161 /* ToolExecutable-iOS-Static.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = "ToolExecutable-iOS-Static.xcconfig"; path = "../../ToolExecutable-iOS-Static.xcconfig"; sourceTree = "<group>"; };
-		10EB2F3C1889B56F00696C01 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
-		10EB2F3F1889B56F00696C01 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
 		140D17D60E8AD4A9000CD17D /* JSBasePrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSBasePrivate.h; sourceTree = "<group>"; };
 		141211020A48780900480255 /* minidom.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = minidom.c; path = tests/minidom.c; sourceTree = "<group>"; };
 		1412110D0A48788700480255 /* minidom.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; name = minidom.js; path = tests/minidom.js; sourceTree = "<group>"; };
@@ -3289,16 +3279,13 @@
 		2ACCF3DC185FE26B0083E2AD /* DFGStoreBarrierElisionPhase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DFGStoreBarrierElisionPhase.cpp; path = dfg/DFGStoreBarrierElisionPhase.cpp; sourceTree = "<group>"; };
 		2ACCF3DD185FE26B0083E2AD /* DFGStoreBarrierElisionPhase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DFGStoreBarrierElisionPhase.h; path = dfg/DFGStoreBarrierElisionPhase.h; sourceTree = "<group>"; };
 		2AD8932917E3868F00668276 /* HeapIterationScope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HeapIterationScope.h; sourceTree = "<group>"; };
-		371D842C17C98B6E00ECF994 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		449097EE0F8F81B50076A327 /* FeatureDefines.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = FeatureDefines.xcconfig; sourceTree = "<group>"; };
 		451539B812DC994500EF7AC4 /* Yarr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Yarr.h; path = yarr/Yarr.h; sourceTree = "<group>"; };
 		45E12D8806A49B0F00E9DF84 /* jsc.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = jsc.cpp; sourceTree = "<group>"; tabWidth = 4; };
 		51F0EB6105C86C6B00E6DF1B /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
-		51F0EC0705C86C9A00E6DF1B /* libobjc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libobjc.dylib; path = /usr/lib/libobjc.dylib; sourceTree = "<absolute>"; };
 		5D53726D0E1C546B0021E549 /* Tracing.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Tracing.d; sourceTree = "<group>"; };
 		5D53726E0E1C54880021E549 /* Tracing.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Tracing.h; sourceTree = "<group>"; };
 		5D53727D0E1C55EC0021E549 /* TracingDtrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TracingDtrace.h; sourceTree = "<group>"; };
-		5D5D8AD00E0D0EBE00F9C692 /* libedit.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libedit.dylib; path = /usr/lib/libedit.dylib; sourceTree = "<absolute>"; };
 		5DAFD6CB146B686300FBEFB4 /* JSC.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = JSC.xcconfig; sourceTree = "<group>"; };
 		5DDDF44614FEE72200B4FB4D /* LLIntDesiredOffsets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LLIntDesiredOffsets.h; path = LLIntOffsets/LLIntDesiredOffsets.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		5DE3D0F40DD8DDFB00468714 /* WebKitAvailability.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebKitAvailability.h; sourceTree = "<group>"; };
@@ -3464,7 +3451,6 @@
 		93052C320FB792190048FDC3 /* ParserArena.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ParserArena.cpp; sourceTree = "<group>"; };
 		93052C330FB792190048FDC3 /* ParserArena.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ParserArena.h; sourceTree = "<group>"; };
 		930DAD030FB1EB1A0082D205 /* NodeConstructors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NodeConstructors.h; sourceTree = "<group>"; };
-		9322A00306C341D3009067BB /* libicucore.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libicucore.dylib; path = /usr/lib/libicucore.dylib; sourceTree = "<absolute>"; };
 		932F5BD80822A1C700736975 /* Info.plist */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 		932F5BD90822A1C700736975 /* JavaScriptCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = JavaScriptCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		932F5BE10822A1C700736975 /* jsc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = jsc; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -3971,10 +3957,7 @@
 			files = (
 				10D592E51889C3DF00C05A0D /* CoreFoundation.framework in Frameworks */,
 				10D592E61889C3DF00C05A0D /* Foundation.framework in Frameworks */,
-				10D592E71889C3DF00C05A0D /* libicucore.dylib in Frameworks */,
-				10D592E81889C3DF00C05A0D /* libobjc.dylib in Frameworks */,
 				10D592E91889C3DF00C05A0D /* libWTF.a in Frameworks */,
-				10D592EA1889C3DF00C05A0D /* libz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4001,7 +3984,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				651122FD14046A4C002B101D /* JavaScriptCore.framework in Frameworks */,
-				651122FE14046A4C002B101D /* libedit.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4011,10 +3993,7 @@
 			files = (
 				932F5BD30822A1C700736975 /* CoreFoundation.framework in Frameworks */,
 				A731B25A130093880040A7FA /* Foundation.framework in Frameworks */,
-				932F5BD70822A1C700736975 /* libicucore.dylib in Frameworks */,
-				932F5BD60822A1C700736975 /* libobjc.dylib in Frameworks */,
 				A8A4748E151A8306004123FF /* libWTF.a in Frameworks */,
-				371D842D17C98B6E00ECF994 /* libz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4023,7 +4002,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				932F5BEA0822A1C700736975 /* JavaScriptCore.framework in Frameworks */,
-				5D5D8AD10E0D0EBE00F9C692 /* libedit.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4094,13 +4072,7 @@
 			children = (
 				6560A4CF04B3B3E7008AE952 /* CoreFoundation.framework */,
 				51F0EB6105C86C6B00E6DF1B /* Foundation.framework */,
-				5D5D8AD00E0D0EBE00F9C692 /* libedit.dylib */,
-				9322A00306C341D3009067BB /* libicucore.dylib */,
-				51F0EC0705C86C9A00E6DF1B /* libobjc.dylib */,
 				A8A4748D151A8306004123FF /* libWTF.a */,
-				371D842C17C98B6E00ECF994 /* libz.dylib */,
-				10EB2F3C1889B56F00696C01 /* XCTest.framework */,
-				10EB2F3F1889B56F00696C01 /* UIKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -8774,6 +8746,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 0FCEFABE1805D86900472CE4 /* LLVMForJSC.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Debug;
 		};
@@ -8781,6 +8754,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 0FCEFABE1805D86900472CE4 /* LLVMForJSC.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Release;
 		};
@@ -8788,6 +8762,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 0FCEFABE1805D86900472CE4 /* LLVMForJSC.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Profiling;
 		};
@@ -8795,6 +8770,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 0FCEFABE1805D86900472CE4 /* LLVMForJSC.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Production;
 		};
@@ -8802,6 +8778,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Debug;
 		};
@@ -8809,6 +8786,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Release;
 		};
@@ -8816,6 +8794,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Profiling;
 		};
@@ -8823,6 +8802,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Production;
 		};
@@ -8876,6 +8856,12 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-lz",
+					"-ledit",
+					"-licucore",
+					"-lobjc",
+				);
 				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Debug;
@@ -8885,6 +8871,12 @@
 			baseConfigurationReference = 10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
+				OTHER_LDFLAGS = (
+					"-lz",
+					"-ledit",
+					"-licucore",
+					"-lobjc",
+				);
 				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Release;
@@ -8894,6 +8886,12 @@
 			baseConfigurationReference = 10EAA6FF1889E6B300DEB161 /* JavaScriptCore-iOS-Static.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
+				OTHER_LDFLAGS = (
+					"-lz",
+					"-ledit",
+					"-licucore",
+					"-lobjc",
+				);
 				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Profiling;
@@ -8905,6 +8903,12 @@
 				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				BUILD_VARIANTS = normal;
 				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = (
+					"-lz",
+					"-ledit",
+					"-licucore",
+					"-lobjc",
+				);
 				VALID_ARCHS = "armv7 armv7s arm64";
 			};
 			name = Production;
@@ -8949,6 +8953,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Debug;
 		};
@@ -8956,6 +8961,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Release;
 		};
@@ -8963,6 +8969,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Production;
 		};
@@ -8970,6 +8977,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
 			};
 			name = Debug;
@@ -8978,6 +8986,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
 			};
 			name = Release;
@@ -8987,6 +8996,7 @@
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
+				ENABLE_BITCODE = YES;
 			};
 			name = Production;
 		};
@@ -8994,6 +9004,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5DAFD6CB146B686300FBEFB4 /* JSC.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Debug;
 		};
@@ -9001,6 +9012,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5DAFD6CB146B686300FBEFB4 /* JSC.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Release;
 		};
@@ -9008,12 +9020,14 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5DAFD6CB146B686300FBEFB4 /* JSC.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Production;
 		};
 		149C276D08902AFE008A9EFC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = All;
 			};
 			name = Debug;
@@ -9021,6 +9035,7 @@
 		149C276E08902AFE008A9EFC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = All;
 			};
 			name = Release;
@@ -9028,6 +9043,7 @@
 		149C277008902AFE008A9EFC /* Production */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = All;
 			};
 			name = Production;
@@ -9065,6 +9081,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Debug;
 		};
@@ -9072,6 +9089,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Release;
 		};
@@ -9079,12 +9097,14 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Production;
 		};
 		5D6B2A48152B9E17005231DE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -9092,6 +9112,7 @@
 		5D6B2A49152B9E17005231DE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -9099,6 +9120,7 @@
 		5D6B2A4A152B9E17005231DE /* Profiling */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Profiling;
@@ -9106,6 +9128,7 @@
 		5D6B2A4B152B9E17005231DE /* Production */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Production;
@@ -9114,6 +9137,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Debug;
 		};
@@ -9121,6 +9145,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Release;
 		};
@@ -9128,6 +9153,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Profiling;
 		};
@@ -9135,6 +9161,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Production;
 		};
@@ -9142,6 +9169,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "Generate Derived Sources";
 			};
 			name = Debug;
@@ -9150,6 +9178,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "Generate Derived Sources";
 			};
 			name = Release;
@@ -9158,6 +9187,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "Generate Derived Sources";
 			};
 			name = Production;
@@ -9174,6 +9204,7 @@
 		A761483E0E6402F700E357FA /* Profiling */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = All;
 			};
 			name = Profiling;
@@ -9182,6 +9213,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
 			};
 			name = Profiling;
@@ -9190,6 +9222,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051430BA9E8A70081E9D0 /* JavaScriptCore.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "Generate Derived Sources";
 			};
 			name = Profiling;
@@ -9198,6 +9231,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Profiling;
 		};
@@ -9205,6 +9239,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC021BF2136900C300FC5467 /* ToolExecutable.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Profiling;
 		};
@@ -9212,6 +9247,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5DAFD6CB146B686300FBEFB4 /* JSC.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 			};
 			name = Profiling;
 		};

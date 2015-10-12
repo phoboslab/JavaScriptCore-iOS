@@ -1333,6 +1333,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6541CAF41630DB26006D0DEC /* CopyWTFHeaders.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1341,6 +1342,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6541CAF41630DB26006D0DEC /* CopyWTFHeaders.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -1349,6 +1351,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6541CAF41630DB26006D0DEC /* CopyWTFHeaders.xcconfig */;
 			buildSettings = {
+				ENABLE_BITCODE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Production;

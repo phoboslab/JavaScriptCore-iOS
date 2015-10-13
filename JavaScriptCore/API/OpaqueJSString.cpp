@@ -41,7 +41,10 @@ PassRefPtr<OpaqueJSString> OpaqueJSString::create(const String& string)
 
 String OpaqueJSString::string() const
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-bool-conversion"
     if (!this)
+#pragma clang diagnostic pop
         return String();
 
     // Return a copy of the wrapped string, because the caller may make it an Identifier.
@@ -50,7 +53,10 @@ String OpaqueJSString::string() const
 
 Identifier OpaqueJSString::identifier(VM* vm) const
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-bool-conversion"
     if (!this || m_string.isNull())
+#pragma clang diagnostic pop
         return Identifier();
 
     if (m_string.isEmpty())

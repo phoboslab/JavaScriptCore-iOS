@@ -55,7 +55,10 @@ namespace JSC {
         intptr_t asID()
         {
             ASSERT(this);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-bool-conversion"
             if (!this) // Be defensive in release mode.
+#pragma clang diagnostic pop
                 return nullID;
             if (!m_id)
                 getID();

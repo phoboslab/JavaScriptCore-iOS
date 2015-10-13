@@ -269,7 +269,10 @@ namespace JSC  {
 
         bool isVMEntrySentinel() const
         {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-bool-conversion"
             return !!this && codeBlock() == vmEntrySentinelCodeBlock();
+#pragma clang diagnostic pop
         }
 
         CallFrame* vmEntrySentinelCallerFrame() const

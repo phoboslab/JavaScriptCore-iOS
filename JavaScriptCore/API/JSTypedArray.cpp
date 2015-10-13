@@ -3,6 +3,8 @@
 
 #include "JSTypedArray.h"
 
+#include <wtf/RefPtr.h>
+
 #include "JSObjectRef.h"
 #include "APICast.h"
 #include "InitializeThreading.h"
@@ -76,23 +78,22 @@ const CreateTypedArrayFuncPtr CreateTypedArrayFunc[] = {
 
 
 
-JSTypedArrayType JSTypedArrayGetType(JSContextRef ctx, JSValueRef value) {
+JSTypedArrayType JSObjectGetTypedArrayType(JSContextRef ctx, JSObjectRef object) {
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
 
-    JSValue jsValue = toJS(exec, value);
+    JSObject* jsObject = toJS(object);
     JSTypedArrayType type = kJSTypedArrayTypeNone;
-    if( jsValue.inherits(JSArrayBufferView::info()) ) {
-        JSObject* object = jsValue.getObject();
-        type = TypedArrayTypes[object->classInfo()->typedArrayStorageType];
+    if( jsObject->inherits(JSArrayBufferView::info()) ) {
+        type = TypedArrayTypes[jsObject->classInfo()->typedArrayStorageType];
     }
-    else if( jsValue.inherits(JSArrayBuffer::info()) ) {
+    else if( jsObject->inherits(JSArrayBuffer::info()) ) {
         type = kJSTypedArrayTypeArrayBuffer;
     }
     return type;
 }
 
-JSObjectRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements) {
+JSObjectRef JSObjectMakeTypedArray(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements) {
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
     
@@ -104,18 +105,18 @@ JSObjectRef JSTypedArrayMake(JSContextRef ctx, JSTypedArrayType arrayType, size_
     return toRef(result);
 }
 
-void * JSTypedArrayGetDataPtr(JSContextRef ctx, JSValueRef value, size_t * byteLength) {
+void* JSObjectGetTypedArrayDataPtr(JSContextRef ctx, JSObjectRef object, size_t* byteLength) {
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
     
-    JSValue jsValue = toJS(exec, value);
-    if( JSArrayBufferView * view = jsDynamicCast<JSArrayBufferView*>(jsValue) ) {
+    JSObject* jsObject = toJS(object);
+    if( JSArrayBufferView * view = jsDynamicCast<JSArrayBufferView*>(jsObject) ) {
         if( byteLength ) {
             *byteLength = view->impl()->byteLength();
         }
         return view->impl()->baseAddress();
     }
-    else if( ArrayBuffer * buffer = toArrayBuffer(jsValue) ) {
+    else if( ArrayBuffer* buffer = toArrayBuffer(jsObject) ) {
         if( byteLength ) {
             *byteLength = buffer->byteLength();
         }
@@ -127,6 +128,3 @@ void * JSTypedArrayGetDataPtr(JSContextRef ctx, JSValueRef value, size_t * byteL
     }
     return NULL;
 }
-
-
-

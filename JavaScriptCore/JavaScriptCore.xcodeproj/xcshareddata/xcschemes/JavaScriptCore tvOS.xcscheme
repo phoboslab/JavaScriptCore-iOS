@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0500"
+   LastUpgradeVersion = "0710"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "932F5B3E0822A1C700736975"
-               BuildableName = "JavaScriptCore.framework"
-               BlueprintName = "JavaScriptCore"
+               BlueprintIdentifier = "A3CA46B11BCD9DC9004C5B45"
+               BuildableName = "libJavaScriptCore-tvOS.a"
+               BlueprintName = "JavaScriptCore tvOS"
                ReferencedContainer = "container:JavaScriptCore.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,9 +45,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "932F5B3E0822A1C700736975"
-            BuildableName = "JavaScriptCore.framework"
-            BlueprintName = "JavaScriptCore"
+            BlueprintIdentifier = "A3CA46B11BCD9DC9004C5B45"
+            BuildableName = "libJavaScriptCore-tvOS.a"
+            BlueprintName = "JavaScriptCore tvOS"
             ReferencedContainer = "container:JavaScriptCore.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -60,6 +60,15 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "A3CA46B11BCD9DC9004C5B45"
+            BuildableName = "libJavaScriptCore-tvOS.a"
+            BlueprintName = "JavaScriptCore tvOS"
+            ReferencedContainer = "container:JavaScriptCore.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

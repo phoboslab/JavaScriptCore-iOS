@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0500"
+   LastUpgradeVersion = "0710"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,10 +14,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "932F5B3E0822A1C700736975"
-               BuildableName = "JavaScriptCore.framework"
-               BlueprintName = "JavaScriptCore"
-               ReferencedContainer = "container:JavaScriptCore.xcodeproj">
+               BlueprintIdentifier = "A3CA45AD1BCD9D70004C5B45"
+               BuildableName = "libWTF-tvOS.a"
+               BlueprintName = "WTF tvOS"
+               ReferencedContainer = "container:WTF.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,10 +45,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "932F5B3E0822A1C700736975"
-            BuildableName = "JavaScriptCore.framework"
-            BlueprintName = "JavaScriptCore"
-            ReferencedContainer = "container:JavaScriptCore.xcodeproj">
+            BlueprintIdentifier = "A3CA45AD1BCD9D70004C5B45"
+            BuildableName = "libWTF-tvOS.a"
+            BlueprintName = "WTF tvOS"
+            ReferencedContainer = "container:WTF.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <AdditionalOptions>
@@ -60,6 +60,15 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "A3CA45AD1BCD9D70004C5B45"
+            BuildableName = "libWTF-tvOS.a"
+            BlueprintName = "WTF tvOS"
+            ReferencedContainer = "container:WTF.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

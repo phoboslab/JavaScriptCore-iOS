@@ -67,6 +67,7 @@ class XcodeBuild(object):
             # Auto-select SDK if archs is set:
             sdk = self._get_sdk_string()
             params.extend(("-sdk", sdk))
+        params.append("OTHER_CFLAGS=-fembed-bitcode")
         return params
 
     def _xcodebuild(self, *actions):

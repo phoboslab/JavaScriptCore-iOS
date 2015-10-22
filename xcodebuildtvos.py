@@ -68,7 +68,11 @@ class XcodeBuild(object):
             sdk = self._get_sdk_string()
             params.extend(("-sdk", sdk))
         
-        params.append("OTHER_CFLAGS=-Qunused-arguments -fembed-bitcode")
+        is_device = len([arch for arch in self.archs
+                         if arch.startswith("arm")]) > 0
+        if is_device:
+            params.append("OTHER_CFLAGS=-Qunused-arguments -fembed-bitcode")
+            
         return params
 
     def _xcodebuild(self, *actions):

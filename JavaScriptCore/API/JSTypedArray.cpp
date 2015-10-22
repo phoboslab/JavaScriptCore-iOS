@@ -27,7 +27,39 @@
 
 using namespace JSC;
 
-// Better be safe than sorry!
+struct OpaqueJSData : public ThreadSafeRefCounted<OpaqueJSData> {
+
+    static PassRefPtr<OpaqueJSData> create(PassRefPtr<ArrayBuffer> buffer, void* baseAddress, size_t byteLength)
+    {
+        return adoptRef(new OpaqueJSData(buffer, baseAddress, byteLength));
+    }
+    
+    size_t length() {
+        return m_byteLength;
+    }
+    
+    void* baseAddress() {
+        return m_baseAddress;
+    }
+
+private:
+    friend class WTF::ThreadSafeRefCounted<OpaqueJSData>;
+    
+     OpaqueJSData(
+        PassRefPtr<ArrayBuffer> buffer,
+        void* baseAddress,
+        size_t byteLength)
+            : m_byteLength(byteLength)
+            , m_baseAddress(baseAddress)
+            , m_buffer(buffer)
+    {}
+    
+    unsigned m_byteLength;
+    void* m_baseAddress;
+    PassRefPtr<ArrayBuffer> m_buffer;
+};
+
+
 const JSTypedArrayType TypedArrayTypes[] = {
     [NotTypedArray] = kJSTypedArrayTypeNone,
     [TypeInt8] = kJSTypedArrayTypeInt8Array,
@@ -42,43 +74,8 @@ const JSTypedArrayType TypedArrayTypes[] = {
     /* not a TypedArray */ kJSTypedArrayTypeArrayBuffer
 };
 
-const int kJSTypedArrayTypeLast = kJSTypedArrayTypeArrayBuffer;
-
-
-template <typename ArrayType>JSObject * CreateTypedArray(JSC::ExecState* exec, size_t length) {
-    return ArrayType::create(length)->wrap(exec, exec->lexicalGlobalObject());
-}
-
-template <typename BufferType>JSObject * CreateArrayBuffer(JSC::ExecState* exec, size_t length) {
-    RefPtr<BufferType> buffer = BufferType::create(length, 1);
-    if( !buffer ) {
-        return NULL;
-    }
-    
-    JSArrayBuffer* result = JSArrayBuffer::create(
-        exec->vm(), exec->lexicalGlobalObject()->arrayBufferStructure(), buffer);
-    return result;
-}
-
-typedef JSObject*(*CreateTypedArrayFuncPtr)(JSC::ExecState*, size_t);
-const CreateTypedArrayFuncPtr CreateTypedArrayFunc[] = {
-    [kJSTypedArrayTypeNone] = NULL,
-    [kJSTypedArrayTypeInt8Array] = CreateTypedArray<Int8Array>,
-    [kJSTypedArrayTypeInt16Array] = CreateTypedArray<Int16Array>,
-    [kJSTypedArrayTypeInt32Array] = CreateTypedArray<Int32Array>,
-    [kJSTypedArrayTypeUint8Array] = CreateTypedArray<Uint8Array>,
-    [kJSTypedArrayTypeUint8ClampedArray] = CreateTypedArray<Uint8ClampedArray>,
-    [kJSTypedArrayTypeUint16Array] = CreateTypedArray<Uint16Array>,
-    [kJSTypedArrayTypeUint32Array] = CreateTypedArray<Uint32Array>,
-    [kJSTypedArrayTypeFloat32Array] = CreateTypedArray<Float32Array>,
-    [kJSTypedArrayTypeFloat64Array] = CreateTypedArray<Float64Array>,
-    [kJSTypedArrayTypeArrayBuffer] = CreateArrayBuffer<ArrayBuffer>,
-};
-
-
-
-
-JSTypedArrayType JSObjectGetTypedArrayType(JSContextRef ctx, JSObjectRef object) {
+JSTypedArrayType JSObjectGetTypedArrayType(JSContextRef ctx, JSObjectRef object)
+{
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
 
@@ -93,38 +90,88 @@ JSTypedArrayType JSObjectGetTypedArrayType(JSContextRef ctx, JSObjectRef object)
     return type;
 }
 
-JSObjectRef JSObjectMakeTypedArray(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements) {
+JSObjectRef JSObjectMakeTypedArray(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements)
+{
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
     
-    JSObject* result = NULL;
-    if( arrayType > kJSTypedArrayTypeNone && arrayType <= kJSTypedArrayTypeLast ) {
-        result = CreateTypedArrayFunc[arrayType]( exec, numElements );
+    JSObject* result;
+    JSGlobalObject* jsGlobal = exec->lexicalGlobalObject();
+    switch( arrayType ) {
+        case kJSTypedArrayTypeInt8Array:
+            result = Int8Array::create(numElements)->wrap(exec, jsGlobal);
+            break;
+        case kJSTypedArrayTypeInt16Array:
+            result = Int16Array::create(numElements)->wrap(exec, jsGlobal);
+            break;
+        case kJSTypedArrayTypeInt32Array:
+            result = Int8Array::create(numElements)->wrap(exec, jsGlobal);
+            break;
+        case kJSTypedArrayTypeUint8Array:
+            result = Int32Array::create(numElements)->wrap(exec, jsGlobal);
+            break;
+        case kJSTypedArrayTypeUint8ClampedArray:
+            result = Uint8ClampedArray::create(numElements)->wrap(exec, jsGlobal);
+            break;
+        case kJSTypedArrayTypeUint16Array:
+            result = Uint16Array::create(numElements)->wrap(exec, jsGlobal);
+            break;
+        case kJSTypedArrayTypeUint32Array:
+            result = Uint32Array::create(numElements)->wrap(exec, jsGlobal);
+            break;
+        case kJSTypedArrayTypeFloat32Array:
+            result = Float32Array::create(numElements)->wrap(exec, jsGlobal);
+            break;
+        case kJSTypedArrayTypeFloat64Array:
+            result = Float64Array::create(numElements)->wrap(exec, jsGlobal);
+            break;
+        case kJSTypedArrayTypeArrayBuffer:
+            result = JSArrayBuffer::create(
+                exec->vm(), jsGlobal->arrayBufferStructure(), ArrayBuffer::create(numElements, 1));
+            break;
+        default:
+            result = NULL;
+            break;
     }
 
     return toRef(result);
 }
 
-void* JSObjectGetTypedArrayDataPtr(JSContextRef ctx, JSObjectRef object, size_t* byteLength) {
+JSDataRef JSObjectGetTypedArrayData(JSContextRef ctx, JSObjectRef object)
+{
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
     
     JSObject* jsObject = toJS(object);
     if( JSArrayBufferView * view = jsDynamicCast<JSArrayBufferView*>(jsObject) ) {
-        if( byteLength ) {
-            *byteLength = view->impl()->byteLength();
-        }
-        return view->impl()->baseAddress();
+        return OpaqueJSData::create(view->buffer(), view->impl()->baseAddress(), view->impl()->byteLength()).leakRef();
     }
     else if( ArrayBuffer* buffer = toArrayBuffer(jsObject) ) {
-        if( byteLength ) {
-            *byteLength = buffer->byteLength();
-        }
-        return buffer->data();
+        return OpaqueJSData::create(buffer, buffer->data(), buffer->byteLength()).leakRef();
     }
-    
-    if( byteLength ) {
-        *byteLength = 0;
-    }
+
     return NULL;
 }
+
+void JSDataRetain(JSDataRef data)
+{
+    if(data != nullptr)
+        data->ref();
+}
+
+void JSDataRelease(JSDataRef data)
+{
+    if(data != nullptr)
+        data->deref();
+}
+
+void* JSDataGetBytesPtr(JSDataRef data)
+{
+    return data->baseAddress();
+}
+
+size_t JSDataGetLength(JSDataRef data)
+{
+    return data->length();
+}
+

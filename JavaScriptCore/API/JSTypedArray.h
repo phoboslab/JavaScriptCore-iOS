@@ -55,6 +55,14 @@ JS_EXPORT JSTypedArrayType JSObjectGetTypedArrayType(JSContextRef ctx, JSObjectR
 */
 JS_EXPORT JSObjectRef JSObjectMakeTypedArray(JSContextRef ctx, JSTypedArrayType arrayType, size_t numElements);
 
+
+typedef struct OpaqueJSData* JSDataRef;
+
+JS_EXPORT void JSDataRetain(JSDataRef data);
+JS_EXPORT void JSDataRelease(JSDataRef data);
+JS_EXPORT void * JSDataGetBytesPtr(JSDataRef data);
+JS_EXPORT size_t JSDataGetLength(JSDataRef data);
+
 /*!
 @function
 @abstract           Returns a pointer to a Typed Array's data in memory
@@ -63,7 +71,7 @@ JS_EXPORT JSObjectRef JSObjectMakeTypedArray(JSContextRef ctx, JSTypedArrayType 
 @param byteLength   A pointer to a size_t in which to store the byte length of the Typed Array
 @result             A pointer to the Typed Array's data or NULL if the JSValue is not a Typed Array.
 */
-JS_EXPORT void * JSObjectGetTypedArrayDataPtr(JSContextRef ctx, JSObjectRef object, size_t* byteLength);
+JS_EXPORT JSDataRef JSObjectGetTypedArrayData(JSContextRef ctx, JSObjectRef object);
 
 
 #ifdef __cplusplus

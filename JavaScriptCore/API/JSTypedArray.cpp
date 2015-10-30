@@ -153,10 +153,11 @@ JSDataRef JSObjectGetRetainedTypedArrayData(JSContextRef ctx, JSObjectRef object
     return NULL;
 }
 
-void JSDataRetain(JSDataRef data)
+JSDataRef JSDataRetain(JSDataRef data)
 {
     if(data != nullptr)
         data->ref();
+    return data;
 }
 
 void JSDataRelease(JSDataRef data)

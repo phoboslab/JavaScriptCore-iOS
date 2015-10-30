@@ -137,7 +137,7 @@ JSObjectRef JSObjectMakeTypedArray(JSContextRef ctx, JSTypedArrayType arrayType,
     return toRef(result);
 }
 
-JSDataRef JSObjectGetTypedArrayData(JSContextRef ctx, JSObjectRef object)
+JSDataRef JSObjectGetRetainedTypedArrayData(JSContextRef ctx, JSObjectRef object)
 {
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);

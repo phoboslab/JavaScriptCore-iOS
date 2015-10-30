@@ -71,7 +71,7 @@ JS_EXPORT size_t JSDataGetLength(JSDataRef data);
 @param byteLength   A pointer to a size_t in which to store the byte length of the Typed Array
 @result             A pointer to the Typed Array's data or NULL if the JSValue is not a Typed Array.
 */
-JS_EXPORT JSDataRef JSObjectGetTypedArrayData(JSContextRef ctx, JSObjectRef object);
+JS_EXPORT JSDataRef JSObjectGetRetainedTypedArrayData(JSContextRef ctx, JSObjectRef object);
 
 
 #ifdef __cplusplus

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Dominic Szablewski. All rights reserved.
+ * Copyright (C) 2015 Dominic Szablewski (dominic@phoboslab.org)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,10 +25,7 @@
 
 
 #include "config.h"
-
 #include "JSTypedArray.h"
-
-#include <wtf/RefPtr.h>
 
 #include "JSObjectRef.h"
 #include "APICast.h"
@@ -37,6 +34,7 @@
 #include "JSClassRef.h"
 #include "JSGlobalObject.h"
 
+#include "TypedArrayInlines.h"
 #include "JSArrayBuffer.h"
 #include "JSFloat32Array.h"
 #include "JSFloat64Array.h"
@@ -48,7 +46,8 @@
 #include "JSUint16Array.h"
 #include "JSUint32Array.h"
 
-#include "TypedArrayInlines.h"
+#include <wtf/RefPtr.h>
+
 
 using namespace JSC;
 
@@ -71,9 +70,7 @@ private:
     friend class WTF::ThreadSafeRefCounted<OpaqueJSData>;
     
      OpaqueJSData(
-        PassRefPtr<ArrayBuffer> buffer,
-        void* baseAddress,
-        size_t byteLength)
+        PassRefPtr<ArrayBuffer> buffer, void* baseAddress, size_t byteLength)
             : m_byteLength(byteLength)
             , m_baseAddress(baseAddress)
             , m_buffer(buffer)
@@ -106,12 +103,11 @@ JSTypedArrayType JSObjectGetTypedArrayType(JSContextRef ctx, JSObjectRef object)
 
     JSObject* jsObject = toJS(object);
     JSTypedArrayType type = kJSTypedArrayTypeNone;
-    if( jsObject->inherits(JSArrayBufferView::info()) ) {
+    if (jsObject->inherits(JSArrayBufferView::info()))
         type = TypedArrayTypes[jsObject->classInfo()->typedArrayStorageType];
-    }
-    else if( jsObject->inherits(JSArrayBuffer::info()) ) {
+    else if (jsObject->inherits(JSArrayBuffer::info()))
         type = kJSTypedArrayTypeArrayBuffer;
-    }
+    
     return type;
 }
 
@@ -122,41 +118,42 @@ JSObjectRef JSObjectMakeTypedArray(JSContextRef ctx, JSTypedArrayType arrayType,
     
     JSObject* result;
     JSGlobalObject* jsGlobal = exec->lexicalGlobalObject();
-    switch( arrayType ) {
-        case kJSTypedArrayTypeInt8Array:
-            result = Int8Array::create(numElements)->wrap(exec, jsGlobal);
-            break;
-        case kJSTypedArrayTypeInt16Array:
-            result = Int16Array::create(numElements)->wrap(exec, jsGlobal);
-            break;
-        case kJSTypedArrayTypeInt32Array:
-            result = Int8Array::create(numElements)->wrap(exec, jsGlobal);
-            break;
-        case kJSTypedArrayTypeUint8Array:
-            result = Int32Array::create(numElements)->wrap(exec, jsGlobal);
-            break;
-        case kJSTypedArrayTypeUint8ClampedArray:
-            result = Uint8ClampedArray::create(numElements)->wrap(exec, jsGlobal);
-            break;
-        case kJSTypedArrayTypeUint16Array:
-            result = Uint16Array::create(numElements)->wrap(exec, jsGlobal);
-            break;
-        case kJSTypedArrayTypeUint32Array:
-            result = Uint32Array::create(numElements)->wrap(exec, jsGlobal);
-            break;
-        case kJSTypedArrayTypeFloat32Array:
-            result = Float32Array::create(numElements)->wrap(exec, jsGlobal);
-            break;
-        case kJSTypedArrayTypeFloat64Array:
-            result = Float64Array::create(numElements)->wrap(exec, jsGlobal);
-            break;
-        case kJSTypedArrayTypeArrayBuffer:
-            result = JSArrayBuffer::create(
-                exec->vm(), jsGlobal->arrayBufferStructure(), ArrayBuffer::create(numElements, 1));
-            break;
-        default:
-            result = NULL;
-            break;
+    
+    switch (arrayType) {
+    case kJSTypedArrayTypeInt8Array:
+        result = Int8Array::create(numElements)->wrap(exec, jsGlobal);
+        break;
+    case kJSTypedArrayTypeInt16Array:
+        result = Int16Array::create(numElements)->wrap(exec, jsGlobal);
+        break;
+    case kJSTypedArrayTypeInt32Array:
+        result = Int8Array::create(numElements)->wrap(exec, jsGlobal);
+        break;
+    case kJSTypedArrayTypeUint8Array:
+        result = Int32Array::create(numElements)->wrap(exec, jsGlobal);
+        break;
+    case kJSTypedArrayTypeUint8ClampedArray:
+        result = Uint8ClampedArray::create(numElements)->wrap(exec, jsGlobal);
+        break;
+    case kJSTypedArrayTypeUint16Array:
+        result = Uint16Array::create(numElements)->wrap(exec, jsGlobal);
+        break;
+    case kJSTypedArrayTypeUint32Array:
+        result = Uint32Array::create(numElements)->wrap(exec, jsGlobal);
+        break;
+    case kJSTypedArrayTypeFloat32Array:
+        result = Float32Array::create(numElements)->wrap(exec, jsGlobal);
+        break;
+    case kJSTypedArrayTypeFloat64Array:
+        result = Float64Array::create(numElements)->wrap(exec, jsGlobal);
+        break;
+    case kJSTypedArrayTypeArrayBuffer:
+        result = JSArrayBuffer::create(
+            exec->vm(), jsGlobal->arrayBufferStructure(), ArrayBuffer::create(numElements, 1));
+        break;
+    default:
+        result = nullptr;
+        break;
     }
 
     return toRef(result);
@@ -168,26 +165,25 @@ JSDataRef JSObjectGetRetainedTypedArrayData(JSContextRef ctx, JSObjectRef object
     APIEntryShim entryShim(exec);
     
     JSObject* jsObject = toJS(object);
-    if( JSArrayBufferView * view = jsDynamicCast<JSArrayBufferView*>(jsObject) ) {
+    if (JSArrayBufferView * view = jsDynamicCast<JSArrayBufferView*>(jsObject))
         return OpaqueJSData::create(view->buffer(), view->impl()->baseAddress(), view->impl()->byteLength()).leakRef();
-    }
-    else if( ArrayBuffer* buffer = toArrayBuffer(jsObject) ) {
+    
+    if (ArrayBuffer* buffer = toArrayBuffer(jsObject))
         return OpaqueJSData::create(buffer, buffer->data(), buffer->byteLength()).leakRef();
-    }
 
     return NULL;
 }
 
 JSDataRef JSDataRetain(JSDataRef data)
 {
-    if(data != nullptr)
+    if (data)
         data->ref();
     return data;
 }
 
 void JSDataRelease(JSDataRef data)
 {
-    if(data != nullptr)
+    if (data)
         data->deref();
 }
 

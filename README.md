@@ -1,3 +1,9 @@
+### This Project has been discontinued – Mar. 2016
+
+JSC is now a public library on iOS and tvOS. [Ejecta](https://github.com/phoboslab/Ejecta) has switched to the JSC library provided by the System. It still has some limitations (no native Typed Array API) as of 2016.03.30, but they are mostly workaroundable. 
+
+Also, compiling it for tvOS requires bitcode compilation now, which this fork of JSC does not support. You can read up on the [fascinating details in my blog](http://phoboslab.org/log/2015/11/the-absolute-worst-way-to-read-typed-array-data-with-javascriptcore).
+
 # JavaScriptCore iOS
 
 The JavaScriptCore library is part of the [WebKit project](http://www.webkit.org/) and thus Open Source. However, in the sources you get from the [WebKit SVN](https://svn.webkit.org/repository/webkit/trunk), the XCode project files are curiously missing an iOS compile target. The sources you get from [opensource.apple.com](http://opensource.apple.com/release/ios-601/) are missing the project files altogether. You can't compile it at all. That's quite the Open Source spirit, Apple!

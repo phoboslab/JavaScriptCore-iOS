@@ -12,12 +12,12 @@ This repo aims to re-produce the missing iOS targets while staying on a somewhat
 
 Currently, the [Safari-538.11.1 tag](https://svn.webkit.org/repository/webkit/tags/Safari-538.11.1/) is used as the basis. With the current settings, the WTF and JavaScriptCore libraries can be compiled for armv7, armv7s, arm64 and x86 (for the iOS simulator). It will be compiled without Unicode collation support, because Apple claims [ICU](http://site.icu-project.org/) is a private framework on iOS. It should be AppStore compatible this way.
 
-This version of JSC deprecates the `typed-arrays` branch of this repository. JSC now supports Typed Arrays natively, without any hacks.
+This version of JSC deprecates the `typed-arrays` branch of this repository. JSC now supports Typed Arrays natively, without any hacks..
 
 Note however, that the source code of JSC was still modified:
 
 - It includes some API methods to work with Typed Arrays in native code. Have a look at the `API/JSTypedArray.h`, it declares three new API functions. The documentation for these functions can be found in this header file as well.
-- `Number.MIN_VALUE` was fixed to return `DBL_MIN` instead of `0` when the CPU has not enabled support denormal numbers.
+- `Number.MIN_VALUE` was fixed to return `DBL_MIN` instead of `0` when the CPU has not enabled support denormal numbers..
 
 ## Binaries
 
